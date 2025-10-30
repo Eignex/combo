@@ -78,6 +78,3 @@ To get a "personalized" assignment do this:
 val assignment2 = optimizer.chooseOrThrow(myModel["DisplayWidth", 1920], myModel["CustomerType", "Child"])
 optimizer.update(assignment2, 0f)
 ```
-
-## Support
-Feel free to contact me, the author, at rasmus at cs.lth.se in case of trouble or need of help. I might ask for feedback though :)
