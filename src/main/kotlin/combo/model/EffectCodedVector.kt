@@ -6,7 +6,6 @@ import combo.math.vectors
 import combo.sat.Instance
 import combo.sat.literal
 import combo.sat.toIx
-import combo.util.assert
 
 /**
  * Vector that transforms 0-1 values to -1,0,1 depending on whether there are missing values.
@@ -82,28 +81,5 @@ class EffectCodedVector(val model: Model, val instance: Instance) : VectorView {
         for (i in iterator()) {
             it[i] = get(i)
         }
-    }
-}
-
-class EffectCodedNumericVector(val model: Model, val instance: Instance) : VectorView {
-    override val size: Int
-        get() = TODO("not implemented")
-    override val sparse: Boolean
-        get() = TODO("not implemented")
-
-    override fun get(i: Int): Float {
-        TODO("not implemented")
-    }
-
-    override fun copy(): VectorView {
-        TODO("not implemented")
-    }
-
-    override fun vectorCopy(): Vector {
-        TODO("not implemented")
-    }
-
-    override fun toFloatArray(): FloatArray {
-        TODO("not implemented")
     }
 }

@@ -3,8 +3,6 @@ package combo.bandit
 import combo.bandit.dt.ForestData
 import combo.bandit.dt.TreeData
 import combo.bandit.glm.*
-import combo.bandit.nn.DenseLayer
-import combo.bandit.nn.NeuralLinearData
 import combo.bandit.univariate.*
 import combo.math.*
 import combo.model.Model
@@ -16,12 +14,9 @@ import combo.sat.BitArray
 import combo.sat.Instance
 import combo.sat.ValidationException
 import combo.sat.constraints.Conjunction
-import combo.test.assertContentEquals
-import combo.test.assertEquals
 import combo.util.IntCollection
 import combo.util.collectionOf
 import combo.util.mapArray
-import combo.util.nanos
 import kotlin.math.sqrt
 import kotlin.random.Random
 import kotlin.test.*
@@ -57,7 +52,7 @@ abstract class BanditTest<B : Bandit<*>> {
     @Test
     fun allProblemsFeasible() {
         for ((i, m) in MODELS.withIndex()) {
-            val seed = nanos().toInt()
+            val seed = System.currentTimeMillis().toInt()
             val parameters = TestParameters(randomSeed = seed)
             val b = bandit(m, parameters)
             val rng = Random(seed)
@@ -186,20 +181,6 @@ abstract class BanditTest<B : Bandit<*>> {
                         assertContentEquals(data1.trees[i], (data2 as ForestData).trees[i])
                 }
                 is LinearData -> assertContentEquals(data1.weights, (data2 as LinearData).weights)
-                is NeuralLinearData -> {
-                    data2 as NeuralLinearData
-                    val network1 = data1.network
-                    val network2 = data2.network
-                    assertContentEquals(data1.linearModel.weights, data2.linearModel.weights)
-                    for (i in network1.layers.indices) {
-                        val layer1 = network1.layers[i]
-                        val layer2 = network2.layers[i]
-                        if (layer1 is DenseLayer) {
-                            layer2 as DenseLayer
-                            assertContentEquals(layer1.biases.toFloatArray(), layer2.biases.toFloatArray())
-                        }
-                    }
-                }
                 else -> throw IllegalArgumentException("Update test with other types")
             }
         }
@@ -326,4 +307,3 @@ enum class TestType {
         fun random() = values()[Random.nextInt(values().size)]
     }
 }
-

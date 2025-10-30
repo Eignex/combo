@@ -2,7 +2,6 @@ package combo.bandit.dt
 
 import combo.math.RunningVariance
 import combo.math.VarianceEstimator
-import combo.test.assertEquals
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue

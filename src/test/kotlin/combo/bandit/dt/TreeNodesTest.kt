@@ -6,11 +6,11 @@ import combo.math.VarianceEstimator
 import combo.sat.BitArray
 import combo.sat.Instance
 import combo.sat.toLiteral
-import combo.test.assertContentEquals
 import combo.util.IntCollection
 import combo.util.RandomListCache
 import combo.util.collectionOf
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue

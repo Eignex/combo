@@ -1,9 +1,9 @@
 package combo.bandit.univariate
 
 import combo.math.*
-import combo.test.assertEquals
 import kotlin.random.Random
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class UnivariatePosteriorsTest {

@@ -1,9 +1,9 @@
 package combo.bandit.univariate
 
 import combo.math.RunningVariance
-import combo.test.assertEquals
 import kotlin.random.Random
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -97,4 +97,3 @@ class EpsilonGreedyTest : BanditPolicyTest() {
 class EpsilonDecreasingTest : BanditPolicyTest() {
     override fun banditPolicy() = EpsilonDecreasing()
 }
-

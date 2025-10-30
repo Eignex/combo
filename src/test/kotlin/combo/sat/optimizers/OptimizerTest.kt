@@ -14,10 +14,10 @@ import combo.test.assertEquals
 import combo.util.IntArrayList
 import combo.util.IntCollection
 import combo.util.collectionOf
-import combo.util.measureTimeMillis
 import kotlin.math.max
 import kotlin.math.pow
 import kotlin.random.Random
+import kotlin.system.measureTimeMillis
 import kotlin.test.*
 
 abstract class OptimizerTest {
@@ -538,5 +538,3 @@ abstract class OptimizerTest {
         }
     }
 }
-
-

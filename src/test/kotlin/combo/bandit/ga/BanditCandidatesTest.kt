@@ -10,7 +10,6 @@ import combo.sat.BitArray
 import combo.sat.Instance
 import combo.sat.Problem
 import combo.sat.optimizers.LocalSearch
-import combo.test.assertEquals
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -54,4 +53,3 @@ class BanditCandidatesTest {
         assertEquals(1, candidates.oldestCandidate)
     }
 }
-

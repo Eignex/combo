@@ -3,9 +3,9 @@ package combo.bandit.univariate
 import combo.bandit.TestType
 import combo.math.FullSample
 import combo.math.nextBinomial
-import combo.test.assertContentEquals
 import kotlin.random.Random
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue

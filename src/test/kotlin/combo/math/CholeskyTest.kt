@@ -4,6 +4,7 @@ import combo.sat.BitArray
 import combo.test.assertContentEquals
 import kotlin.math.sqrt
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 
 class CholeskyTest {
     @Test

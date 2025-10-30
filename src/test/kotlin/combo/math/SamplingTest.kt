@@ -1,6 +1,5 @@
 package combo.math
 
-import combo.test.assertEquals
 import kotlin.math.pow
 import kotlin.math.sqrt
 import kotlin.random.Random

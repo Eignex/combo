@@ -2,10 +2,10 @@ package combo.bandit.univariate
 
 import combo.bandit.ParallelMode
 import combo.math.BucketSample
-import org.junit.Test
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.random.Random
+import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
