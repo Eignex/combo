@@ -4,7 +4,6 @@ import combo.sat.*
 import combo.sat.constraints.Conjunction
 import combo.sat.constraints.Relation
 import combo.util.*
-import kotlin.js.JsName
 import kotlin.jvm.JvmOverloads
 
 /**
