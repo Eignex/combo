@@ -28,15 +28,8 @@ kotlin {
 
 dependencies {
     implementation(kotlin("stdlib"))
-    compileOnly("org.ow2.sat4j:org.ow2.sat4j.maxsat:2.3.5")
-
-    // --- Test dependencies ---
-    testImplementation(kotlin("test")) // Kotlin test API
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.11.0")
-    testImplementation("org.junit.jupiter:junit-jupiter-params:5.11.0")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.11.0")
-
-    testImplementation("org.ow2.sat4j:org.ow2.sat4j.maxsat:2.3.5")
+    implementation("org.ow2.sat4j:org.ow2.sat4j.maxsat:2.3.5")
+    testImplementation(kotlin("test"))
 }
 
 tasks.test {
