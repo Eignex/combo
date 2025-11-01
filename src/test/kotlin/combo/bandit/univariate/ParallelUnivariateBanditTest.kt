@@ -5,41 +5,51 @@ import combo.math.BucketSample
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.random.Random
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
+import kotlin.test.*
 
 class ParallelUnivariateBanditTest {
 
     @Test
     fun dataShouldNotBeDuplicated() {
-        for (mode in ParallelMode.values()) {
+        for (mode in ParallelMode.entries) {
             for (copies in 1..5) {
-                val bandit = MultiArmedBandit.Builder(10, ThompsonSampling(NormalPosterior))
-                        .rewards(BucketSample())
-                        .parallel()
-                        .copies(copies)
-                        .mode(mode)
-                        .batchSize(1..20)
-                        .build()
+                val bandit = MultiArmedBandit.Builder(
+                    10,
+                    ThompsonSampling(NormalPosterior)
+                )
+                    .rewards(BucketSample())
+                    .parallel()
+                    .copies(copies)
+                    .mode(mode)
+                    .batchSize(1..20)
+                    .build()
 
                 assertEquals(0, bandit.processUpdates(false))
 
                 val rng = Random
-                for (i in 0 until 10) {
+                repeat(10) {
                     bandit.update(rng.nextInt(10), rng.nextFloat())
                 }
                 assertEquals(0L, bandit.rewards.nbrSamples)
-                assertEquals(0, bandit.exportData().sumBy { it.nbrSamples.toInt() })
+                assertEquals(
+                    0,
+                    bandit.exportData().sumOf { it.nbrSamples.toInt() })
 
                 assertEquals(10, bandit.processUpdates(true))
 
-                assertEquals(10, bandit.exportData().sumBy { it.nbrSamples.toInt() })
-                assertEquals(10, bandit.exportData().sumBy { it.nbrSamples.toInt() })
+                assertEquals(
+                    10,
+                    bandit.exportData().sumOf { it.nbrSamples.toInt() })
+                assertEquals(
+                    10,
+                    bandit.exportData().sumOf { it.nbrSamples.toInt() })
 
                 for (i in 0 until copies) {
                     assertEquals(10L, bandit.bandits[i].rewards.nbrSamples)
-                    assertEquals(10, bandit.bandits[i].exportData().sumBy { it.nbrSamples.toInt() })
+                    assertEquals(
+                        10,
+                        bandit.bandits[i].exportData()
+                            .sumOf { it.nbrSamples.toInt() })
                 }
             }
         }
@@ -47,7 +57,8 @@ class ParallelUnivariateBanditTest {
 
     @Test
     fun blockingModeWithinBatchSize() {
-        val bandit = MultiArmedBandit.Builder(2, ThompsonSampling(BinomialPosterior))
+        val bandit =
+            MultiArmedBandit.Builder(2, ThompsonSampling(BinomialPosterior))
                 .rewards(BucketSample())
                 .parallel()
                 .copies(2)
@@ -69,8 +80,9 @@ class ParallelUnivariateBanditTest {
         val rng = Random
 
         Thread {
-            for (i in 0 until 30)
+            repeat(30) {
                 bandit.update(rng.nextInt(2), rng.nextInt(2).toFloat())
+            }
         }.start()
         cdl2.await()
         assertTrue(ok.get())
@@ -79,7 +91,8 @@ class ParallelUnivariateBanditTest {
     @Test
     fun lockingModeGrowsBiggerThanBatchSize() {
 
-        val bandit = MultiArmedBandit.Builder(10, ThompsonSampling(NormalPosterior))
+        val bandit =
+            MultiArmedBandit.Builder(10, ThompsonSampling(NormalPosterior))
                 .rewards(BucketSample())
                 .parallel()
                 .copies(2)
@@ -88,26 +101,29 @@ class ParallelUnivariateBanditTest {
                 .build()
 
         val rng = Random
-        for (i in 0 until 1000)
+        repeat(1000) {
             bandit.update(rng.nextInt(10), rng.nextFloat())
+        }
 
         do {
             val n = bandit.processUpdates(false)
             assertTrue(n <= 20)
         } while (n > 0)
-        assertEquals(1000, bandit.exportData().sumBy { it.nbrSamples.toInt() })
+        assertEquals(1000, bandit.exportData().sumOf { it.nbrSamples.toInt() })
     }
 
     @Test
     fun nonBlockingDoesNotBlock() {
-        val bandit = MultiArmedBandit.Builder(10, ThompsonSampling(NormalPosterior))
+        val bandit =
+            MultiArmedBandit.Builder(10, ThompsonSampling(NormalPosterior))
                 .rewards(BucketSample())
                 .parallel()
                 .copies(2)
                 .mode(ParallelMode.NON_LOCKING)
                 .batchSize(2..3)
                 .build()
-        for (i in 0 until 100)
+        repeat(100) {
             bandit.update(Random.nextInt(10), Random.nextFloat())
+        }
     }
 }
