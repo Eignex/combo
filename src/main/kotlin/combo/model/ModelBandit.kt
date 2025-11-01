@@ -7,10 +7,10 @@ import combo.bandit.dt.DecisionTreeBandit
 import combo.bandit.dt.RandomForestBandit
 import combo.bandit.ga.GeneticAlgorithmBandit
 import combo.bandit.glm.CovarianceLinearModel
-import combo.bandit.glm.DiagonalizedLinearModel
 import combo.bandit.glm.LinearBandit
 import combo.bandit.glm.VarianceFunction
 import combo.bandit.univariate.BanditPolicy
+import combo.expressions.Literal
 import combo.math.DataSample
 import combo.util.EmptyCollection
 import combo.util.IntCollection

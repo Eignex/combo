@@ -1,16 +1,11 @@
-package combo.sat.constraints
+package combo.expressions
 
-import combo.sat.*
+import combo.sat.BitArray
+import combo.sat.getBits
 import combo.test.assertContentEquals
-import combo.util.IntArrayList
-import combo.util.IntRangeCollection
-import combo.util.bitCount
-import combo.util.collectionOf
+import combo.util.*
 import kotlin.random.Random
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
+import kotlin.test.*
 
 class ConjunctionTest : ConstraintTest() {
 
@@ -19,21 +14,55 @@ class ConjunctionTest : ConstraintTest() {
         val instance = BitArray(4, IntArray(1) { 0b0110 })
         assertFalse(Conjunction(IntArrayList(intArrayOf(1))).satisfies(instance))
         assertTrue(Conjunction(IntArrayList(intArrayOf(2))).satisfies(instance))
-        assertFalse(Conjunction(IntArrayList(intArrayOf(1, 3))).satisfies(instance))
-        assertFalse(Conjunction(IntArrayList(intArrayOf(1, -3))).satisfies(instance))
-        assertFalse(Conjunction(IntArrayList(intArrayOf(1, -4))).satisfies(instance))
-        assertTrue(Conjunction(IntArrayList(intArrayOf(2, -4))).satisfies(instance))
+        assertFalse(
+            Conjunction(IntArrayList(intArrayOf(1, 3))).satisfies(
+                instance
+            )
+        )
+        assertFalse(
+            Conjunction(IntArrayList(intArrayOf(1, -3))).satisfies(
+                instance
+            )
+        )
+        assertFalse(
+            Conjunction(IntArrayList(intArrayOf(1, -4))).satisfies(
+                instance
+            )
+        )
+        assertTrue(
+            Conjunction(IntArrayList(intArrayOf(2, -4))).satisfies(
+                instance
+            )
+        )
     }
 
     @Test
     fun violations() {
         val instance = BitArray(4, IntArray(1) { 0b0110 })
-        assertEquals(1, Conjunction(IntArrayList(intArrayOf(1))).violations(instance))
-        assertEquals(0, Conjunction(IntArrayList(intArrayOf(2))).violations(instance))
-        assertEquals(1, Conjunction(IntArrayList(intArrayOf(1, 3))).violations(instance))
-        assertEquals(2, Conjunction(IntArrayList(intArrayOf(1, -3))).violations(instance))
-        assertEquals(1, Conjunction(IntArrayList(intArrayOf(1, -4))).violations(instance))
-        assertEquals(0, Conjunction(IntArrayList(intArrayOf(2, -4))).violations(instance))
+        assertEquals(
+            1,
+            Conjunction(IntArrayList(intArrayOf(1))).violations(instance)
+        )
+        assertEquals(
+            0,
+            Conjunction(IntArrayList(intArrayOf(2))).violations(instance)
+        )
+        assertEquals(
+            1,
+            Conjunction(IntArrayList(intArrayOf(1, 3))).violations(instance)
+        )
+        assertEquals(
+            2,
+            Conjunction(IntArrayList(intArrayOf(1, -3))).violations(instance)
+        )
+        assertEquals(
+            1,
+            Conjunction(IntArrayList(intArrayOf(1, -4))).violations(instance)
+        )
+        assertEquals(
+            0,
+            Conjunction(IntArrayList(intArrayOf(2, -4))).violations(instance)
+        )
     }
 
     @Test
@@ -50,8 +79,12 @@ class ConjunctionTest : ConstraintTest() {
         val a = Conjunction(IntArrayList(intArrayOf(2, -4)))
         val b = a.unitPropagation(-5)
         val c = a.unitPropagation(3)
-        assertContentEquals(a.literals.toArray().apply { sort() }, b.literals.toArray().apply { sort() })
-        assertContentEquals(a.literals.toArray().apply { sort() }, c.literals.toArray().apply { sort() })
+        assertContentEquals(
+            a.literals.toArray().apply { sort() },
+            b.literals.toArray().apply { sort() })
+        assertContentEquals(
+            a.literals.toArray().apply { sort() },
+            c.literals.toArray().apply { sort() })
     }
 
     @Test
@@ -149,21 +182,56 @@ class DisjunctionTest : ConstraintTest() {
     @Test
     fun satisfies() {
         val instance = BitArray(4, IntArray(1) { 0b0110 })
-        assertFalse(Disjunction(IntArrayList(intArrayOf(-2, -3))).satisfies(instance))
-        assertTrue(Disjunction(IntArrayList(intArrayOf(-2, -1))).satisfies(instance))
-        assertTrue(Disjunction(IntArrayList(intArrayOf(1, 3))).satisfies(instance))
-        assertFalse(Disjunction(IntArrayList(intArrayOf(1, -3))).satisfies(instance))
-        assertTrue(Disjunction(IntArrayList(intArrayOf(1, -4))).satisfies(instance))
+        assertFalse(
+            Disjunction(IntArrayList(intArrayOf(-2, -3))).satisfies(
+                instance
+            )
+        )
+        assertTrue(
+            Disjunction(IntArrayList(intArrayOf(-2, -1))).satisfies(
+                instance
+            )
+        )
+        assertTrue(
+            Disjunction(IntArrayList(intArrayOf(1, 3))).satisfies(
+                instance
+            )
+        )
+        assertFalse(
+            Disjunction(IntArrayList(intArrayOf(1, -3))).satisfies(
+                instance
+            )
+        )
+        assertTrue(
+            Disjunction(IntArrayList(intArrayOf(1, -4))).satisfies(
+                instance
+            )
+        )
     }
 
     @Test
     fun violations() {
         val instance = BitArray(4, IntArray(1) { 0b0110 })
-        assertEquals(1, Disjunction(IntArrayList(intArrayOf(-2, -3))).violations(instance))
-        assertEquals(0, Disjunction(IntArrayList(intArrayOf(-2, -1))).violations(instance))
-        assertEquals(0, Disjunction(IntArrayList(intArrayOf(1, 3))).violations(instance))
-        assertEquals(1, Disjunction(IntArrayList(intArrayOf(1, -3))).violations(instance))
-        assertEquals(0, Disjunction(IntArrayList(intArrayOf(1, -4))).violations(instance))
+        assertEquals(
+            1,
+            Disjunction(IntArrayList(intArrayOf(-2, -3))).violations(instance)
+        )
+        assertEquals(
+            0,
+            Disjunction(IntArrayList(intArrayOf(-2, -1))).violations(instance)
+        )
+        assertEquals(
+            0,
+            Disjunction(IntArrayList(intArrayOf(1, 3))).violations(instance)
+        )
+        assertEquals(
+            1,
+            Disjunction(IntArrayList(intArrayOf(1, -3))).violations(instance)
+        )
+        assertEquals(
+            0,
+            Disjunction(IntArrayList(intArrayOf(1, -4))).violations(instance)
+        )
     }
 
     @Test
@@ -200,7 +268,9 @@ class DisjunctionTest : ConstraintTest() {
     fun unitPropagationNone() {
         val a = Disjunction(IntArrayList(intArrayOf(-1, -4)))
         val b = a.unitPropagation(-5)
-        assertContentEquals(a.literals.toArray().apply { sort() }, b.literals.toArray().apply { sort() })
+        assertContentEquals(
+            a.literals.toArray().apply { sort() },
+            b.literals.toArray().apply { sort() })
     }
 
     @Test
@@ -256,7 +326,12 @@ class DisjunctionTest : ConstraintTest() {
             val c = Disjunction(IntRangeCollection(1, 100))
             c.coerce(it, Random)
             assertTrue(c.satisfies(it))
-            assertTrue(it.getBits(0, 32) != 0 || it.getBits(32, 32) != 0 || it.getBits(64, 32) != 0 || it.getBits(96, 4) != 0)
+            assertTrue(
+                it.getBits(0, 32) != 0 || it.getBits(
+                    32,
+                    32
+                ) != 0 || it.getBits(64, 32) != 0 || it.getBits(96, 4) != 0
+            )
             assertEquals(1, it.iterator().asSequence().count())
         }
 

@@ -1,6 +1,5 @@
-package combo.sat.constraints
+package combo.expressions
 
-import combo.model.Proposition
 import combo.sat.*
 import combo.util.*
 import kotlin.math.min
@@ -9,7 +8,8 @@ import kotlin.random.Random
 /*
  * A disjunction is an OR relation between variables:  (a || b || c)
  */
-class Disjunction(override val literals: IntCollection) : PropositionalConstraint, Proposition {
+class Disjunction(override val literals: IntCollection) :
+    PropositionalConstraint, Proposition {
 
     init {
         assert(literals.isNotEmpty())
@@ -19,7 +19,8 @@ class Disjunction(override val literals: IntCollection) : PropositionalConstrain
 
     override operator fun not() = Conjunction(literals.map { !it })
 
-    override fun violations(instance: Instance, cacheResult: Int) = if (cacheResult > 0) 0 else 1
+    override fun violations(instance: Instance, cacheResult: Int) =
+        if (cacheResult > 0) 0 else 1
 
     override fun unitPropagation(unit: Int): PropositionalConstraint {
         return if (unit in literals) Tautology
@@ -27,10 +28,13 @@ class Disjunction(override val literals: IntCollection) : PropositionalConstrain
             if (literals.size == 1) {
                 Empty
             } else {
-                val reducedLiterals = collectionOf(*literals.mutableCopy(nullValue = 0).apply { remove(!unit) }.toArray())
+                val reducedLiterals = collectionOf(
+                    *literals.mutableCopy(nullValue = 0).apply { remove(!unit) }
+                        .toArray()
+                )
                 val reducedConstraint: PropositionalConstraint =
-                        if (reducedLiterals.size == 1) Conjunction(reducedLiterals)
-                        else Disjunction(reducedLiterals)
+                    if (reducedLiterals.size == 1) Conjunction(reducedLiterals)
+                    else Disjunction(reducedLiterals)
                 reducedConstraint
             }
         } else this
@@ -47,7 +51,8 @@ class Disjunction(override val literals: IntCollection) : PropositionalConstrain
 /**
  * A conjunction is an AND relation between variables: a && b && c
  */
-class Conjunction(override val literals: IntCollection) : PropositionalConstraint, Proposition {
+class Conjunction(override val literals: IntCollection) :
+    PropositionalConstraint, Proposition {
 
     init {
         assert(literals.isNotEmpty())
@@ -57,13 +62,19 @@ class Conjunction(override val literals: IntCollection) : PropositionalConstrain
 
     override operator fun not() = Disjunction(literals.map { !it })
 
-    override fun violations(instance: Instance, cacheResult: Int) = literals.size - cacheResult
+    override fun violations(instance: Instance, cacheResult: Int) =
+        literals.size - cacheResult
 
     override fun unitPropagation(unit: Int): PropositionalConstraint {
         if (!unit in literals) return Empty
         return if (unit in literals) {
             if (literals.size == 1) Tautology
-            else Conjunction(collectionOf(*literals.mutableCopy(nullValue = 0).apply { remove(unit) }.toArray()))
+            else Conjunction(
+                collectionOf(
+                    *literals.mutableCopy(nullValue = 0).apply { remove(unit) }
+                        .toArray()
+                )
+            )
         } else this
     }
 
@@ -77,7 +88,11 @@ class Conjunction(override val literals: IntCollection) : PropositionalConstrain
             for (i in 0 until ints) {
                 val nbrBits = if (i == ints - 1) ((size - 1) and 0x1F) + 1
                 else 32
-                if (nbrBits < 32) instance.setBits(ix, nbrBits, value and (-1 shl (size and 0x1F)).inv())
+                if (nbrBits < 32) instance.setBits(
+                    ix,
+                    nbrBits,
+                    value and (-1 shl (size and 0x1F)).inv()
+                )
                 else instance.setBits(ix, 32, value)
                 ix += nbrBits
             }

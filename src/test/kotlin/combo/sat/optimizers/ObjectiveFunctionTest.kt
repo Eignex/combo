@@ -4,6 +4,7 @@ import combo.math.FloatMatrix
 import combo.math.FloatVector
 import combo.math.VectorView
 import combo.math.nextNormal
+import combo.expressions.Tautology
 import combo.model.TestModels
 import combo.sat.*
 import combo.test.assertEquals

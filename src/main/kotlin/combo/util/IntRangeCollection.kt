@@ -1,12 +1,14 @@
 package combo.util
 
 import combo.math.permutation
+import kotlinx.serialization.Serializable
 import kotlin.random.Random
 
 /**
  * A collection of all items between [min] and [max] (inclusive).
  */
-class IntRangeCollection(val min: Int, val max: Int) : IntList {
+@Serializable
+data class IntRangeCollection(val min: Int, val max: Int) : IntList {
 
     init {
         assert(min <= max)

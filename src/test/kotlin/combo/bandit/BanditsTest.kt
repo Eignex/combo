@@ -13,7 +13,7 @@ import combo.model.TestModels.MODELS
 import combo.sat.BitArray
 import combo.sat.Instance
 import combo.sat.ValidationException
-import combo.sat.constraints.Conjunction
+import combo.expressions.Conjunction
 import combo.util.IntCollection
 import combo.util.collectionOf
 import combo.util.mapArray

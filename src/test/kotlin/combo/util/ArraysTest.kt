@@ -18,7 +18,7 @@ class ArraysTest {
 
     @Test
     fun arrayTransformToEmptyFloatArray() {
-        assertTrue { floatArrayOf().apply { transformArray { it / 0.0f } }.isEmpty() }
+        assertTrue { floatArrayOf().apply { transformArray { Float.POSITIVE_INFINITY } }.isEmpty() }
     }
 
     @Test

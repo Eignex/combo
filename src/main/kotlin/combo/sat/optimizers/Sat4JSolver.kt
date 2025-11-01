@@ -1,9 +1,17 @@
 package combo.sat.optimizers
 
+import combo.expressions.Cardinality
+import combo.expressions.Conjunction
+import combo.expressions.Disjunction
+import combo.expressions.Linear
+import combo.expressions.ReifiedEquivalent
+import combo.expressions.ReifiedImplies
 import combo.math.toIntArray
+import combo.expressions.Constraint
+import combo.expressions.Empty
+import combo.expressions.Tautology
 import combo.sat.*
-import combo.sat.constraints.*
-import combo.sat.constraints.Relation.*
+import combo.expressions.Relation.*
 import combo.util.IntCollection
 import combo.util.RandomSequence
 import org.sat4j.core.LiteralsUtils.negLit

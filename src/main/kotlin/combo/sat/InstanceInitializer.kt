@@ -3,9 +3,10 @@ package combo.sat
 import combo.math.nextGeometric
 import combo.math.nextNormal
 import combo.math.permutation
-import combo.sat.constraints.Cardinality
-import combo.sat.constraints.Disjunction
-import combo.sat.constraints.Relation
+import combo.expressions.Constraint
+import combo.expressions.Cardinality
+import combo.expressions.Disjunction
+import combo.expressions.Relation
 import combo.sat.optimizers.LinearObjective
 import combo.sat.optimizers.ObjectiveFunction
 import kotlin.jvm.JvmOverloads

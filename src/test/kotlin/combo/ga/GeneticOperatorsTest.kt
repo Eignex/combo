@@ -1,6 +1,7 @@
 package combo.ga
 
 import combo.math.permutation
+import combo.expressions.Tautology
 import combo.model.TestModels
 import combo.model.TestModels.MODEL1
 import combo.model.TestModels.MODEL3

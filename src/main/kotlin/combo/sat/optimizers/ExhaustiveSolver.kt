@@ -1,12 +1,12 @@
 package combo.sat.optimizers
 
 import combo.sat.*
-import combo.sat.constraints.Conjunction
+import combo.expressions.Conjunction
 import combo.util.*
 
 /**
  * This [Optimizer] uses brute force. It can only solve small and easy problems.
- * @param problem the problem contains the [Constraint]s and the number of variables.
+ * @param problem the problem contains the [combo.expressions.Constraint]s and the number of variables.
  * @param randomSeed Set the random seed to a specific value to have a reproducible algorithm.
  * @param timeout The solver will abort after timeout in milliseconds have been reached, without a real-time guarantee.
  * @param propagateAssumptions If true then perform unit propagation before solving when assumptions are used.

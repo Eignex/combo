@@ -1,12 +1,15 @@
-package combo.model
+package combo.expressions
 
-import combo.sat.Expression
+import combo.model.VariableIndex
 import combo.sat.UnsatisfiableException
 import combo.sat.not
 import combo.util.IntHashSet
 
+sealed interface Expression
+
 /**
- * A logic expression can be used as part of a 0th order logic expression in [combo.model.ConstraintFactory].
+ * A logic expression can be used as part of a 0th order logic expression in
+ * [combo.model.ConstraintFactory].
  * In addition to being an expression, it can be negated.
  */
 interface Proposition : Expression {
@@ -14,13 +17,15 @@ interface Proposition : Expression {
 }
 
 /**
- * A literal is either a literal value of a variable or the indicator variable of a multi-valued variable.
+ * A literal is either a literal value of a variable or the indicator variable
+ * of a multivalued variable.
  */
 interface Literal : Expression {
     val name: String
 
     /**
-     * The underlying variable, in [Not] for example the canonical variable is the negated variable.
+     * The underlying variable, in [Not] for example the canonical variable is
+     * the negated variable.
      */
     val canonicalVariable: Variable<*, *>
 
@@ -31,8 +36,8 @@ interface Literal : Expression {
 }
 
 /**
- * A value is both a literal and a proposition, it can be negated. For example, all Variable, but not CNF and Int/Float
- * literals.
+ * A value is both a literal and a proposition, it can be negated.
+ * For example, all Variable, but not CNF and Int/Float literals.
  */
 interface Value : Literal, Proposition {
     fun toLiteral(variableIndex: VariableIndex): Int
@@ -52,6 +57,8 @@ class Not(private val negated: Value) : Value {
     override val canonicalVariable: Variable<*, *> get() = negated.canonicalVariable
     override fun rebase(parent: Value) = Not(negated.rebase(parent))
     override operator fun not() = negated
-    override fun toLiteral(variableIndex: VariableIndex) = !negated.toLiteral(variableIndex)
+    override fun toLiteral(variableIndex: VariableIndex) =
+        !negated.toLiteral(variableIndex)
+
     override fun toString(): String = "Not($negated)"
 }

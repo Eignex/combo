@@ -1,13 +1,9 @@
-package combo.model
+package combo.expressions
 
-import combo.sat.BitArray
-import combo.sat.constraints.Conjunction
-import combo.sat.setBits
-import combo.sat.setFloat
+import combo.model.VariableIndex
+import combo.sat.*
 import combo.test.assertContentEquals
-import combo.util.IntHashSet
-import combo.util.MAX_VALUE32
-import combo.util.MIN_VALUE32
+import combo.util.*
 import kotlin.random.Random
 import kotlin.test.*
 
@@ -356,9 +352,15 @@ class BitsVarTest {
         instance[0] = true
         assertEquals(BitArray(10), f.valueOf(instance, 0, 0))
         instance[1] = true
-        assertEquals(BitArray(10).apply { this[0] = true }, f.valueOf(instance, 0, 0))
+        assertEquals(
+            BitArray(10).apply { this[0] = true },
+            f.valueOf(instance, 0, 0)
+        )
         instance[4] = true
-        assertEquals(BitArray(10).apply { this[0] = true; this[3] = true }, f.valueOf(instance, 0, 0))
+        assertEquals(
+            BitArray(10).apply { this[0] = true; this[3] = true },
+            f.valueOf(instance, 0, 0)
+        )
     }
 
     @Test
@@ -367,9 +369,15 @@ class BitsVarTest {
         val instance = BitArray(f.nbrValues)
         assertEquals(BitArray(10), f.valueOf(instance, 0, 0))
         instance[0] = true
-        assertEquals(BitArray(10).apply { this[0] = true }, f.valueOf(instance, 0, 0))
+        assertEquals(
+            BitArray(10).apply { this[0] = true },
+            f.valueOf(instance, 0, 0)
+        )
         instance[3] = true
-        assertEquals(BitArray(10).apply { this[0] = true; this[3] = true }, f.valueOf(instance, 0, 0))
+        assertEquals(
+            BitArray(10).apply { this[0] = true; this[3] = true },
+            f.valueOf(instance, 0, 0)
+        )
     }
 
     @Test

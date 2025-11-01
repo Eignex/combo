@@ -2,7 +2,8 @@ package combo.sat
 
 import combo.math.permutation
 import combo.model.Model
-import combo.sat.constraints.Cardinality
+import combo.expressions.Tautology
+import combo.expressions.Cardinality
 import combo.test.assertContentEquals
 import combo.util.mapArray
 import kotlin.random.Random
@@ -82,7 +83,8 @@ class TransitiveImplicationsTest {
         }.problem
         val id = TransitiveImplications(problem)
         for (i in 0 until 10) {
-            val instance = BitArray(problem.nbrValues).also { RandomSet().initialize(it, Tautology, Random, null) }
+            val instance = BitArray(problem.nbrValues).also { RandomSet().initialize(it,
+                Tautology, Random, null) }
             for (j in permutation(problem.nbrValues, Random)) {
                 val lit = instance.literal(j)
                 id.trueImplications(lit)?.run { instance.or(this) }
@@ -101,7 +103,8 @@ class TransitiveImplicationsTest {
         val id = TransitiveImplications(problem)
 
         for (i in 0 until 10) {
-            val instance = BitArray(problem.nbrValues).also { RandomSet().initialize(it, Tautology, Random, null) }
+            val instance = BitArray(problem.nbrValues).also { RandomSet().initialize(it,
+                Tautology, Random, null) }
             for (j in permutation(problem.nbrValues, Random)) {
                 val lit = instance.literal(j)
                 id.trueImplications(lit)?.run { instance.or(this) }

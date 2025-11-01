@@ -1,5 +1,7 @@
 package combo.model
 
+import combo.expressions.Flag
+import combo.expressions.Root
 import combo.test.assertContentEquals
 import kotlin.test.*
 

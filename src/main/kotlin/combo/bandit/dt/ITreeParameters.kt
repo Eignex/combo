@@ -3,7 +3,7 @@ package combo.bandit.dt
 import combo.bandit.univariate.BanditPolicy
 import combo.math.DataSample
 import combo.model.Model
-import combo.model.Variable
+import combo.expressions.Variable
 import combo.sat.optimizers.Optimizer
 
 /**
@@ -62,4 +62,3 @@ class TreeParameters(
         override val blockQueueSize: Int,
         override val maxRestarts: Int) : ITreeParameters {
 }
-

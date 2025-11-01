@@ -1,5 +1,8 @@
 package combo.model
 
+import combo.expressions.Root
+import combo.expressions.Variable
+
 
 /**
  * Contains mappings from variable to the index they have in optimization problems.

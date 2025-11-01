@@ -3,9 +3,12 @@ package combo.model
 import combo.sat.BitArray
 import combo.sat.BitArrayFactory
 import combo.sat.InstancePermutation
-import combo.sat.constraints.Cardinality
-import combo.sat.constraints.Conjunction
-import combo.sat.constraints.Relation
+import combo.expressions.Cardinality
+import combo.expressions.Conjunction
+import combo.expressions.Flag
+import combo.expressions.Multiple
+import combo.expressions.Nominal
+import combo.expressions.Relation
 import combo.sat.not
 import combo.sat.optimizers.ExhaustiveSolver
 import combo.util.collectionOf

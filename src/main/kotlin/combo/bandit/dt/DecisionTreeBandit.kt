@@ -7,7 +7,7 @@ import combo.bandit.univariate.BanditPolicy
 import combo.bandit.univariate.Greedy
 import combo.math.*
 import combo.model.Model
-import combo.model.Variable
+import combo.expressions.Variable
 import combo.sat.*
 import combo.sat.optimizers.LocalSearch
 import combo.sat.optimizers.Optimizer

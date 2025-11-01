@@ -1,6 +1,7 @@
 package combo.model
 
-import combo.sat.constraints.Disjunction
+import combo.expressions.Disjunction
+import combo.expressions.Root
 import combo.test.assertContentEquals
 import combo.util.collectionOf
 import kotlin.test.Test

@@ -1,19 +1,16 @@
-package combo.sat
+package combo.expressions
 
-import combo.model.Proposition
-import combo.util.EmptyCollection
-import combo.util.IntCollection
-import combo.util.IntRangeCollection
-import combo.util.bitCount
+import combo.sat.*
+import combo.util.*
 import kotlin.math.min
 import kotlin.random.Random
 
-interface Expression
 
 /**
- * A constraint must be satisfied during solving. See [Literal] for more information on the binary format of variables.
+ * A constraint must be satisfied during solving.
+ * See [Literal] for more information on the binary format of variables.
  */
-interface Constraint : Expression {
+sealed interface Constraint : Expression {
 
     val literals: IntCollection
     val size get() = literals.size
@@ -24,19 +21,22 @@ interface Constraint : Expression {
     fun unitLiterals(): IntArray = literals.toArray()
 
     /**
-     * Returns the number of changes necessary for the constraint to be satisfied, based on a cached result.
+     * Returns the number of changes necessary for the constraint to be
+     * satisfied, based on a cached result.
      */
     fun violations(instance: Instance, cacheResult: Int): Int
 
     /**
-     * Update the cached result with the changing literal [newLit]. This method can only be called if the literal is
-     * contained in [literals].
+     * Update the cached result with the changing literal [newLit].
+     * This method can only be called if the literal is contained in [literals].
      */
-    fun cacheUpdate(cacheResult: Int, newLit: Int) = cacheResult + if (newLit in literals) 1 else -1
+    fun cacheUpdate(cacheResult: Int, newLit: Int) =
+        cacheResult + if (newLit in literals) 1 else -1
 
     /**
-     * Calculate the cached result of satisfy value. This will be updated with the [cacheUpdate] and used in the
-     * [violations] method. The default implementation gathers the number of matching literals.
+     * Calculate the cached result of satisfy value. This will be updated with
+     * the [cacheUpdate] and used in the [violations] method.
+     * The default implementation gathers the number of matching literals.
      */
     fun cache(instance: Instance): Int {
         var sum = 0
@@ -45,9 +45,12 @@ interface Constraint : Expression {
             var ix = min(lits.min.toIx(), lits.max.toIx())
             val ints = (size shr 5) + if (size and 0x1F > 0) 1 else 0
             for (i in 0 until ints) {
-                val nbrBits = if (i == ints - 1) ((size - 1) and 0x1F) + 1 else 32
+                val nbrBits =
+                    if (i == ints - 1) ((size - 1) and 0x1F) + 1 else 32
                 val value = instance.getBits(ix, nbrBits)
-                sum += if (lits.min < 0) nbrBits - Int.bitCount(value) else Int.bitCount(value)
+                sum += if (lits.min < 0) nbrBits - Int.bitCount(value) else Int.bitCount(
+                    value
+                )
                 ix += nbrBits
             }
             return sum
@@ -60,9 +63,11 @@ interface Constraint : Expression {
 
     /**
      * Returns the number of changes necessary for the constraint to be satisfied.
-     * This method is only used for test and debug, in actual solving the cached version is used instead.
+     * This method is only used for test and debug,
+     * in actual solving the cached version is used instead.
      */
-    fun violations(instance: Instance): Int = violations(instance, cache(instance))
+    fun violations(instance: Instance): Int =
+        violations(instance, cache(instance))
 
     /**
      * Returns whether the constraint satisfies the instance.
@@ -78,7 +83,8 @@ interface Constraint : Expression {
 }
 
 /**
- * A logic constraint can be negated "for free" without increasing the cost solving.
+ * A logic constraint can be negated "for free" without increasing the cost
+ * solving.
  */
 interface PropositionalConstraint : Proposition, Constraint {
     override fun unitPropagation(unit: Int): PropositionalConstraint = this
@@ -91,7 +97,9 @@ interface PropositionalConstraint : Proposition, Constraint {
 object Empty : PropositionalConstraint, Proposition {
     override val priority: Int get() = 0
     override val literals get() = EmptyCollection
-    override fun violations(instance: Instance, cacheResult: Int) = Int.MAX_VALUE
+    override fun violations(instance: Instance, cacheResult: Int) =
+        Int.MAX_VALUE
+
     override operator fun not() = Tautology
     override fun unitPropagation(unit: Int) = this
     override fun coerce(instance: Instance, rng: Random) {}
@@ -109,9 +117,4 @@ object Tautology : PropositionalConstraint, Proposition {
     override fun unitPropagation(unit: Int) = this
     override fun coerce(instance: Instance, rng: Random) {}
     override fun toString() = "Tautology"
-}
-
-class WeightedConstraint(val factor: Int, val base: Constraint) : Constraint by base {
-    override fun violations(instance: Instance, cacheResult: Int) = base.violations(instance, cacheResult) * factor
-    override fun violations(instance: Instance) = base.violations(instance) * factor
 }

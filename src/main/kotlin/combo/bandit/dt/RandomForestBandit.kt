@@ -9,8 +9,8 @@ import combo.bandit.univariate.NormalPosterior
 import combo.bandit.univariate.ThompsonSampling
 import combo.math.*
 import combo.model.Model
-import combo.model.Root
-import combo.model.Variable
+import combo.expressions.Root
+import combo.expressions.Variable
 import combo.sat.*
 import combo.sat.optimizers.DeltaLinearObjective
 import combo.sat.optimizers.LinearObjective

@@ -1,8 +1,10 @@
 package combo.sat
 
 import combo.math.FloatVector
+import combo.expressions.Constraint
+import combo.expressions.Tautology
 import combo.model.TestModels
-import combo.sat.constraints.Conjunction
+import combo.expressions.Conjunction
 import combo.sat.optimizers.LinearObjective
 import combo.util.collectionOf
 import kotlin.random.Random

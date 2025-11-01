@@ -1,99 +1,10 @@
-package combo.model
+package combo.expressions
 
+
+import combo.model.VariableIndex
 import combo.sat.BitArray
 import combo.test.assertContentEquals
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
-import kotlin.test.assertNull
-
-class FlagTest {
-
-    @Test
-    fun index() {
-        val f = Flag("", true, Root(""))
-        val index = VariableIndex()
-        index.add(f)
-        assertEquals(0, index.valueIndexOf(f))
-        assertEquals(1, f.nbrValues)
-    }
-
-    @Test
-    fun valueOf() {
-        val f = Flag("", true, Root(""))
-        val instance = BitArray(1)
-        assertNull(f.valueOf(instance, 0, 0))
-        instance[0] = true
-        assertEquals(true, f.valueOf(instance, 0, 0))
-    }
-
-    @Test
-    fun toLiteral() {
-        val f = Flag("f", 1, Root(""))
-        val index = VariableIndex()
-        index.add(f)
-        assertEquals(1, f.toLiteral(index))
-    }
-
-    @Test
-    fun toLiteral2() {
-        val f = Flag("f", 1, Root(""))
-        val index = VariableIndex()
-        index.add(BitsVar("b", true, Root(""), 5))
-        index.add(f)
-        assertEquals(7, f.toLiteral(index))
-    }
-}
-
-class OptionTest {
-
-    @Test
-    fun missingOptionTest() {
-        val o = Multiple("o", true, Root(""), 1.0, 2.0, 3.0)
-        assertFailsWith(IllegalArgumentException::class) {
-            o.value(1.2)
-        }
-    }
-
-    @Test
-    fun toLiteralOptional() {
-        val parent = Flag("f", true, Root(""))
-        val a = Nominal("a", true, parent, 1.0, 2.0, 2.5)
-        val index = VariableIndex()
-        index.add(parent)
-        index.add(a)
-        assertEquals(4, a.value(2.0).toLiteral(index))
-    }
-
-    @Test
-    fun toLiteralMandatory() {
-        val a = Nominal("a", false, Root(""), 1.0, 2.0, 2.5)
-        val index = VariableIndex()
-        index.add(a)
-        assertEquals(2, a.value(2.0).toLiteral(index))
-    }
-
-    @Test
-    fun toLiteralOptionalNot() {
-        val a = Nominal("a", true, Root(""), 1.0, 2.0, 3.0)
-        val index = VariableIndex()
-        index.add(a)
-        val o = a.value(1.0).not()
-        assertEquals(a, o.canonicalVariable)
-        assertEquals(a, a.reifiedValue)
-        assertEquals(-2, o.toLiteral(index))
-    }
-
-    @Test
-    fun toLiteralMandatoryNot() {
-        val a = Nominal("a", false, Root(""), 1.0, 2.0, 3.0)
-        val index = VariableIndex()
-        index.add(a)
-        val o = a.value(1.0).not()
-        assertEquals(a, o.canonicalVariable)
-        assertEquals(-1, o.toLiteral(index))
-    }
-}
+import kotlin.test.*
 
 class NominalTest {
 
@@ -237,7 +148,12 @@ class MultipleTest {
         val f = Multiple("a", false, Root(""), "a", "b", "c")
         val index = VariableIndex()
         index.add(f)
-        assertFailsWith(Exception::class) { assertEquals(Int.MAX_VALUE, f.toLiteral(index)) }
+        assertFailsWith(Exception::class) {
+            assertEquals(
+                Int.MAX_VALUE,
+                f.toLiteral(index)
+            )
+        }
     }
 
     @Test
@@ -247,5 +163,34 @@ class MultipleTest {
         index.add(BitsVar("b", true, Root(""), 5))
         index.add(f)
         assertEquals(7, f.toLiteral(index))
+    }
+
+    @Test
+    fun missingOptionalTest() {
+        val o = Multiple("o", true, Root(""), 1.0, 2.0, 3.0)
+        assertFailsWith(IllegalArgumentException::class) {
+            o.value(1.2)
+        }
+    }
+
+    @Test
+    fun toLiteralOptionalNot() {
+        val a = Nominal("a", true, Root(""), 1.0, 2.0, 3.0)
+        val index = VariableIndex()
+        index.add(a)
+        val o = a.value(1.0).not()
+        assertEquals(a, o.canonicalVariable)
+        assertEquals(a, a.reifiedValue)
+        assertEquals(-2, o.toLiteral(index))
+    }
+
+    @Test
+    fun toLiteralMandatoryNot() {
+        val a = Nominal("a", false, Root(""), 1.0, 2.0, 3.0)
+        val index = VariableIndex()
+        index.add(a)
+        val o = a.value(1.0).not()
+        assertEquals(a, o.canonicalVariable)
+        assertEquals(-1, o.toLiteral(index))
     }
 }

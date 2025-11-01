@@ -1,6 +1,9 @@
 package combo.sat
 
-import combo.sat.constraints.Conjunction
+import combo.expressions.Constraint
+import combo.expressions.Empty
+import combo.expressions.Tautology
+import combo.expressions.Conjunction
 import combo.util.*
 import kotlin.jvm.JvmOverloads
 
@@ -77,7 +80,8 @@ class Problem @JvmOverloads constructor(val nbrValues: Int, val constraints: Arr
      * This method is intended for testing, solvers use [Validator] instead.
      * @return sum of all constraint violations, this will be 0 if the problem is satisfied.
      */
-    fun violations(instance: Instance) = constraints.sumBy { it.violations(instance) }
+    fun violations(instance: Instance) =
+        constraints.sumOf { it.violations(instance) }
 
     /**
      * Performs unit propagation on all constraints. Additional unit variables can be added in the [unitLiterals] parameter.

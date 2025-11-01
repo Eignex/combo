@@ -1,13 +1,10 @@
-package combo.sat.constraints
+package combo.expressions
 
+import combo.expressions.Relation.*
 import combo.sat.*
-import combo.sat.constraints.Relation.*
 import combo.test.assertContentEquals
 import combo.util.*
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.pow
-import kotlin.math.roundToInt
+import kotlin.math.*
 import kotlin.random.Random
 import kotlin.test.*
 
@@ -66,14 +63,19 @@ class LinearTest : ConstraintTest() {
     fun violationsAsCardinality() {
         val literals1 = collectionOf(-3, 2, -1, 4)
         val weights = IntArray(4) { 1 }
-        val literals2 = IntHashMap().apply { this[-3] = 0;this[2] = 1;this[-1] = 2;this[4] = 3 }
+        val literals2 = IntHashMap().apply {
+            this[-3] = 0; this[2] = 1; this[-1] = 2; this[4] = 3
+        }
         for (degree in 0..5) {
-            for (rel in values()) {
+            for (rel in entries) {
                 val c1 = Cardinality(literals1, degree, rel)
                 val c2 = Linear(literals2, weights, degree, rel)
                 for (instanceI in 0 until 16) {
                     val instance = BitArray(4, intArrayOf(instanceI))
-                    assertEquals(c1.violations(instance), c2.violations(instance))
+                    assertEquals(
+                        c1.violations(instance),
+                        c2.violations(instance)
+                    )
                 }
             }
         }
@@ -81,7 +83,7 @@ class LinearTest : ConstraintTest() {
 
     @Test
     fun updateCache() {
-        for (rel in values()) {
+        for (rel in entries) {
             val c = Linear(IntHashMap().apply {
                 this[1] = 0
                 this[-2] = 1
@@ -101,9 +103,15 @@ class LinearTest : ConstraintTest() {
             this[5] = 1
             this[6] = 2
         }, intArrayOf(2, 3, -1), 1, LE)
-        assertContentEquals(a.literals.toArray().apply { sort() }, a.unitPropagation(2).literals.toArray().apply { sort() })
-        assertContentEquals(a.literals.toArray().apply { sort() }, a.unitPropagation(4).literals.toArray().apply { sort() })
-        assertContentEquals(a.literals.toArray().apply { sort() }, a.unitPropagation(8).literals.toArray().apply { sort() })
+        assertContentEquals(
+            a.literals.toArray().apply { sort() },
+            a.unitPropagation(2).literals.toArray().apply { sort() })
+        assertContentEquals(
+            a.literals.toArray().apply { sort() },
+            a.unitPropagation(4).literals.toArray().apply { sort() })
+        assertContentEquals(
+            a.literals.toArray().apply { sort() },
+            a.unitPropagation(8).literals.toArray().apply { sort() })
     }
 
     @Test
@@ -116,12 +124,12 @@ class LinearTest : ConstraintTest() {
         lits[5] = 4
 
         val weights = arrayOf(
-                IntArray(5) { it - 1 },
-                IntArray(5) { 1 },
-                IntArray(5) { -1 },
-                IntArray(5) { Random(0).nextInt(-10, 10) }
+            IntArray(5) { it - 1 },
+            IntArray(5) { 1 },
+            IntArray(5) { -1 },
+            IntArray(5) { Random(0).nextInt(-10, 10) }
         )
-        for (rel in values()) {
+        for (rel in entries) {
             for (w in weights) {
                 for (deg in -5..5) {
                     randomExhaustivePropagations(Linear(lits, w, deg, rel))
@@ -202,8 +210,17 @@ class CardinalityTest : ConstraintTest() {
     @Test
     fun satisfiesBlank() {
         val instance = SparseBitArray(4)
-        assertTrue(Cardinality(IntArrayList(intArrayOf(1, -2, 3)), 1, LE).satisfies(instance))
-        assertEquals(0, Cardinality(collectionOf(1, -2, 3), 1, LE).violations(instance))
+        assertTrue(
+            Cardinality(
+                IntArrayList(intArrayOf(1, -2, 3)),
+                1,
+                LE
+            ).satisfies(instance)
+        )
+        assertEquals(
+            0,
+            Cardinality(collectionOf(1, -2, 3), 1, LE).violations(instance)
+        )
     }
 
     @Test
@@ -235,15 +252,24 @@ class CardinalityTest : ConstraintTest() {
     @Test
     fun violations() {
         val instances = arrayOf(
-                BitArray(3, IntArray(1) { 0b000 }),
-                BitArray(3, IntArray(1) { 0b001 }),
-                BitArray(3, IntArray(1) { 0b101 }),
-                BitArray(3, IntArray(1) { 0b111 }))
+            BitArray(3, IntArray(1) { 0b000 }),
+            BitArray(3, IntArray(1) { 0b001 }),
+            BitArray(3, IntArray(1) { 0b101 }),
+            BitArray(3, IntArray(1) { 0b111 })
+        )
 
-        fun testConstraint(degree: Int, relation: Relation, expectedMatches: IntArray) {
+        fun testConstraint(
+            degree: Int,
+            relation: Relation,
+            expectedMatches: IntArray
+        ) {
             val c = Cardinality(collectionOf(1, 2, 3), degree, relation)
             for (i in 0..3)
-                assertEquals(expectedMatches[i], c.violations(instances[i]), "$i")
+                assertEquals(
+                    expectedMatches[i],
+                    c.violations(instances[i]),
+                    "$i"
+                )
         }
 
         testConstraint(0, LE, intArrayOf(0, 1, 2, 3))
@@ -288,9 +314,15 @@ class CardinalityTest : ConstraintTest() {
     @Test
     fun unitPropagationNone() {
         val a = Cardinality(IntArrayList(intArrayOf(1, 5, 6)), 1, LE)
-        assertContentEquals(a.literals.toArray().apply { sort() }, a.unitPropagation(2).literals.toArray().apply { sort() })
-        assertContentEquals(a.literals.toArray().apply { sort() }, a.unitPropagation(4).literals.toArray().apply { sort() })
-        assertContentEquals(a.literals.toArray().apply { sort() }, a.unitPropagation(8).literals.toArray().apply { sort() })
+        assertContentEquals(
+            a.literals.toArray().apply { sort() },
+            a.unitPropagation(2).literals.toArray().apply { sort() })
+        assertContentEquals(
+            a.literals.toArray().apply { sort() },
+            a.unitPropagation(4).literals.toArray().apply { sort() })
+        assertContentEquals(
+            a.literals.toArray().apply { sort() },
+            a.unitPropagation(8).literals.toArray().apply { sort() })
     }
 
     @Test
@@ -430,8 +462,8 @@ class RelationTest {
     @Test
     fun exhaustiveEmptyConstraint() {
         fun test(weights: IntArray, relation: Relation, degree: Int) {
-            val lowerBound = weights.sumBy { min(0, it) }
-            val upperBound = weights.sumBy { max(0, it) }
+            val lowerBound = weights.sumOf { min(0, it) }
+            val upperBound = weights.sumOf { max(0, it) }
             val n = 2.0.pow(weights.size).roundToInt()
             var allSatisfied = true
             var noneSatisfied = true
@@ -440,17 +472,25 @@ class RelationTest {
                 var sum = 0
                 for (j in instance)
                     sum += weights[j]
-                allSatisfied = allSatisfied && relation.violations(sum, degree) == 0
-                noneSatisfied = noneSatisfied && relation.violations(sum, degree) > 0
+                allSatisfied =
+                    allSatisfied && relation.violations(sum, degree) == 0
+                noneSatisfied =
+                    noneSatisfied && relation.violations(sum, degree) > 0
             }
-            assertEquals(noneSatisfied, relation.isEmpty(lowerBound, upperBound, degree))
-            assertEquals(allSatisfied, relation.isTautology(lowerBound, upperBound, degree))
+            assertEquals(
+                noneSatisfied,
+                relation.isEmpty(lowerBound, upperBound, degree)
+            )
+            assertEquals(
+                allSatisfied,
+                relation.isTautology(lowerBound, upperBound, degree)
+            )
         }
-        for (rel in values()) {
+        for (rel in entries) {
             for (degree in -1..5)
                 test(IntArray(4) { 1 }, rel, degree)
         }
-        for (rel in values()) {
+        for (rel in entries) {
             for (degree in -4..2)
                 test(IntArray(4) { it - 2 }, rel, degree)
         }
@@ -458,16 +498,20 @@ class RelationTest {
 
     @Test
     fun negation() {
-        for (rel in values())
+        for (rel in entries)
             for (i in -5..5)
                 for (j in -5..5)
                     for (k in -5..5)
-                        assertNotEquals(rel.violations(i, j), (!rel).violations(i, j), "$rel $i $j")
+                        assertNotEquals(
+                            rel.violations(i, j),
+                            (!rel).violations(i, j),
+                            "$rel $i $j"
+                        )
     }
 
     @Test
     fun noLiteralsIsEmptyOrTautology() {
-        for (rel in values())
+        for (rel in entries)
             for (k in -5..5)
                 assertTrue(rel.isEmpty(0, 0, k) || rel.isTautology(0, 0, k))
     }
@@ -476,8 +520,8 @@ class RelationTest {
     fun exhaustiveIsUnit() {
         fun test(weights: IntArray, relation: Relation, degree: Int) {
             val n = 2.0.pow(weights.size).roundToInt()
-            val lowerBound = weights.sumBy { min(0, it) }
-            val upperBound = weights.sumBy { max(0, it) }
+            val lowerBound = weights.sumOf { min(0, it) }
+            val upperBound = weights.sumOf { max(0, it) }
             val accepted = Array(weights.size) { IntArray(2) }
             for (i in 0 until n) {
                 val instance = BitArray(weights.size, IntArray(1) { i })
@@ -501,7 +545,8 @@ class RelationTest {
 
             val unitLiterals = IntArray(nbrUnit)
             var k = 0
-            for ((ix, a) in accepted.withIndex()) if (a[0] != a[1]) unitLiterals[k++] = ix.toLiteral(a[0] == 0)
+            for ((ix, a) in accepted.withIndex()) if (a[0] != a[1]) unitLiterals[k++] =
+                ix.toLiteral(a[0] == 0)
 
             val c = if (lowerBound == 0) {
                 if (degree < 0) return
@@ -516,14 +561,13 @@ class RelationTest {
                 assertContentEquals(expected, actual)
             }
         }
-        for (rel in values()) {
+        for (rel in entries) {
             for (degree in -1..5)
                 test(IntArray(4) { 1 }, rel, degree)
         }
-        for (rel in values()) {
+        for (rel in entries) {
             for (degree in -4..2)
                 test(IntArray(4) { it - 2 }, rel, degree)
         }
     }
 }
-

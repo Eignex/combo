@@ -1,8 +1,12 @@
 package combo.model
 
 import combo.sat.*
-import combo.sat.constraints.Conjunction
-import combo.sat.constraints.Disjunction
+import combo.expressions.Conjunction
+import combo.expressions.Disjunction
+import combo.expressions.Empty
+import combo.expressions.Proposition
+import combo.expressions.PropositionalConstraint
+import combo.expressions.Tautology
 import combo.util.IntHashSet
 import combo.util.collectionOf
 import combo.util.isEmpty

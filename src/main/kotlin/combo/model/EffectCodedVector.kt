@@ -1,5 +1,6 @@
 package combo.model
 
+import combo.expressions.Root
 import combo.math.VectorView
 import combo.math.vectors
 import combo.sat.Instance

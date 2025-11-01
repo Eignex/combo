@@ -1,6 +1,7 @@
 package combo.model
 
 
+import combo.expressions.Literal
 import combo.sat.ValidationException
 import combo.sat.optimizers.*
 import combo.util.EmptyCollection
@@ -23,7 +24,7 @@ class ModelOptimizer<O : ObjectiveFunction>(val model: Model, val optimizer: Opt
 
     /**
      * Generates a random solution, ie. a witness.
-     * @param assumptions these variables will be fixed during solving, see [Literal].
+     * @param assumptions these variables will be fixed during solving, see [combo.expressions.Literal].
      * @param guess starting point for search if one is provided. This instance will be reused if applicable.
      * @throws ValidationException if there is a logical error in the problem or a solution cannot be found with the
      * allotted resources..

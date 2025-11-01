@@ -1,32 +1,39 @@
 package combo.sat
 
-import combo.util.EmptyCollection
-import combo.util.IntCollection
-import combo.util.IntHashSet
-import combo.util.isEmpty
+import combo.expressions.Constraint
+import combo.util.*
 import kotlin.random.Random
 
 /**
- * This contains cached information about satisfied constraints used during search by search-based methods,
- * [combo.sat.optimizers.GeneticAlgorithm] and [combo.sat.optimizers.LocalSearch].
+ * This contains cached information about satisfied constraints used during
+ * search by search-based methods,
+ * [combo.sat.optimizers.GeneticAlgorithm] and
+ * [combo.sat.optimizers.LocalSearch].
  */
-class Validator private constructor(val problem: Problem,
-                                    val instance: Instance,
-                                    val assumption: Constraint,
-                                    private val assumptionIxs: IntCollection,
-                                    private val unsatisfied: IntHashSet,
-                                    private val constraintCache: IntArray,
-                                    rebuildIndex: Boolean) : Instance by instance {
+class Validator private constructor(
+    val problem: Problem,
+    val instance: Instance,
+    val assumption: Constraint,
+    private val assumptionIxs: IntCollection,
+    private val unsatisfied: IntHashSet,
+    private val constraintCache: IntArray,
+    rebuildIndex: Boolean
+) : Instance by instance {
 
-    constructor(problem: Problem, instance: Instance, assumption: Constraint) : this(
-            problem, instance, assumption,
-            if (assumption.literals.isEmpty()) EmptyCollection
-            else IntHashSet(nullValue = -1).apply {
-                assumption.literals.forEach { add(it.toIx()) }
-            },
-            IntHashSet(nullValue = -1),
-            IntArray(problem.nbrConstraints + 1),
-            true)
+    constructor(
+        problem: Problem,
+        instance: Instance,
+        assumption: Constraint
+    ) : this(
+        problem, instance, assumption,
+        if (assumption.literals.isEmpty()) EmptyCollection
+        else IntHashSet(nullValue = -1).apply {
+            assumption.literals.forEach { add(it.toIx()) }
+        },
+        IntHashSet(nullValue = -1),
+        IntArray(problem.nbrConstraints + 1),
+        true
+    )
 
     var totalUnsatisfied: Int = 0
         private set
@@ -45,18 +52,28 @@ class Validator private constructor(val problem: Problem,
 
     fun improvement(ix: Int): Int {
         val assumptionImprovement =
-                if (ix in assumptionIxs) improvementConst(ix, assumption, constraintCache.lastIndex)
-                else 0
-        return assumptionImprovement + problem.constraining(ix).sumBy { constId ->
-            val const = problem.constraints[constId]
-            improvementConst(ix, const, constId)
-        }
+            if (ix in assumptionIxs) improvementConst(
+                ix,
+                assumption,
+                constraintCache.lastIndex
+            )
+            else 0
+        return assumptionImprovement + problem.constraining(ix)
+            .sumOf { constId ->
+                val const = problem.constraints[constId]
+                improvementConst(ix, const, constId)
+            }
     }
 
-    private fun improvementConst(ix: Int, const: Constraint, constId: Int): Int {
+    private fun improvementConst(
+        ix: Int,
+        const: Constraint,
+        constId: Int
+    ): Int {
         val oldFlips = const.violations(this, constraintCache[constId])
         instance.flip(ix)
-        val cacheUpdate = const.cacheUpdate(constraintCache[constId], instance.literal(ix))
+        val cacheUpdate =
+            const.cacheUpdate(constraintCache[constId], instance.literal(ix))
         val newFlips = const.violations(this, cacheUpdate)
         instance.flip(ix)
         return oldFlips - newFlips
@@ -79,7 +96,8 @@ class Validator private constructor(val problem: Problem,
     private fun updateConst(ix: Int, const: Constraint, constId: Int) {
         val oldFlips = const.violations(this, constraintCache[constId])
         instance.flip(ix)
-        constraintCache[constId] = const.cacheUpdate(constraintCache[constId], instance.literal(ix))
+        constraintCache[constId] =
+            const.cacheUpdate(constraintCache[constId], instance.literal(ix))
         val newFlips = const.violations(this, constraintCache[constId])
         instance.flip(ix)
         if (oldFlips > 0 && newFlips == 0) unsatisfied.remove(constId)
@@ -92,7 +110,7 @@ class Validator private constructor(val problem: Problem,
         rebuildIndex()
     }
 
-    override fun equals(other: Any?) = instance.equals(other)
+    override fun equals(other: Any?) = instance == other
     override fun hashCode() = instance.hashCode()
 
     override fun clear() {
@@ -101,7 +119,15 @@ class Validator private constructor(val problem: Problem,
     }
 
     override fun copy(): Validator {
-        val copy = Validator(problem, instance.copy(), assumption, assumptionIxs, unsatisfied.copy(), constraintCache.copyOf(), false)
+        val copy = Validator(
+            problem,
+            instance.copy(),
+            assumption,
+            assumptionIxs,
+            unsatisfied.copy(),
+            constraintCache.copyOf(),
+            false
+        )
         copy.totalUnsatisfied = totalUnsatisfied
         return copy
     }
@@ -111,13 +137,15 @@ class Validator private constructor(val problem: Problem,
         unsatisfied.clear()
         for ((constId, const) in problem.constraints.withIndex()) {
             constraintCache[constId] = const.cache(instance)
-            totalUnsatisfied += const.violations(this, constraintCache[constId]).also {
-                if (it > 0) unsatisfied.add(constId)
-            }
+            totalUnsatisfied += const.violations(this, constraintCache[constId])
+                .also {
+                    if (it > 0) unsatisfied.add(constId)
+                }
         }
         constraintCache[constraintCache.lastIndex] = assumption.cache(instance)
-        totalUnsatisfied += assumption.violations(this, constraintCache.last()).also {
-            if (it > 0) unsatisfied.add(constraintCache.lastIndex)
-        }
+        totalUnsatisfied += assumption.violations(this, constraintCache.last())
+            .also {
+                if (it > 0) unsatisfied.add(constraintCache.lastIndex)
+            }
     }
 }

@@ -3,8 +3,10 @@ package combo.sat.optimizers
 import combo.ga.*
 import combo.math.DataSample
 import combo.math.VoidSample
+import combo.expressions.Constraint
+import combo.expressions.Tautology
 import combo.sat.*
-import combo.sat.constraints.Conjunction
+import combo.expressions.Conjunction
 import combo.util.*
 import kotlin.math.abs
 import kotlin.math.max

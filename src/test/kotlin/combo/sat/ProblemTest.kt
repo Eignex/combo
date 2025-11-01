@@ -2,11 +2,12 @@ package combo.sat
 
 import combo.math.nextBinomial
 import combo.math.permutation
+import combo.expressions.Constraint
 import combo.model.TestModels
-import combo.sat.constraints.Cardinality
-import combo.sat.constraints.Conjunction
-import combo.sat.constraints.Disjunction
-import combo.sat.constraints.Relation
+import combo.expressions.Cardinality
+import combo.expressions.Conjunction
+import combo.expressions.Disjunction
+import combo.expressions.Relation
 import combo.sat.optimizers.ExhaustiveSolver
 import combo.test.assertContentEquals
 import combo.util.IntArrayList
@@ -106,4 +107,3 @@ class ProblemTest {
         assertContentEquals(intArrayOf(0), problem.constraining(2))
     }
 }
-

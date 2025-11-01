@@ -1,8 +1,5 @@
-package combo.sat.constraints
+package combo.expressions
 
-import combo.model.FloatVar
-import combo.model.IntVar
-import combo.model.Root
 import combo.sat.*
 import combo.test.assertEquals
 import combo.util.MAX_VALUE32
@@ -13,7 +10,8 @@ import kotlin.test.*
 
 class IntBoundsTest : ConstraintTest() {
 
-    private fun nbrLiterals(min: Int, max: Int) = IntVar("", false, Root(""), min, max).nbrValues
+    private fun nbrLiterals(min: Int, max: Int) =
+        IntVar("", false, Root(""), min, max).nbrValues
 
     private fun violations(min: Int, max: Int, value: Int): Int {
         val nbrLiterals = nbrLiterals(min, max)
@@ -88,9 +86,17 @@ class IntBoundsTest : ConstraintTest() {
     fun randomCoerce() {
         fun testBounds(ix: Int, min: Int, max: Int) {
             for (i in 1..1000) {
-                val coercedInstances = randomCoerce(IntBounds(ix, min, max, nbrLiterals(min, max)))
+                val coercedInstances = randomCoerce(
+                    IntBounds(
+                        ix,
+                        min,
+                        max,
+                        nbrLiterals(min, max)
+                    )
+                )
                 val variable = IntVar("", false, Root(""), min, max)
-                val values = coercedInstances.map { variable.valueOf(it, ix, 0)!! }
+                val values =
+                    coercedInstances.map { variable.valueOf(it, ix, 0)!! }
                 if (min in values && max in values) return
                 assertTrue(values.maxOrNull()!! <= max)
                 assertTrue(values.minOrNull()!! >= min)
@@ -129,8 +135,20 @@ class FloatBoundsTest : ConstraintTest() {
     fun satisfiesNonFinite() {
         assertTrue(satisfies(-MAX_VALUE32, MAX_VALUE32, 0.0F))
         assertFalse(satisfies(-MAX_VALUE32, MAX_VALUE32, Float.NaN))
-        assertFalse(satisfies(-MAX_VALUE32, MAX_VALUE32, Float.POSITIVE_INFINITY))
-        assertFalse(satisfies(-MAX_VALUE32, MAX_VALUE32, Float.NEGATIVE_INFINITY))
+        assertFalse(
+            satisfies(
+                -MAX_VALUE32,
+                MAX_VALUE32,
+                Float.POSITIVE_INFINITY
+            )
+        )
+        assertFalse(
+            satisfies(
+                -MAX_VALUE32,
+                MAX_VALUE32,
+                Float.NEGATIVE_INFINITY
+            )
+        )
     }
 
 
@@ -160,11 +178,17 @@ class FloatBoundsTest : ConstraintTest() {
             val bounds = FloatBounds(ix, min, max)
             val rng = Random(0)
             val variable = FloatVar("", false, Root(""), min, max)
-            val values = InstancePermutation(32 + ix, BitArrayFactory, rng).asSequence().take(100).map {
-                bounds.coerce(it, rng)
-                variable.valueOf(it, ix, 0)!!
-            }.toList().toFloatArray()
-            assertEquals(min, values.minOrNull()!!, 0.01f * (max - min).absoluteValue)
+            val values =
+                InstancePermutation(32 + ix, BitArrayFactory, rng).asSequence()
+                    .take(100).map {
+                    bounds.coerce(it, rng)
+                    variable.valueOf(it, ix, 0)!!
+                }.toList().toFloatArray()
+            assertEquals(
+                min,
+                values.minOrNull()!!,
+                0.01f * (max - min).absoluteValue
+            )
         }
         testBounds(1, 1.0F, 2.0F)
         testBounds(0, -10.0F, 20.0F)

@@ -5,8 +5,10 @@ import combo.bandit.univariate.Greedy
 import combo.math.DataSample
 import combo.math.VarianceEstimator
 import combo.math.VoidSample
+import combo.expressions.Constraint
+import combo.expressions.Tautology
 import combo.sat.*
-import combo.sat.constraints.Conjunction
+import combo.expressions.Conjunction
 import combo.sat.optimizers.ExhaustiveSolver
 import combo.sat.optimizers.LocalSearch
 import combo.sat.optimizers.Optimizer

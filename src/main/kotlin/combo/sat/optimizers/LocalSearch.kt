@@ -1,8 +1,10 @@
 package combo.sat.optimizers
 
 import combo.math.permutation
+import combo.expressions.Constraint
+import combo.expressions.Tautology
 import combo.sat.*
-import combo.sat.constraints.Conjunction
+import combo.expressions.Conjunction
 import combo.util.*
 import kotlin.math.abs
 import kotlin.math.max

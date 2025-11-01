@@ -1,7 +1,9 @@
 package combo.sat
 
+import combo.expressions.Constraint
+import combo.expressions.Tautology
 import combo.model.TestModels
-import combo.sat.constraints.Conjunction
+import combo.expressions.Conjunction
 import combo.sat.optimizers.ExhaustiveSolver
 import combo.util.collectionOf
 import kotlin.random.Random
@@ -13,7 +15,7 @@ class ValidatorTest {
         if (p.satisfies(t.instance) && assumption.satisfies(t.instance)) {
             assertEquals(0, (t.totalUnsatisfied - assumption.violations(t.instance)))
         } else {
-            assertEquals((p.constraints.sumBy { it.violations(t.instance) }
+            assertEquals((p.constraints.sumOf { it.violations(t.instance) }
                     + assumption.violations(t.instance)), t.totalUnsatisfied)
         }
     }

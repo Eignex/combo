@@ -1,5 +1,9 @@
 package combo.model
 
+import combo.expressions.Literal
+import combo.expressions.Root
+import combo.expressions.Value
+import combo.expressions.Variable
 import combo.sat.*
 import combo.util.IntHashSet
 
@@ -8,7 +12,7 @@ import combo.util.IntHashSet
  * much additional memory unless it is converted to a [Map] through [toMap]. The tree structure of the [Model] can be
  * used utilized through the [subAssignment] so that sub-models can be properly isolated.
  */
-class Assignment constructor(val instance: Instance, val index: VariableIndex, val scope: Scope) : Iterable<Assignment.VariableAssignment<*>> {
+class Assignment(val instance: Instance, val index: VariableIndex, val scope: Scope) : Iterable<Assignment.VariableAssignment<*>> {
 
     constructor(instance: Instance, index: VariableIndex, scope: Scope, values: Array<out Literal>) : this(instance.also {
         val set = IntHashSet()

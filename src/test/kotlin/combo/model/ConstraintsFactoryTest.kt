@@ -1,11 +1,13 @@
 package combo.model
 
 import combo.sat.BitArray
-import combo.sat.Empty
 import combo.sat.Problem
-import combo.sat.Tautology
-import combo.sat.constraints.Conjunction
-import combo.sat.constraints.Disjunction
+import combo.expressions.Conjunction
+import combo.expressions.Disjunction
+import combo.expressions.Empty
+import combo.expressions.Flag
+import combo.expressions.Root
+import combo.expressions.Tautology
 import combo.test.assertContentEquals
 import kotlin.test.Test
 import kotlin.test.assertEquals

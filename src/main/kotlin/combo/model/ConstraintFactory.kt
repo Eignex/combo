@@ -1,10 +1,24 @@
 package combo.model
 
+import combo.expressions.Cardinality
+import combo.expressions.CardinalityVar
+import combo.expressions.Conjunction
+import combo.expressions.Constraint
+import combo.expressions.Disjunction
+import combo.expressions.Empty
+import combo.expressions.IntVar
+import combo.expressions.Linear
+import combo.expressions.LinearVar
+import combo.expressions.Proposition
+import combo.expressions.PropositionalConstraint
+import combo.expressions.ReifiedEquivalent
+import combo.expressions.ReifiedImplies
+import combo.expressions.Relation
 import combo.math.gcd
 import combo.math.gcdAll
-import combo.sat.*
-import combo.sat.constraints.*
-import combo.sat.constraints.Relation.*
+import combo.expressions.Relation.*
+import combo.expressions.Tautology
+import combo.expressions.Value
 import combo.util.*
 import kotlin.math.absoluteValue
 
@@ -44,24 +58,28 @@ class ConstraintFactory<S : Scope>(val scope: S, val index: VariableIndex) {
     /**
      * The constraint must be true if the value is true, but not vice versa.
      */
-    infix fun Value.reifiedImplies(constraint: Constraint) = ReifiedImplies(toLiteral(index), constraint)
+    infix fun Value.reifiedImplies(constraint: Constraint) =
+        ReifiedImplies(toLiteral(index), constraint)
 
     /**
      * The constraint must be true if the value is true, and vice versa. The constraint must be a proposition which
      * can be negated.
      */
-    infix fun Value.reifiedEquivalent(constraint: PropositionalConstraint) = ReifiedEquivalent(toLiteral(index), constraint)
+    infix fun Value.reifiedEquivalent(constraint: PropositionalConstraint) =
+        ReifiedEquivalent(toLiteral(index), constraint)
 
     /**
      * The constraint must be true if the value is true, but not vice versa.
      */
-    infix fun String.reifiedImplies(constraint: Constraint) = ReifiedImplies(scope.resolve(this).toLiteral(index), constraint)
+    infix fun String.reifiedImplies(constraint: Constraint) =
+        ReifiedImplies(scope.resolve(this).toLiteral(index), constraint)
 
     /**
      * The constraint must be true if the value is true, and vice versa. The constraint must be a proposition which
      * can be negated.
      */
-    infix fun String.reifiedEquivalent(constraint: PropositionalConstraint) = ReifiedEquivalent(scope.resolve(this).toLiteral(index), constraint)
+    infix fun String.reifiedEquivalent(constraint: PropositionalConstraint) =
+        ReifiedEquivalent(scope.resolve(this).toLiteral(index), constraint)
 
     /**
      * Any of the variable must be true, logical or.
@@ -73,7 +91,11 @@ class ConstraintFactory<S : Scope>(val scope: S, val index: VariableIndex) {
      * All of the variable must be true, logical and.
      */
     fun conjunction(vararg variables: Value): PropositionalConstraint =
-            if (variables.isEmpty()) Tautology else Conjunction(toLiterals(variables))
+            if (variables.isEmpty()) Tautology else Conjunction(
+                toLiterals(
+                    variables
+                )
+            )
 
     /**
      * Specify a relation between the number of variables that are true.
@@ -87,7 +109,13 @@ class ConstraintFactory<S : Scope>(val scope: S, val index: VariableIndex) {
 
     fun cardinality(degree: IntVar, relation: Relation, vararg variables: Value): PropositionalConstraint {
         val literals = toLiterals(variables)
-        return CardinalityVar(literals, degree, index.valueIndexOf(degree), degree.parentLiteral(index), relation)
+        return CardinalityVar(
+            literals,
+            degree,
+            index.valueIndexOf(degree),
+            degree.parentLiteral(index),
+            relation
+        )
     }
 
     /**
@@ -111,7 +139,8 @@ class ConstraintFactory<S : Scope>(val scope: S, val index: VariableIndex) {
         var k = 0
         variables.forEach { literals[it.toLiteral(index)] = k++ }
 
-        val linear = Linear(literals, simplifiedWeights, simplifiedDegree, relation)
+        val linear =
+            Linear(literals, simplifiedWeights, simplifiedDegree, relation)
         if (relation.isTautology(linear.lowerBound, linear.upperBound, simplifiedDegree)) return Tautology
         if (relation.isEmpty(linear.lowerBound, linear.upperBound, simplifiedDegree)) return Empty
         return linear
@@ -124,7 +153,14 @@ class ConstraintFactory<S : Scope>(val scope: S, val index: VariableIndex) {
         var k = 0
         variables.forEach { literals[it.toLiteral(index)] = k++ }
 
-        return LinearVar(literals, weights, degree, index.valueIndexOf(degree), degree.parentLiteral(index), relation)
+        return LinearVar(
+            literals,
+            weights,
+            degree,
+            index.valueIndexOf(degree),
+            degree.parentLiteral(index),
+            relation
+        )
     }
 
     /**
@@ -171,7 +207,9 @@ class ConstraintFactory<S : Scope>(val scope: S, val index: VariableIndex) {
                 else -> throw UnsupportedOperationException("Cannot handle logic expression $prop.")
             }
         }
-        val or: Proposition = if (literals.isEmpty()) Tautology else Disjunction(collectionOf(*literals.toArray()))
+        val or: Proposition = if (literals.isEmpty()) Tautology else Disjunction(
+            collectionOf(*literals.toArray())
+        )
         return if (ands == null) {
             or
         } else {
@@ -195,9 +233,19 @@ class ConstraintFactory<S : Scope>(val scope: S, val index: VariableIndex) {
         val disjunctions = ArrayList<Disjunction>()
         for (prop in propositions) {
             when (prop) {
-                is Value -> disjunctions.add(Disjunction(collectionOf(prop.toLiteral(index))))
+                is Value -> disjunctions.add(
+                    Disjunction(
+                        collectionOf(
+                            prop.toLiteral(
+                                index
+                            )
+                        )
+                    )
+                )
                 is Disjunction -> disjunctions.add(prop)
-                is Conjunction -> prop.literals.forEach { disjunctions.add(Disjunction(collectionOf(it))) }
+                is Conjunction -> prop.literals.forEach { disjunctions.add(
+                    Disjunction(collectionOf(it))
+                ) }
                 is CNF -> disjunctions.addAll(prop.disjunctions)
                 is Tautology -> return Tautology
                 is Empty -> {
@@ -214,8 +262,6 @@ class ConstraintFactory<S : Scope>(val scope: S, val index: VariableIndex) {
             literals[i] = d.literals.first()
         return Conjunction(collectionOf(*literals))
     }
-
-    fun Constraint.weighted(factor: Int) = WeightedConstraint(factor, this)
 
     private fun toLiterals(vars: Array<out Value>): IntCollection {
         // Remove any duplicates

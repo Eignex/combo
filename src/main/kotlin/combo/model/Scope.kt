@@ -1,5 +1,7 @@
 package combo.model
 
+import combo.expressions.Value
+import combo.expressions.Variable
 import combo.util.ArrayQueue
 
 

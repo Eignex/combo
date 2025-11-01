@@ -4,11 +4,11 @@ import combo.math.FloatVector
 import combo.math.RunningVariance
 import combo.math.nextNormal
 import combo.math.sample
-import combo.model.FloatVar
-import combo.model.IntVar
+import combo.expressions.FloatVar
+import combo.expressions.IntVar
 import combo.model.TestModels
 import combo.sat.*
-import combo.sat.constraints.Conjunction
+import combo.expressions.Conjunction
 import combo.test.assertContentEquals
 import combo.test.assertEquals
 import combo.util.IntArrayList

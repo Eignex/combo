@@ -2,8 +2,10 @@
 
 package combo.sat.optimizers
 
+import combo.expressions.Constraint
+import combo.expressions.Tautology
 import combo.sat.*
-import combo.sat.constraints.Conjunction
+import combo.expressions.Conjunction
 import combo.util.IntCollection
 import combo.util.RandomListCache
 import combo.util.RandomSequence

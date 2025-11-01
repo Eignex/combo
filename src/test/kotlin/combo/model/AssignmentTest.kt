@@ -1,5 +1,11 @@
 package combo.model
 
+import combo.expressions.BitsVar
+import combo.expressions.Flag
+import combo.expressions.FloatVar
+import combo.expressions.IntVar
+import combo.expressions.Multiple
+import combo.expressions.Nominal
 import combo.sat.BitArray
 import combo.sat.optimizers.ExhaustiveSolver
 import combo.test.assertContentEquals

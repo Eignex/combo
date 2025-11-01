@@ -1,6 +1,10 @@
 package combo.sat
 
-import combo.sat.constraints.*
+import combo.expressions.Cardinality
+import combo.expressions.Conjunction
+import combo.expressions.Disjunction
+import combo.expressions.ReifiedEquivalent
+import combo.expressions.Relation
 import combo.util.IntArrayList
 import combo.util.IntHashSet
 import combo.util.isNotEmpty

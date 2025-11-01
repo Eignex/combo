@@ -2,8 +2,9 @@ package combo.model
 
 import combo.math.permutation
 import combo.sat.Problem
-import combo.sat.constraints.Conjunction
-import combo.sat.constraints.Relation
+import combo.expressions.Conjunction
+import combo.expressions.Multiple
+import combo.expressions.Relation
 import combo.util.collectionOf
 import kotlin.random.Random
 
@@ -79,24 +80,22 @@ object TestModels {
     }
 
     val MODEL5 by lazy {
-        val subModel1 = Model.model("r1") {
-            model("sub1") {
-                model("sub2") {
-                    model("sub3") {
-                        bool("sub4")
-                    }
-                }
-            }
-        }
-        val subModel2 = Model.model("r2") {
-            bool("f1")
-        }
         Model.model("Multiple Sub Models") {
             bool("b1")
             bool("b2")
             bool("b3")
-            addModel(subModel1)
-            addModel(subModel2)
+            model("r1") {
+                model("sub1") {
+                    model("sub2") {
+                        model("sub3") {
+                            bool("sub4")
+                        }
+                    }
+                }
+            }
+            model("r2") {
+                bool("f1")
+            }
             impose { this@model["f1"] or this@model["sub4"] }
         }
     }

@@ -1,5 +1,11 @@
 package combo.bandit.dt
 
+import combo.expressions.BitsVar
+import combo.expressions.Flag
+import combo.expressions.FloatVar
+import combo.expressions.IntVar
+import combo.expressions.Select
+import combo.expressions.Variable
 import combo.math.permutation
 import combo.model.*
 import combo.sat.not
@@ -14,7 +20,7 @@ fun defaultValueSplitter(model: Model, variable: Variable<*, *>): ValueSplitter 
     val index = model.index.valueIndexOf(variable)
     val parentLiteral = variable.parentLiteral(model.index)
     return when (variable) {
-        is Flag<*> -> FlagSplitter(variable, index, parentLiteral)
+        is Flag -> FlagSplitter(variable, index, parentLiteral)
         is IntVar -> IntValueSplitter(variable, index, parentLiteral)
         is FloatVar -> FloatValueSplitter(variable, index, parentLiteral)
         is BitsVar -> StandardValueSplitter(variable, index, parentLiteral)

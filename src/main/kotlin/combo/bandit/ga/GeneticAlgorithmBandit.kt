@@ -7,8 +7,10 @@ import combo.ga.*
 import combo.math.DataSample
 import combo.math.VoidSample
 import combo.math.nextGeometric
+import combo.expressions.Constraint
+import combo.expressions.Tautology
 import combo.sat.*
-import combo.sat.constraints.Conjunction
+import combo.expressions.Conjunction
 import combo.sat.optimizers.LocalSearch
 import combo.sat.optimizers.Optimizer
 import combo.sat.optimizers.SatObjective
