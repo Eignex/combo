@@ -1,11 +1,13 @@
+This project is currently under transformation into a cloud-native self hosted tool.
+
 # COMBO
-Combo is a library for Constraint Oriented Multi-variate Bandit Optimization (COMBO) applied to software parameters. It is used to optimize software with user data in a production environment. It supports multiple methods with a combination of machine learning, combinatorial optimization, and Thompson sampling. Some of the supported ML algorithms are: generalized linear model (GLM), random forest, deep learning, and genetic algorithms. Using COMBO, each user recieve their own configuration with potentially thousands of variables in milliseconds. As the results of each users experience with their configuration is recorded the resulting configurations will be better and better. Depending on the method employed this can require some statistical modeling. Combo is written in Kotlin with Java/JavaScript interoperability in mind.
+Combo is a library for Constraint Oriented Multi-variate Bandit Optimization (COMBO) applied to software parameters. It is used to optimize software with user data in a production environment. It supports multiple methods with a combination of machine learning, combinatorial optimization, and Thompson sampling. Some of the supported ML algorithms are: generalized linear model (GLM), random forest, deep learning, and genetic algorithms. Using COMBO, each user recieve their own configuration with potentially thousands of variables in milliseconds. As the results of each users experience with their configuration is recorded the resulting configurations will be better and better. Depending on the method employed this can require some statistical modeling.
 
 Using it requires three steps: 
 
 1. Create a model of the variables and constraints in the search space.
-2. Map the model to your actual software features.
-3. Create an multi-variate multi-armed bandit algorithm optimizer.
+2. Map the model to actual code behavior.
+3. Create a multi-variate multi-armed bandit algorithm optimizer.
 
 ## Model of the search space
 
