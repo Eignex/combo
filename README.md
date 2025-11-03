@@ -6,17 +6,20 @@
 <!-- [![Docker](https://img.shields.io/badge/Docker-ghcr.io%2FEigenity%2Fcombo-blue)](https://ghcr.io/Eigenity/combo) -->
 <!-- [![Helm](https://img.shields.io/badge/Helm-chart-blueviolet)](https://artifacthub.io/packages/helm/eigenity/combo) -->
 
-> **Kubernetes-ready Kotlin tool for optimizing LLM prompts, UIs, and software parameters from real user feedback.**
+> **Kubernetes-ready Kotlin tool for optimizing LLM prompts, UIs, or other software parameters from real user feedback.**
 
 ---
 
 ## 🚀 Overview
 
-**COMBO** (Constraint Oriented Multi-variate Bandit Optimization) is a **cloud-native, self-hosted optimization engine** for adaptive systems.  It continuously improves **prompts**, **user interfaces** or other **software configurations** using **real interaction data**. Designed for **k8s deployment**, COMBO can optimize thousands of variables per user in milliseconds, automatically learning what works best as feedback accumulates.
+**COMBO** (Constraint Oriented Multi-variate Bandit Optimization) is a **cloud-native, self-hosted optimization engine** for adaptive systems.  It continuously improves **software configurations** using **real interaction data**. COMBO can optimize thousands of variables per user in milliseconds, automatically learning what works best as feedback accumulates.
 
-## ✨ Key Features
+## Installation
+- **As a JVM library** using Kotlin or Java using
+`gradle todo`
+- **As a Self-hosted Web Server**. Deploy easily via Helm to self-hosted Kubernetes clusters (WIP)
 
-- **Self-Hosted & Cloud-Native**: Deploy easily via Helm to self-hosted Kubernetes clusters
+## Key features 
 - **LLM & UI Optimization**: Tune prompts, layouts, or behaviors based on user outcomes
 - **Declarative Search Spaces**: Define structured variable models with constraints through SDKs or HTTP API
 - **Personalized Configurations**: Generate and refine per-user configurations in real time
