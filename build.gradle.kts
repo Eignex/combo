@@ -32,6 +32,7 @@ dependencies {
     implementation("org.slf4j:slf4j-api:2.0.17")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
     implementation("org.ow2.sat4j:org.ow2.sat4j.maxsat:2.3.5")
+    implementation("org.logicng:logicng:2.6.0")
     testImplementation(kotlin("test"))
 }
 

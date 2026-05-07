@@ -1,31 +1,18 @@
 package combo.model
 
-import combo.expressions.Cardinality
-import combo.expressions.CardinalityVar
-import combo.expressions.Conjunction
-import combo.expressions.Constraint
-import combo.expressions.Disjunction
-import combo.expressions.Empty
-import combo.expressions.IntVar
-import combo.expressions.Linear
-import combo.expressions.LinearVar
-import combo.expressions.Proposition
-import combo.expressions.PropositionalConstraint
-import combo.expressions.ReifiedEquivalent
-import combo.expressions.ReifiedImplies
-import combo.expressions.Relation
+import combo.expressions.*
+import combo.expressions.Relation.*
 import combo.math.gcd
 import combo.math.gcdAll
-import combo.expressions.Relation.*
-import combo.expressions.Tautology
-import combo.expressions.Value
 import combo.util.*
 import kotlin.math.absoluteValue
 
 /**
- * The class is intended to be used as part of the [Model.Builder] and not be instantiated directly (although it can).
- * This class builds constraints in [CNF] form using with 0th order logic. It also contain some standard constraint
- * extensions where [CNF] form would be inefficient, for example cardinality and reification.
+ * The class is intended to be used as part of the [Model.Builder] and not be
+ * instantiated directly (although it can). This class builds constraints in
+ * [CNF] form using with 0th order logic. It also contains some standard
+ * constraint extensions where [CNF] form would be inefficient, for example,
+ * cardinality and reification.
  */
 @ModelMarker
 class ConstraintFactory<S : Scope>(val scope: S, val index: VariableIndex) {
@@ -33,27 +20,47 @@ class ConstraintFactory<S : Scope>(val scope: S, val index: VariableIndex) {
     infix fun Proposition.or(prop: Proposition) = or(this, prop)
     infix fun Proposition.and(prop: Proposition) = and(this, prop)
     infix fun Proposition.implies(prop: Proposition) = !this or prop
-    infix fun Proposition.equivalent(prop: Proposition) = (this implies prop) and (prop implies this)
-    infix fun Proposition.xor(prop: Proposition) = (this or prop) and (!this or !prop)
+    infix fun Proposition.equivalent(prop: Proposition) =
+        (this implies prop) and (prop implies this)
+
+    infix fun Proposition.xor(prop: Proposition) =
+        (this or prop) and (!this or !prop)
 
     infix fun Proposition.or(ref: String) = or(this, scope.resolve(ref))
     infix fun Proposition.and(ref: String) = and(this, scope.resolve(ref))
     infix fun Proposition.implies(ref: String) = !this or scope.resolve(ref)
-    infix fun Proposition.equivalent(ref: String) = scope.resolve(ref).let { (this implies it) and (it implies this) }
-    infix fun Proposition.xor(ref: String) = scope.resolve(ref).let { (this or it) and (!this or !it) }
+    infix fun Proposition.equivalent(ref: String) =
+        scope.resolve(ref).let { (this implies it) and (it implies this) }
+
+    infix fun Proposition.xor(ref: String) =
+        scope.resolve(ref).let { (this or it) and (!this or !it) }
 
     operator fun String.not() = scope.resolve(this).not()
     infix fun String.or(prop: Proposition) = or(scope.resolve(this), prop)
     infix fun String.and(prop: Proposition) = and(scope.resolve(this), prop)
     infix fun String.implies(prop: Proposition) = !scope.resolve(this) or prop
-    infix fun String.equivalent(prop: Proposition) = with(scope.resolve(this)) { (this implies prop) and (prop implies this) }
-    infix fun String.xor(prop: Proposition) = with(scope.resolve(this)) { (this or prop) and (!this or !prop) }
+    infix fun String.equivalent(prop: Proposition) =
+        with(scope.resolve(this)) { (this implies prop) and (prop implies this) }
 
-    infix fun String.or(ref: String) = or(scope.resolve(this), scope.resolve(ref))
-    infix fun String.and(ref: String) = and(scope.resolve(this), scope.resolve(ref))
-    infix fun String.implies(ref: String) = !scope.resolve(this) or scope.resolve(ref)
-    infix fun String.equivalent(ref: String) = with(scope.resolve(this)) { scope.resolve(ref).let { (this implies it) and (it implies this) } }
-    infix fun String.xor(ref: String) = with(scope.resolve(this)) { scope.resolve(ref).let { (this or it) and (!this or !it) } }
+    infix fun String.xor(prop: Proposition) =
+        with(scope.resolve(this)) { (this or prop) and (!this or !prop) }
+
+    infix fun String.or(ref: String) =
+        or(scope.resolve(this), scope.resolve(ref))
+
+    infix fun String.and(ref: String) =
+        and(scope.resolve(this), scope.resolve(ref))
+
+    infix fun String.implies(ref: String) =
+        !scope.resolve(this) or scope.resolve(ref)
+
+    infix fun String.equivalent(ref: String) = with(scope.resolve(this)) {
+        scope.resolve(ref).let { (this implies it) and (it implies this) }
+    }
+
+    infix fun String.xor(ref: String) = with(scope.resolve(this)) {
+        scope.resolve(ref).let { (this or it) and (!this or !it) }
+    }
 
     /**
      * The constraint must be true if the value is true, but not vice versa.
@@ -62,8 +69,7 @@ class ConstraintFactory<S : Scope>(val scope: S, val index: VariableIndex) {
         ReifiedImplies(toLiteral(index), constraint)
 
     /**
-     * The constraint must be true if the value is true, and vice versa. The constraint must be a proposition which
-     * can be negated.
+     * The constraint must be true if the value is true, and vice versa.
      */
     infix fun Value.reifiedEquivalent(constraint: PropositionalConstraint) =
         ReifiedEquivalent(toLiteral(index), constraint)
@@ -75,39 +81,46 @@ class ConstraintFactory<S : Scope>(val scope: S, val index: VariableIndex) {
         ReifiedImplies(scope.resolve(this).toLiteral(index), constraint)
 
     /**
-     * The constraint must be true if the value is true, and vice versa. The constraint must be a proposition which
-     * can be negated.
+     * The constraint must be true if the value is true, and vice versa.
      */
     infix fun String.reifiedEquivalent(constraint: PropositionalConstraint) =
         ReifiedEquivalent(scope.resolve(this).toLiteral(index), constraint)
 
     /**
-     * Any of the variable must be true, logical or.
+     * Any of the variable must be true, i.e., logical or.
      */
     fun disjunction(vararg variables: Value): PropositionalConstraint =
-            if (variables.isEmpty()) Empty else Disjunction(toLiterals(variables))
+        if (variables.isEmpty()) Empty else Disjunction(toLiterals(variables))
 
     /**
-     * All of the variable must be true, logical and.
+     * All the variable must be true, i.e., logical and.
      */
     fun conjunction(vararg variables: Value): PropositionalConstraint =
-            if (variables.isEmpty()) Tautology else Conjunction(
-                toLiterals(
-                    variables
-                )
+        if (variables.isEmpty()) Tautology else Conjunction(
+            toLiterals(
+                variables
             )
+        )
 
     /**
      * Specify a relation between the number of variables that are true.
      */
-    fun cardinality(degree: Int, relation: Relation, vararg variables: Value): PropositionalConstraint {
+    fun cardinality(
+        degree: Int,
+        relation: Relation,
+        vararg variables: Value
+    ): PropositionalConstraint {
         val literals = toLiterals(variables)
         if (relation.isTautology(0, literals.size, degree)) return Tautology
         if (relation.isEmpty(0, literals.size, degree)) return Empty
         return Cardinality(literals, degree, relation)
     }
 
-    fun cardinality(degree: IntVar, relation: Relation, vararg variables: Value): PropositionalConstraint {
+    fun cardinality(
+        degree: IntVar,
+        relation: Relation,
+        vararg variables: Value
+    ): PropositionalConstraint {
         val literals = toLiterals(variables)
         return CardinalityVar(
             literals,
@@ -122,7 +135,12 @@ class ConstraintFactory<S : Scope>(val scope: S, val index: VariableIndex) {
      * Specify a relation with weights that are multiplied with variables.
      * x1*w1 + x2*w2 ... + xn*wn [relation] [degree],
      */
-    fun linear(degree: Int, relation: Relation, weights: IntArray, variables: Array<out Value>): PropositionalConstraint {
+    fun linear(
+        degree: Int,
+        relation: Relation,
+        weights: IntArray,
+        variables: Array<out Value>
+    ): PropositionalConstraint {
 
         val gcd = gcd(degree.absoluteValue, gcdAll(*weights))
         val simplifiedDegree: Int
@@ -141,12 +159,27 @@ class ConstraintFactory<S : Scope>(val scope: S, val index: VariableIndex) {
 
         val linear =
             Linear(literals, simplifiedWeights, simplifiedDegree, relation)
-        if (relation.isTautology(linear.lowerBound, linear.upperBound, simplifiedDegree)) return Tautology
-        if (relation.isEmpty(linear.lowerBound, linear.upperBound, simplifiedDegree)) return Empty
+        if (relation.isTautology(
+                linear.lowerBound,
+                linear.upperBound,
+                simplifiedDegree
+            )
+        ) return Tautology
+        if (relation.isEmpty(
+                linear.lowerBound,
+                linear.upperBound,
+                simplifiedDegree
+            )
+        ) return Empty
         return linear
     }
 
-    fun linear(degree: IntVar, relation: Relation, weights: IntArray, variables: Array<out Value>): PropositionalConstraint {
+    fun linear(
+        degree: IntVar,
+        relation: Relation,
+        weights: IntArray,
+        variables: Array<out Value>
+    ): PropositionalConstraint {
         if (weights.isEmpty() || variables.isEmpty()) return Tautology
 
         val literals = IntHashMap()
@@ -166,17 +199,86 @@ class ConstraintFactory<S : Scope>(val scope: S, val index: VariableIndex) {
     /**
      * Precisely this number of variables must be true.
      */
-    fun exactly(degree: Int, vararg variables: Value) = cardinality(degree, EQ, *variables)
+    fun exactly(degree: Int, vararg variables: Value) =
+        cardinality(degree, EQ, *variables)
 
     /**
      * At most this number of variables must be true (defined with less than equal).
      */
-    fun atMost(degree: Int, vararg variables: Value) = cardinality(degree, LE, *variables)
+    fun atMost(degree: Int, vararg variables: Value) =
+        cardinality(degree, LE, *variables)
 
     /**
      * At least this number of variables must be true (defined with greater than equal).
      */
-    fun atLeast(degree: Int, vararg variables: Value) = cardinality(degree, GE, *variables)
+    fun atLeast(degree: Int, vararg variables: Value) =
+        cardinality(degree, GE, *variables)
+
+    /**
+     * Precisely this number of variables must be true.
+     */
+    fun exactly(degree: IntVar, vararg variables: Value) =
+        cardinality(degree, EQ, *variables)
+
+    /**
+     * At most this number of variables must be true (defined with less than equal).
+     */
+    fun atMost(degree: IntVar, vararg variables: Value) =
+        cardinality(degree, LE, *variables)
+
+    /**
+     * At least this number of variables must be true (defined with greater than equal).
+     */
+    fun atLeast(degree: IntVar, vararg variables: Value) =
+        cardinality(degree, GE, *variables)
+
+    /**
+     * Precisely this number of variables must be true.
+     */
+    fun exactly(degree: Int, vararg values: Pair<Int, Value>) = let {
+        val (weights, variables) = values.unzip()
+        linear(degree, EQ, weights.toIntArray(), variables.toTypedArray())
+    }
+
+    /**
+     * At most this number of variables must be true (defined with less than equal).
+     */
+    fun atMost(degree: Int, vararg values: Pair<Int, Value>) = let {
+        val (weights, variables) = values.unzip()
+        linear(degree, GE, weights.toIntArray(), variables.toTypedArray())
+    }
+
+    /**
+     * At least this number of variables must be true (defined with greater than equal).
+     */
+    fun atLeast(degree: Int, vararg values: Pair<Int, Value>) = let {
+        val (weights, variables) = values.unzip()
+        linear(degree, GE, weights.toIntArray(), variables.toTypedArray())
+    }
+
+    /**
+     * Precisely this number of variables must be true.
+     */
+    fun exactly(degree: IntVar, vararg values: Pair<Int, Value>) = let {
+        val (weights, variables) = values.unzip()
+        linear(degree, EQ, weights.toIntArray(), variables.toTypedArray())
+    }
+
+    /**
+     * At most this number of variables must be true (defined with less than equal).
+     */
+    fun atMost(degree: IntVar, vararg values: Pair<Int, Value>) = let {
+        val (weights, variables) = values.unzip()
+        linear(degree, GE, weights.toIntArray(), variables.toTypedArray())
+    }
+
+    /**
+     * At least this number of variables must be true (defined with greater than equal).
+     */
+    fun atLeast(degree: IntVar, vararg values: Pair<Int, Value>) = let {
+        val (weights, variables) = values.unzip()
+        linear(degree, GE, weights.toIntArray(), variables.toTypedArray())
+    }
 
     /**
      * Declares variables to be mutually exclusive.
@@ -197,19 +299,23 @@ class ConstraintFactory<S : Scope>(val scope: S, val index: VariableIndex) {
                     if (ands == null) ands = ArrayList()
                     ands.add(CNF(prop))
                 }
+
                 is CNF -> {
                     if (ands == null) ands = ArrayList()
                     ands.add(prop)
                 }
+
                 is Tautology -> return Tautology
                 is Empty -> {
                 }
+
                 else -> throw UnsupportedOperationException("Cannot handle logic expression $prop.")
             }
         }
-        val or: Proposition = if (literals.isEmpty()) Tautology else Disjunction(
-            collectionOf(*literals.toArray())
-        )
+        val or: Proposition =
+            if (literals.isEmpty()) Tautology else Disjunction(
+                collectionOf(*literals.toArray())
+            )
         return if (ands == null) {
             or
         } else {
@@ -242,14 +348,19 @@ class ConstraintFactory<S : Scope>(val scope: S, val index: VariableIndex) {
                         )
                     )
                 )
+
                 is Disjunction -> disjunctions.add(prop)
-                is Conjunction -> prop.literals.forEach { disjunctions.add(
-                    Disjunction(collectionOf(it))
-                ) }
+                is Conjunction -> prop.literals.forEach {
+                    disjunctions.add(
+                        Disjunction(collectionOf(it))
+                    )
+                }
+
                 is CNF -> disjunctions.addAll(prop.disjunctions)
                 is Tautology -> return Tautology
                 is Empty -> {
                 }
+
                 else -> throw UnsupportedOperationException("Cannot handle expression $prop.")
             }
         }

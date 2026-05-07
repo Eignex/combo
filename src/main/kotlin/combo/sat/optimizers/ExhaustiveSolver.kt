@@ -1,65 +1,98 @@
 package combo.sat.optimizers
 
-import combo.sat.*
 import combo.expressions.Conjunction
+import combo.sat.*
 import combo.util.*
 
 /**
  * This [Optimizer] uses brute force. It can only solve small and easy problems.
- * @param problem the problem contains the [combo.expressions.Constraint]s and the number of variables.
- * @param randomSeed Set the random seed to a specific value to have a reproducible algorithm.
- * @param timeout The solver will abort after timeout in milliseconds have been reached, without a real-time guarantee.
- * @param propagateAssumptions If true then perform unit propagation before solving when assumptions are used.
- * @param instanceFactory Determines the [Instance] that will be created for solving.
- * @param maxOptimizationInstances Maximum number of instances that will be observed when optimizing.
+ * @param problem the problem contains the [combo.expressions.Constraint] and
+ * the number of variables.
+ * @param randomSeed Set the random seed to a specific value to have a
+ * reproducible algorithm.
+ * @param timeout The solver will abort after timeout in milliseconds has been
+ * reached, without a real-time guarantee.
+ * @param propagateAssumptions If true, then perform unit propagation before
+ * solving when assumptions are used.
+ * @param instanceFactory Determines the [Instance] that will be created for
+ * solving.
+ * @param maxOptimizationInstances Maximum number of instances that will be
+ * observed when optimizing.
  *
  */
-class ExhaustiveSolver(val problem: Problem, override val randomSeed: Int = System.currentTimeMillis().toInt(),
-                       override val timeout: Long = -1L,
-                       val propagateAssumptions: Boolean = true,
-                       val instanceFactory: InstanceFactory = BitArrayFactory,
-                       val maxOptimizationInstances: Int = 1000) : Optimizer<ObjectiveFunction> {
+class ExhaustiveSolver(
+    val problem: Problem,
+    override val randomSeed: Int = System.currentTimeMillis().toInt(),
+    override val timeout: Long = -1L,
+    val propagateAssumptions: Boolean = true,
+    val instanceFactory: InstanceFactory = BitArrayFactory,
+    val maxOptimizationInstances: Int = 1000
+) : Optimizer<ObjectiveFunction> {
 
     private val randomSequence = RandomSequence(randomSeed)
 
     /**
      * The [guess] is used only if it satisfies all constraints.
      */
-    override fun witnessOrThrow(assumptions: IntCollection, guess: Instance?): Instance {
+    override fun witnessOrThrow(
+        assumptions: IntCollection,
+        guess: Instance?
+    ): Instance {
         val propAssumptions = propAssumptions(assumptions)
-        if (guess != null && (propAssumptions.isEmpty() || Conjunction(propAssumptions).satisfies(guess)) && problem.satisfies(guess))
+        if (guess != null && (propAssumptions.isEmpty() || Conjunction(
+                propAssumptions
+            ).satisfies(guess)) && problem.satisfies(guess)
+        )
             return guess
         val remap = createRemap(propAssumptions)
         val nbrVariables = problem.nbrValues - propAssumptions.size
-        val end = if (timeout > 0) System.currentTimeMillis() + timeout else Long.MAX_VALUE
-        return InstancePermutation(nbrVariables, instanceFactory, randomSequence.next())
-                .asSequence()
-                .takeWhile { System.currentTimeMillis() <= end }
-                .map { remapInstance(propAssumptions, it, remap) }
-                .filter { problem.satisfies(it) }
-                .firstOrNull() ?: throw if (System.currentTimeMillis() > end) TimeoutException(timeout) else UnsatisfiableException()
+        val end =
+            if (timeout > 0) System.currentTimeMillis() + timeout else Long.MAX_VALUE
+        return InstancePermutation(
+            nbrVariables,
+            instanceFactory,
+            randomSequence.next()
+        )
+            .asSequence()
+            .takeWhile { System.currentTimeMillis() <= end }
+            .map { remapInstance(propAssumptions, it, remap) }
+            .filter { problem.satisfies(it) }
+            .firstOrNull()
+            ?: throw if (System.currentTimeMillis() > end) TimeoutException(
+                timeout
+            ) else UnsatisfiableException()
     }
 
     override fun asSequence(assumptions: IntCollection): Sequence<Instance> {
         val propAssumptions = try {
             propAssumptions(assumptions)
-        } catch (e: UnsatisfiableException) {
+        } catch (_: UnsatisfiableException) {
             return emptySequence()
         }
         val remap = createRemap(propAssumptions)
         val nbrVariables = problem.nbrValues - propAssumptions.size
-        val end = if (timeout > 0) System.currentTimeMillis() + timeout else Long.MAX_VALUE
-        return InstancePermutation(nbrVariables, instanceFactory, randomSequence.next())
-                .asSequence()
-                .takeWhile { System.currentTimeMillis() <= end }
-                .map { remapInstance(propAssumptions, it, remap) }
-                .filter { problem.satisfies(it) }
+        val end =
+            if (timeout > 0) System.currentTimeMillis() + timeout else Long.MAX_VALUE
+        return InstancePermutation(
+            nbrVariables,
+            instanceFactory,
+            randomSequence.next()
+        )
+            .asSequence()
+            .takeWhile { System.currentTimeMillis() <= end }
+            .map { remapInstance(propAssumptions, it, remap) }
+            .filter { problem.satisfies(it) }
     }
 
-    override fun optimizeOrThrow(function: ObjectiveFunction, assumptions: IntCollection, guess: Instance?): Instance {
-        val opt = asSequence(assumptions).take(maxOptimizationInstances).minByOrNull {
-            function.value(it)
-        } ?: throw UnsatisfiableException()
+    override fun optimizeOrThrow(
+        function: ObjectiveFunction,
+        assumptions: IntCollection,
+        guess: Instance?
+    ): Instance {
+        val opt =
+            asSequence(assumptions).take(maxOptimizationInstances).minByOrNull {
+                function.value(it)
+            } ?: throw UnsatisfiableException()
         if (guess != null && problem.satisfies(guess)) {
             val f1 = function.value(guess)
             val f2 = function.value(opt)
@@ -95,7 +128,11 @@ class ExhaustiveSolver(val problem: Problem, override val randomSeed: Int = Syst
         return themap
     }
 
-    private fun remapInstance(assumptions: IntCollection, instance: Instance, remap: IntArray): Instance {
+    private fun remapInstance(
+        assumptions: IntCollection,
+        instance: Instance,
+        remap: IntArray
+    ): Instance {
         return if (assumptions.isNotEmpty()) {
             val result = this.instanceFactory.create(problem.nbrValues)
             result.setAll(assumptions)

@@ -27,14 +27,14 @@ sealed interface Constraint : Expression {
     fun violations(instance: Instance, cacheResult: Int): Int
 
     /**
-     * Update the cached result with the changing literal [newLit].
-     * This method can only be called if the literal is contained in [literals].
+     * Update the cached result with the changing literal [newLit] of the number
+     * of violations.
      */
     fun cacheUpdate(cacheResult: Int, newLit: Int) =
         cacheResult + if (newLit in literals) 1 else -1
 
     /**
-     * Calculate the cached result of satisfy value. This will be updated with
+     * Calculate the cached result of satisfied value. This will be updated with
      * the [cacheUpdate] and used in the [violations] method.
      * The default implementation gathers the number of matching literals.
      */
@@ -86,7 +86,7 @@ sealed interface Constraint : Expression {
  * A logic constraint can be negated "for free" without increasing the cost
  * solving.
  */
-interface PropositionalConstraint : Proposition, Constraint {
+sealed interface PropositionalConstraint : Proposition, Constraint {
     override fun unitPropagation(unit: Int): PropositionalConstraint = this
     override fun not(): PropositionalConstraint
 }

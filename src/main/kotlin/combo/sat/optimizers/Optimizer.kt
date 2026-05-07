@@ -19,7 +19,7 @@ interface Optimizer<in O : ObjectiveFunction> : Iterable<Instance> {
     fun witness(assumptions: IntCollection = EmptyCollection, guess: Instance? = null): Instance? {
         return try {
             witnessOrThrow(assumptions, guess)
-        } catch (e: ValidationException) {
+        } catch (_: ValidationException) {
             null
         }
     }
@@ -28,7 +28,7 @@ interface Optimizer<in O : ObjectiveFunction> : Iterable<Instance> {
      * @param assumptions these variables will be fixed during solving, in dimacs format.
      * @param guess starting point for search if one is provided. This instance will be reused if applicable.
      * @throws ValidationException if there is a logical error in the problem or a solution cannot be found with the
-     * allotted resources..
+     * allotted resources.
      */
     fun witnessOrThrow(assumptions: IntCollection = EmptyCollection, guess: Instance? = null): Instance
 
@@ -77,7 +77,7 @@ interface Optimizer<in O : ObjectiveFunction> : Iterable<Instance> {
      */
     val randomSeed: Int
     /**
-     * The solver will abort after timeout in milliseconds have been reached, without a real-time guarantee.
+     * The solver will abort after timeout in milliseconds has been reached, without a real-time guarantee.
      */
     val timeout: Long
 

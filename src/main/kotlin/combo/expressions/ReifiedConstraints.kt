@@ -24,7 +24,7 @@ sealed class ReifiedConstraint(
 /**
  * ReifiedEquivalent encodes the constraint [literal] <=> [constraint].
  * That is, the constraint is satisfied when both the [constraint] and
- * [literal] is satisfied or when neither of them are.
+ * [literal] is satisfied or when neither of them is.
  */
 class ReifiedEquivalent(
     literal: Int,

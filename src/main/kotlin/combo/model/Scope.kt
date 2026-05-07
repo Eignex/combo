@@ -83,6 +83,10 @@ interface Scope : Iterable<Variable<*, *>> {
         }
     }
 
+    fun parentOf(variable: Variable<*,*>): Variable<*, *> {
+        TODO()
+    }
+
     /**
      * Performs a breadth-first search for resolving a variable. This is suitable to use at the root of the tree
      * hierarchy to find the closest child variable.
@@ -143,7 +147,6 @@ interface Scope : Iterable<Variable<*, *>> {
                     i++
             }
 
-            // Return next variable or terminate with null
             scopeVars = current.variables
             if (i < scopeVars.size) scopeVars[i++] to current
             else null

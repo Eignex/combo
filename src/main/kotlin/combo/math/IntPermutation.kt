@@ -24,7 +24,7 @@ interface IntPermutation : Iterable<Int> {
 class CyclingHashIntPermutation(val size: Int = Int.MAX_VALUE, rng: Random) : IntPermutation {
 
     private val mask: Int // bit mask for block
-    // 0 < size <= mask+1  and mask+1 is a power of 2
+    // 0 < size <= mask+1 and mask+1 is a power of 2
     private val rish: Int                 // right shift count
     private val rk1 = rng.nextInt()
     private val rk2 = rng.nextInt()

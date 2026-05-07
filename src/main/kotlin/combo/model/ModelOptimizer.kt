@@ -23,11 +23,11 @@ class ModelOptimizer<O : ObjectiveFunction>(val model: Model, val optimizer: Opt
     }
 
     /**
-     * Generates a random solution, ie. a witness.
-     * @param assumptions these variables will be fixed during solving, see [combo.expressions.Literal].
-     * @param guess starting point for search if one is provided. This instance will be reused if applicable.
-     * @throws ValidationException if there is a logical error in the problem or a solution cannot be found with the
-     * allotted resources..
+     * Generates a random solution, i.e., a witness.
+     * @param assumptions these variables will be fixed during solving,
+     * see [combo.expressions.Literal].
+     * @throws ValidationException if there is a logical error in the problem or
+     * a solution cannot be found with the allotted resources.
      */
     fun witnessOrThrow(vararg assumptions: Literal) =
             model.toAssignment(optimizer.witnessOrThrow(assumptionsLiterals(assumptions)))

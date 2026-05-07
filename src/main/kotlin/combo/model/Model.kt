@@ -73,12 +73,12 @@ class Model(val problem: Problem, val index: VariableIndex, val scope: Scope) {
         sequence.map { toAssignment(it) }
 
     /**
-     * Finds a variable using breadth first search.
+     * Finds a variable using breadth-first search.
      */
     operator fun get(name: String): Variable<*, *> = scope[name]
 
     /**
-     * Finds a variable using breadth first search, with the [value] specified.
+     * Finds a variable using breadth-first search, with the [value] specified.
      */
     operator fun <V> get(name: String, value: V) = scope[name, value]
 
@@ -101,7 +101,7 @@ class Model(val problem: Problem, val index: VariableIndex, val scope: Scope) {
     ) : ModelBuilder<RootScope>(), Value by scope.reifiedValue {
 
         @JvmOverloads
-        constructor(name: String = Variable.defaultName()) : this(
+        constructor(name: String = "_root") : this(
             VariableIndex(), RootScope(
                 Root(name)
             ), ArrayList(), IntHashSet()
@@ -111,7 +111,7 @@ class Model(val problem: Problem, val index: VariableIndex, val scope: Scope) {
     }
 
     @ModelMarker
-    abstract class ModelBuilder<S : Scope> : Value {
+    abstract class ModelBuilder<S : Scope> {
 
         abstract val index: VariableIndex
         abstract val scope: S

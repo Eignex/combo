@@ -1,16 +1,12 @@
 package combo.sat.optimizers
 
+import combo.expressions.*
 import combo.ga.*
 import combo.math.DataSample
 import combo.math.VoidSample
-import combo.expressions.Constraint
-import combo.expressions.Tautology
 import combo.sat.*
-import combo.expressions.Conjunction
 import combo.util.*
-import kotlin.math.abs
-import kotlin.math.max
-import kotlin.math.min
+import kotlin.math.*
 
 /**
  * Steady state Genetic Algorithm Optimizer. This keeps a list of [candidateSize]] candidate solutions that are
@@ -49,34 +45,57 @@ import kotlin.math.min
  * @param scoreSample Use this for introspection during development to sample all scores.
  * @param minScoreSample Use this for introspection during development to sample all minimum scores.
  */
-class GeneticAlgorithm(val problem: Problem,
-                       override val randomSeed: Int = System.currentTimeMillis().toInt(),
-                       override val timeout: Long = -1L,
-                       val candidateSize: Int = max(20, min(problem.nbrValues * 5, 300)),
-                       val instanceFactory: InstanceFactory = BitArrayFactory,
-                       val initializer: InstanceInitializer<*> = ConstraintCoercer(problem, WordRandomSet()),
-                       val restarts: Int = 1,
-                       val restartKeeps: Float = 0.2f,
-                       val maxSteps: Int = max(500, problem.nbrValues),
-                       val eps: Float = 1E-4f,
-                       val stallSteps: Int = max(50, problem.nbrValues / 4),
-                       val selection: SelectionOperator<Candidates> = TournamentSelection(max(2, candidateSize / 10)),
-                       val elimination: SelectionOperator<Candidates> = TournamentElimination(max(2, candidateSize / 5)),
-                       val recombination: RecombinationOperator<ValidatorCandidates> = KPointRecombination(1),
-                       val recombinationProbability: Float = 1.0f,
-                       val mutation: MutationOperator<ValidatorCandidates> = FixedMutation(),
-                       val mutationProbability: Float = 1.0f,
-                       val guessMutator: MutationOperator<ValidatorCandidates> = RateMutationOperator(FastGAMutation(problem.nbrValues)),
-                       val penalty: PenaltyFunction = SquaredPenalty(),
-                       val propagateAssumptions: Boolean = true,
-                       val scoreSample: DataSample = VoidSample,
-                       val minScoreSample: DataSample = VoidSample)
-    : Optimizer<ObjectiveFunction> {
+class GeneticAlgorithm(
+    val problem: Problem,
+    override val randomSeed: Int = System.currentTimeMillis().toInt(),
+    override val timeout: Long = -1L,
+    val candidateSize: Int = max(20, min(problem.nbrValues * 5, 300)),
+    val instanceFactory: InstanceFactory = BitArrayFactory,
+    val initializer: InstanceInitializer<*> = ConstraintCoercer(
+        problem,
+        WordRandomSet()
+    ),
+    val restarts: Int = 1,
+    val restartKeeps: Float = 0.2f,
+    val maxSteps: Int = max(500, problem.nbrValues),
+    val eps: Float = 1E-4f,
+    val stallSteps: Int = max(50, problem.nbrValues / 4),
+    val selection: SelectionOperator<Candidates> = TournamentSelection(
+        max(
+            2,
+            candidateSize / 10
+        )
+    ),
+    val elimination: SelectionOperator<Candidates> = TournamentElimination(
+        max(
+            2,
+            candidateSize / 5
+        )
+    ),
+    val recombination: RecombinationOperator<ValidatorCandidates> = KPointRecombination(
+        1
+    ),
+    val recombinationProbability: Float = 1.0f,
+    val mutation: MutationOperator<ValidatorCandidates> = FixedMutation(),
+    val mutationProbability: Float = 1.0f,
+    val guessMutator: MutationOperator<ValidatorCandidates> = RateMutationOperator(
+        FastGAMutation(problem.nbrValues)
+    ),
+    val penalty: PenaltyFunction = SquaredPenalty(),
+    val propagateAssumptions: Boolean = true,
+    val scoreSample: DataSample = VoidSample,
+    val minScoreSample: DataSample = VoidSample
+) : Optimizer<ObjectiveFunction> {
 
     private var randomSequence = RandomSequence(randomSeed)
 
-    override fun optimizeOrThrow(function: ObjectiveFunction, assumptions: IntCollection, guess: Instance?): Instance {
-        val end = if (timeout > 0L) System.currentTimeMillis() + timeout else Long.MAX_VALUE
+    override fun optimizeOrThrow(
+        function: ObjectiveFunction,
+        assumptions: IntCollection,
+        guess: Instance?
+    ): Instance {
+        val end =
+            if (timeout > 0L) System.currentTimeMillis() + timeout else Long.MAX_VALUE
         val rng = randomSequence.next()
         val lowerBound = function.lowerBound()
         val upperBound = function.upperBound()
@@ -90,10 +109,19 @@ class GeneticAlgorithm(val problem: Problem,
             assumption = Conjunction(units)
         } else {
             p = problem
-            assumption = if (assumptions.isEmpty()) Tautology else Conjunction(assumptions)
+            assumption = if (assumptions.isEmpty()) Tautology else Conjunction(
+                assumptions
+            )
         }
 
-        fun score(s: Validator) = function.value(s).let { it + penalty.penalty(it, s.totalUnsatisfied, lowerBound, upperBound) }
+        fun score(s: Validator) = function.value(s).let {
+            it + penalty.penalty(
+                it,
+                s.totalUnsatisfied,
+                lowerBound,
+                upperBound
+            )
+        }
 
         val candidates = let {
             val validators: Array<Validator> = Array(candidateSize) {
@@ -101,7 +129,12 @@ class GeneticAlgorithm(val problem: Problem,
                 else {
                     val instance = instanceFactory.create(p.nbrValues)
                     @Suppress("UNCHECKED_CAST")
-                    (initializer as InstanceInitializer<ObjectiveFunction>).initialize(instance, assumption, rng, function)
+                    (initializer as InstanceInitializer<ObjectiveFunction>).initialize(
+                        instance,
+                        assumption,
+                        rng,
+                        function
+                    )
                     Validator(p, instance, assumption)
                 }
             }
@@ -130,18 +163,32 @@ class GeneticAlgorithm(val problem: Problem,
                     if (e < 0) rng.nextInt(candidateSize)
                     else e
                 }
-                val recombined = if (rng.nextFloat() < recombinationProbability) {
-                    val parent1: Int = selection.select(candidates, rng)
-                    val parent2: Int = selection.select(candidates, rng)
-                    recombination.combine(parent1, parent2, eliminated, candidates, rng)
-                    parent1 != parent2
-                } else {
-                    // Copy selected individual to eliminated and force mutation
-                    val parent: Instance = candidates.instances[selection.select(candidates, rng)].instance
-                    val target = candidates.instances[eliminated]
-                    for (i in parent.indices) if (target.isSet(i) != parent.isSet(i)) target.flip(i)
-                    false
-                }
+                val recombined =
+                    if (rng.nextFloat() < recombinationProbability) {
+                        val parent1: Int = selection.select(candidates, rng)
+                        val parent2: Int = selection.select(candidates, rng)
+                        recombination.combine(
+                            parent1,
+                            parent2,
+                            eliminated,
+                            candidates,
+                            rng
+                        )
+                        parent1 != parent2
+                    } else {
+                        // Copy selected individual to eliminated and force mutation
+                        val parent: Instance =
+                            candidates.instances[selection.select(
+                                candidates,
+                                rng
+                            )].instance
+                        val target = candidates.instances[eliminated]
+                        for (i in parent.indices) if (target.isSet(i) != parent.isSet(
+                                i
+                            )
+                        ) target.flip(i)
+                        false
+                    }
                 if (!recombined || rng.nextFloat() < mutationProbability)
                     mutation.mutate(eliminated, candidates, rng)
                 val updatedInstance = candidates.instances[eliminated]
@@ -163,7 +210,11 @@ class GeneticAlgorithm(val problem: Problem,
 
             val keep = IntHashSet(nullValue = -1)
             var tries = 0
-            while (keep.size < max(0.2f, restartKeeps) * candidateSize || tries++ < candidateSize)
+            while (keep.size < max(
+                    0.2f,
+                    restartKeeps
+                ) * candidateSize || tries++ < candidateSize
+            )
                 keep.add(selection.select(candidates, rng))
             tries = 0
             while (keep.size < restartKeeps * candidateSize) keep.add(tries)
@@ -174,10 +225,17 @@ class GeneticAlgorithm(val problem: Problem,
                 } else {
                     val newInstance = instanceFactory.create(p.nbrValues)
                     @Suppress("UNCHECKED_CAST")
-                    (initializer as InstanceInitializer<ObjectiveFunction>).initialize(newInstance, assumption, rng, function)
-                    candidates.instances[i] = Validator(p, newInstance, assumption)
+                    (initializer as InstanceInitializer<ObjectiveFunction>).initialize(
+                        newInstance,
+                        assumption,
+                        rng,
+                        function
+                    )
+                    candidates.instances[i] =
+                        Validator(p, newInstance, assumption)
                     @Suppress("UNCHECKED_CAST")
-                    (candidates.instances as Array<Instance>)[i] = candidates.instances[i]
+                    (candidates.instances as Array<Instance>)[i] =
+                        candidates.instances[i]
                     val newScore = score(candidates.instances[i])
                     candidates.update(i, 0, newScore)
                 }
@@ -198,36 +256,43 @@ class GeneticAlgorithm(val problem: Problem,
     }
 
     override fun witnessOrThrow(assumptions: IntCollection, guess: Instance?) =
-            optimizeOrThrow(SatObjective, assumptions, guess)
+        optimizeOrThrow(SatObjective, assumptions, guess)
 
     class Builder(val problem: Problem) {
         private var randomSeed: Int = System.currentTimeMillis().toInt()
         private var timeout: Long = -1L
-        private var candidateSize: Int = max(20, min(problem.nbrValues * 5, 300))
+        private var candidateSize: Int =
+            max(20, min(problem.nbrValues * 5, 300))
         private var instanceFactory: InstanceFactory = BitArrayFactory
         private var restarts: Int = 1
         private var restartKeeps: Float = 0.2f
         private var maxSteps: Int = max(500, problem.nbrValues)
         private var eps: Float = 1E-4f
         private var stallSteps: Int = max(50, problem.nbrValues / 4)
-        private var selection: SelectionOperator<Candidates> = TournamentSelection(max(2, candidateSize / 10))
-        private var elimination: SelectionOperator<Candidates> = TournamentElimination(max(2, candidateSize / 5))
-        private var recombination: RecombinationOperator<ValidatorCandidates> = KPointRecombination(1)
+        private var selection: SelectionOperator<Candidates> =
+            TournamentSelection(max(2, candidateSize / 10))
+        private var elimination: SelectionOperator<Candidates> =
+            TournamentElimination(max(2, candidateSize / 5))
+        private var recombination: RecombinationOperator<ValidatorCandidates> =
+            KPointRecombination(1)
         private var recombinationProbability: Float = 1.0f
         private var mutation: MutationOperator<ValidatorCandidates>? = null
         private var mutationProbability: Float = 1.0f
-        private var guessMutator: MutationOperator<ValidatorCandidates> = RateMutationOperator(FixedRateMutation())
+        private var guessMutator: MutationOperator<ValidatorCandidates> =
+            RateMutationOperator(FixedRateMutation())
         private var penalty: PenaltyFunction = SquaredPenalty()
         private var propagateAssumptions: Boolean = true
         private var scoreSample: DataSample = VoidSample
         private var minScoreSample: DataSample = VoidSample
 
-        private var initializerType: InitializerType = InitializerType.PROPAGATE_COERCE
+        private var initializerType: InitializerType =
+            InitializerType.PROPAGATE_COERCE
         private var initializerBias: Float = 0.5f
         private var initializerNoise: Float = 0.5f
 
         /** The number of solution candidates that is generated by the search. This is the most important parameter to tweak. */
-        fun candidateSize(candidateSize: Int) = apply { this.candidateSize = candidateSize }
+        fun candidateSize(candidateSize: Int) =
+            apply { this.candidateSize = candidateSize }
 
         /** Set the random seed to a specific value to have a reproducible algorithm. */
         fun randomSeed(randomSeed: Int) = apply { this.randomSeed = randomSeed }
@@ -239,7 +304,8 @@ class GeneticAlgorithm(val problem: Problem,
         fun restarts(restarts: Int) = apply { this.restarts = restarts }
 
         /** Percentage of candidate solutions that will be kept using [selection] method in the case of a restart. */
-        fun restartKeeps(restartKeeps: Float) = apply { this.restartKeeps = restartKeeps }
+        fun restartKeeps(restartKeeps: Float) =
+            apply { this.restartKeeps = restartKeeps }
 
         /** Maximum number of steps for each of the [restarts]. */
         fun maxSteps(maxSteps: Int) = apply { this.maxSteps = maxSteps }
@@ -247,86 +313,135 @@ class GeneticAlgorithm(val problem: Problem,
         /** Maximum number of steps that can be performed with no improvement on feasible the objective function. */
         fun stallSteps(stallSteps: Int) = apply { this.stallSteps = stallSteps }
 
-        /** Whether to use sparse or dense bit array as instance. */
-        fun sparse(sparse: Boolean) = apply { if (sparse) instanceFactory = SparseBitArrayFactory else BitArrayFactory }
+        /** Whether to use a sparse or dense bit array as an instance. */
+        fun sparse(sparse: Boolean) = apply {
+            if (sparse) instanceFactory =
+                SparseBitArrayFactory else BitArrayFactory
+        }
 
         /** Type of initialization strategy. */
-        fun initializer(initializer: InitializerType) = apply { this.initializerType = initializer }
+        fun initializer(initializer: InitializerType) =
+            apply { this.initializerType = initializer }
 
         /** Preference when randomizing for initializing each value with 1 (bias close to 1) or 0 (bias close to 0). */
-        fun initializerBias(initializerBias: Float) = apply { this.initializerBias = initializerBias }
+        fun initializerBias(initializerBias: Float) =
+            apply { this.initializerBias = initializerBias }
 
         /** Noise added to weights for [InitializerType.WEIGHT_MAX] for [LinearObjective]. */
-        fun initializerNoise(initializerNoise: Float) = apply { this.initializerNoise = initializerNoise }
+        fun initializerNoise(initializerNoise: Float) =
+            apply { this.initializerNoise = initializerNoise }
 
         /** Threshold of improvement to stop current iteration in the search. */
         fun stallEps(eps: Float) = apply { this.eps = eps }
 
-        /** How candidate solutions are selected to create new candidate (see also [elimination]). */
-        fun selection(selection: SelectionOperator<Candidates>) = apply { this.selection = selection }
+        /** How candidate solutions are selected to create a new candidate (see also [elimination]). */
+        fun selection(selection: SelectionOperator<Candidates>) =
+            apply { this.selection = selection }
 
-        /** How candidate solutions are eliminated to make room for new candidate (see also [selection]).*/
-        fun elimination(elimination: SelectionOperator<Candidates>) = apply { this.elimination = elimination }
+        /** How candidate solutions are eliminated to make room for a new candidate (see also [selection]).*/
+        fun elimination(elimination: SelectionOperator<Candidates>) =
+            apply { this.elimination = elimination }
 
-        /** The recombinaton operator controls the way that new candidates are generated after the initial population. */
-        fun recombination(recombination: RecombinationOperator<ValidatorCandidates>) = apply { this.recombination = recombination }
+        /** The recombination operator controls the way that new candidates are generated after the initial population. */
+        fun recombination(recombination: RecombinationOperator<ValidatorCandidates>) =
+            apply { this.recombination = recombination }
 
         /** Probability that the [recombination] operator is used when eliminating a candidate. */
-        fun recombinationProbability(recombinationProbability: Float) = apply { this.recombinationProbability = recombinationProbability }
+        fun recombinationProbability(recombinationProbability: Float) =
+            apply { this.recombinationProbability = recombinationProbability }
 
         /** Adds additional diversity to the candidate solutions (see also [mutationProbability]) */
-        fun mutation(mutation: MutationOperator<ValidatorCandidates>) = apply { this.mutation = mutation }
+        fun mutation(mutation: MutationOperator<ValidatorCandidates>) =
+            apply { this.mutation = mutation }
 
         /** Probability to apply [mutation] on new candidate. */
-        fun mutationProbability(mutationProbability: Float) = apply { this.mutationProbability = mutationProbability }
+        fun mutationProbability(mutationProbability: Float) =
+            apply { this.mutationProbability = mutationProbability }
 
         /** Applied to the guess once for each candidate. */
-        fun guessMutator(guessMutator: MutationOperator<ValidatorCandidates>) = apply { this.guessMutator = guessMutator }
+        fun guessMutator(guessMutator: MutationOperator<ValidatorCandidates>) =
+            apply { this.guessMutator = guessMutator }
 
-        /** Added to objective function to discourage convergence to an infeasible solution. */
+        /** Added to the objective function to discourage convergence to an infeasible solution. */
         fun penalty(penalty: PenaltyFunction) = apply { this.penalty = penalty }
 
         /** Whether unit propagation before search is performed when assumptions are used. */
-        fun propagateAssumptions(propagateAssumptions: Boolean) = apply { this.propagateAssumptions = propagateAssumptions }
+        fun propagateAssumptions(propagateAssumptions: Boolean) =
+            apply { this.propagateAssumptions = propagateAssumptions }
 
         /** Use this for introspection during development to sample all scores. */
-        fun scoreSample(scoreSample: DataSample) = apply { this.scoreSample = scoreSample }
+        fun scoreSample(scoreSample: DataSample) =
+            apply { this.scoreSample = scoreSample }
 
         /** Use this for introspection during development to sample all minimum scores. */
-        fun minScoreSample(minScoreSample: DataSample) = apply { this.minScoreSample = minScoreSample }
+        fun minScoreSample(minScoreSample: DataSample) =
+            apply { this.minScoreSample = minScoreSample }
 
         /** Wrap this in a cached optimizer. */
-        fun cached() = CachedOptimizer.Builder<ObjectiveFunction>(build())
+        fun cached() = CachedOptimizer.Builder(build())
 
         fun build(): GeneticAlgorithm {
 
-            val randomizer = if (initializerBias > 0.999f) RandomSet(initializerBias)
-            else if (initializerBias == 0.0f) NoInitializer(false)
-            else if (initializerBias <= 0.01f) GeometricRandomSet(initializerBias)
-            else WordRandomSet(initializerBias)
+            val randomizer =
+                if (initializerBias > 0.999f) RandomSet(initializerBias)
+                else if (initializerBias == 0.0f) NoInitializer(false)
+                else if (initializerBias <= 0.01f) GeometricRandomSet(
+                    initializerBias
+                )
+                else WordRandomSet(initializerBias)
 
-            val digraph = if (mutation == null || initializerType == InitializerType.PROPAGATE_COERCE ||
-                    initializerType == InitializerType.WEIGHT_MAX_PROPAGATE_COERCE) TransitiveImplications(problem)
-            else null
+            val digraph =
+                if (mutation == null || initializerType == InitializerType.PROPAGATE_COERCE ||
+                    initializerType == InitializerType.WEIGHT_MAX_PROPAGATE_COERCE
+                ) TransitiveImplications(problem)
+                else null
 
             val init = when (initializerType) {
                 InitializerType.WEIGHT_MAX -> WeightSet(initializerNoise)
                 InitializerType.RANDOM -> randomizer
                 InitializerType.COERCE -> ConstraintCoercer(problem, randomizer)
-                InitializerType.PROPAGATE_COERCE -> ImplicationConstraintCoercer(problem, digraph!!, randomizer)
-                InitializerType.WEIGHT_MAX_PROPAGATE_COERCE -> ImplicationConstraintCoercer(problem, digraph!!, WeightSet(initializerNoise))
+                InitializerType.PROPAGATE_COERCE -> ImplicationConstraintCoercer(
+                    problem,
+                    digraph!!,
+                    randomizer
+                )
+
+                InitializerType.WEIGHT_MAX_PROPAGATE_COERCE -> ImplicationConstraintCoercer(
+                    problem,
+                    digraph!!,
+                    WeightSet(initializerNoise)
+                )
+
                 InitializerType.NONE -> NoInitializer(true)
             }
 
-            return GeneticAlgorithm(problem = problem, randomSeed = randomSeed, timeout = timeout,
-                    candidateSize = candidateSize, instanceFactory = instanceFactory, initializer = init,
-                    restarts = restarts, restartKeeps = restartKeeps, maxSteps = maxSteps, eps = eps,
-                    stallSteps = stallSteps, selection = selection, elimination = elimination,
-                    recombination = recombination, recombinationProbability = recombinationProbability,
-                    mutation = mutation ?: PropagatingMutator(FixedRateMutation(), digraph!!),
-                    mutationProbability = mutationProbability, guessMutator = guessMutator,
-                    penalty = penalty, propagateAssumptions = propagateAssumptions, scoreSample = scoreSample,
-                    minScoreSample = minScoreSample)
+            return GeneticAlgorithm(
+                problem = problem,
+                randomSeed = randomSeed,
+                timeout = timeout,
+                candidateSize = candidateSize,
+                instanceFactory = instanceFactory,
+                initializer = init,
+                restarts = restarts,
+                restartKeeps = restartKeeps,
+                maxSteps = maxSteps,
+                eps = eps,
+                stallSteps = stallSteps,
+                selection = selection,
+                elimination = elimination,
+                recombination = recombination,
+                recombinationProbability = recombinationProbability,
+                mutation = mutation ?: PropagatingMutator(
+                    FixedRateMutation(),
+                    digraph!!
+                ),
+                mutationProbability = mutationProbability,
+                guessMutator = guessMutator,
+                penalty = penalty,
+                propagateAssumptions = propagateAssumptions,
+                scoreSample = scoreSample,
+                minScoreSample = minScoreSample
+            )
         }
     }
 }

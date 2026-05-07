@@ -5,8 +5,8 @@ import combo.expressions.Variable
 
 
 /**
- * Contains mappings from variable to the index they have in optimization problems.
- * Variables can be iterated in declaration order.
+ * Contains mappings from variable to the index they have in optimization
+ * problems. Variables can be iterated in declaration order.
  */
 class VariableIndex : Iterable<Variable<*, *>> {
 

@@ -47,7 +47,7 @@ class ModelTest {
             assertEquals(7, scope.asSequence().count())
             assertEquals(13, problem.nbrValues)
 
-            val solver = ModelOptimizer(this, ExhaustiveSolver(problem))
+            val solver = ModelOptimizer.exhaustive(this)
             val assignments = solver.asSequence(this["f3"]).toList()
             assignments.forEach {
                 assertTrue(it.contains("f2"))
@@ -65,7 +65,7 @@ class ModelTest {
             assertEquals(10, problem.nbrValues)
             assertNotNull(problem.constraints.find { c -> c is Conjunction && c.literals.size == 10 })
 
-            val solver = ModelOptimizer(this, ExhaustiveSolver(problem))
+            val solver = ModelOptimizer.exhaustive(this)
             val assignments = solver.asSequence().toList()
             assertEquals(1, assignments.size)
             assertEquals(2, assignments[0].toMap().size)
@@ -81,7 +81,7 @@ class ModelTest {
             assertEquals(6, problem.nbrValues)
             assertNotNull(problem.constraints.find { c -> c is Conjunction && c.literals.size == 4 })
 
-            val solver = ModelOptimizer(this, ExhaustiveSolver(problem))
+            val solver = ModelOptimizer.exhaustive(this)
             val assignments = solver.asSequence()
             assignments.forEach {
                 assertEquals("c", it.getString("alt1"))
@@ -96,7 +96,7 @@ class ModelTest {
             assertEquals(5, scope.asSequence().count())
             assertEquals(15, problem.nbrValues)
 
-            val solver = ModelOptimizer(this, ExhaustiveSolver(problem))
+            val solver = ModelOptimizer.exhaustive(this)
             val assignments = solver.asSequence(
                     scope.find<Nominal<Int>>("a1")!!.value(2),
                     !this["m1"])
@@ -118,7 +118,7 @@ class ModelTest {
             assertEquals("sub4", scope.children.first().children.first().children.first().children.first().asSequence().first().name)
             assertEquals("r2", scope.children.last().scopeName)
 
-            val solver = ModelOptimizer(this, ExhaustiveSolver(problem))
+            val solver = ModelOptimizer.exhaustive(this)
             val assignments = solver.asSequence()
             assignments.forEach {
                 assertTrue(it.contains("f1") || it.contains("sub4"))
@@ -132,10 +132,11 @@ class ModelTest {
         with(TestModels.MODEL6) {
             assertEquals(12, scope.asSequence().count())
             assertEquals(6, problem.constraints.size)
-            assertEquals(Relation.values().size - 1,
+            assertEquals(
+                Relation.entries.size - 1,
                     problem.constraints.filterIsInstance<Cardinality>().map { it.relation }.toSet().size)
 
-            val solver = ModelOptimizer(this, ExhaustiveSolver(problem))
+            val solver = ModelOptimizer.exhaustive(this)
             val assignments = solver.asSequence(this["0"], this["2"], this["5"], this["8"])
             assignments.forEach {
                 assertFalse(it.contains("1"))
@@ -150,7 +151,7 @@ class ModelTest {
             assertEquals(4, scope.asSequence().count())
             assertEquals(3, problem.constraints.size)
 
-            val solver = ModelOptimizer(this, ExhaustiveSolver(this.problem))
+            val solver = ModelOptimizer.exhaustive(this)
 
             val assignments1 = solver.asSequence(this["f2"]).map { it.toMap() }.toList()
             assertEquals(1, assignments1.size)

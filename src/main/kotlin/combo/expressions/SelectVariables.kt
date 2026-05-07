@@ -1,7 +1,6 @@
 package combo.expressions
 
-import combo.model.Scope
-import combo.model.VariableIndex
+import combo.model.*
 import combo.sat.*
 import combo.util.IntRangeCollection
 
@@ -157,4 +156,20 @@ class Nominal<V>(
     }
 
     override fun toString() = "Nominal($name)"
+}
+
+fun main() {
+    val m = Model.model {
+        val nom = nominal("type", "a", "b", "c")
+        val budget = int("budget", min = 1000, max = 4000)
+        val slack = int("budget slack", min = 1000, max = 4000)
+
+        impose {
+            linear()
+            nom.value("c") reifiedImplies atMost(i, 2000 to nom.value("c"))
+        }
+    }
+
+    val s = ModelOptimizer.localSearch(m)
+    println(s.witness(m["type", "c"]))
 }

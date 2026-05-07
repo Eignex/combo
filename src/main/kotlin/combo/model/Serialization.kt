@@ -4,7 +4,7 @@ import combo.expressions.Constraint
 import combo.expressions.Variable
 import kotlinx.serialization.Serializable
 
-data class Serialization(
+data class ModelDto(
     val variables: List<Variable<*, *>>,
     val constraints: List<Constraint>
 )

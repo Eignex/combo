@@ -12,7 +12,7 @@ sealed interface Expression
  * [combo.model.ConstraintFactory].
  * In addition to being an expression, it can be negated.
  */
-interface Proposition : Expression {
+sealed interface Proposition : Expression {
     operator fun not(): Proposition
 }
 
@@ -20,7 +20,7 @@ interface Proposition : Expression {
  * A literal is either a literal value of a variable or the indicator variable
  * of a multivalued variable.
  */
-interface Literal : Expression {
+sealed interface Literal : Expression {
     val name: String
 
     /**
@@ -39,9 +39,8 @@ interface Literal : Expression {
  * A value is both a literal and a proposition, it can be negated.
  * For example, all Variable, but not CNF and Int/Float literals.
  */
-interface Value : Literal, Proposition {
+sealed interface Value : Literal, Proposition {
     fun toLiteral(variableIndex: VariableIndex): Int
-    fun rebase(parent: Value): Value
     override fun not(): Value = Not(this)
     override fun collectLiterals(index: VariableIndex, set: IntHashSet) {
         when (val value = toLiteral(index)) {
@@ -55,7 +54,6 @@ interface Value : Literal, Proposition {
 class Not(private val negated: Value) : Value {
     override val name: String get() = negated.name
     override val canonicalVariable: Variable<*, *> get() = negated.canonicalVariable
-    override fun rebase(parent: Value) = Not(negated.rebase(parent))
     override operator fun not() = negated
     override fun toLiteral(variableIndex: VariableIndex) =
         !negated.toLiteral(variableIndex)

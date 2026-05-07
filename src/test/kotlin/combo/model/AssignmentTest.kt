@@ -231,7 +231,7 @@ class AssignmentTest {
     @Test
     fun asSequence() {
         val m = TestModels.MODEL1
-        val solver = ModelOptimizer(m, ExhaustiveSolver(m.problem))
+        val solver = ModelOptimizer.exhaustive(m)
         val a = solver.witnessOrThrow(m.scope.find<Multiple<Int>>("m1")!!.value(4))
         val iterated = a.asSequence().toList()
         assertTrue(iterated.size >= 2)

@@ -7,7 +7,7 @@ import kotlin.math.absoluteValue
  */
 fun gcdAll(vararg ns: Int): Int {
     if (ns.isEmpty()) return 0
-    if (ns.size == 1) return ns[1]
+    if (ns.size == 1) return ns[0]
     var g = gcd(ns[0].absoluteValue, ns[1].absoluteValue)
     if (g == 1) return 1
     for (i in 2 until ns.size) {
@@ -27,7 +27,6 @@ fun gcd(a: Int, b: Int): Int {
     var p = a
     var q = b
 
-    // First step is to find gcd power of 2 that should be multiple with answer later on.
     var n = 0
     while ((p or q) and 1 == 0) {
         p = p shr 1

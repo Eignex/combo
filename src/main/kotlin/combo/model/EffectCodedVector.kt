@@ -9,8 +9,7 @@ import combo.sat.toIx
 
 /**
  * Vector that transforms 0-1 values to -1,0,1 depending on whether there are missing values.
- * This is used by regression based bandit algorithms like [combo.bandit.nn.NeuralLinearBandit] or
- * [combo.bandit.glm.LinearBandit].
+ * This is used by [combo.bandit.glm.LinearBandit].
  */
 class EffectCodedVector(val model: Model, val instance: Instance) : VectorView {
     override val size: Int get() = instance.size
