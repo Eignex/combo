@@ -19,6 +19,19 @@ private class WithOneSubModel : DecisionSpace() {
     val area by submodel(::CodeFeature)
 }
 
+private class Inner : SubSpace() {
+    val toggle by boolVar()
+}
+
+private class Middle : SubSpace() {
+    val knob by intVar(-5, 5)
+    val inner by submodel(::Inner)
+}
+
+private class Nested : DecisionSpace() {
+    val middle by submodel(::Middle)
+}
+
 class SubSpaceTest {
 
     @Test
@@ -40,6 +53,17 @@ class SubSpaceTest {
         budget as IntSpec
         assertEquals(0, budget.min)
         assertEquals(100, budget.max)
+    }
+
+    @Test
+    fun nestedSubModelsAccumulateDottedPrefix() {
+        val model = Nested()
+        val space = model.compileSpace()
+        val entries = space.schemaDef.entries
+        assertTrue("middle.knob" in entries)
+        assertTrue("middle.inner.toggle" in entries)
+        assertEquals("middle.inner.toggle", model.middle.inner.toggle.name)
+        assertEquals("middle.knob", model.middle.knob.name)
     }
 
     @Test
