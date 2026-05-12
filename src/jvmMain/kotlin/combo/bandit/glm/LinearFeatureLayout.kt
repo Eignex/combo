@@ -1,15 +1,21 @@
-package combo.decisions
+package combo.bandit.glm
 
-import com.eignex.klause.compile.CompiledProblem
+import combo.decisions.BoolContextHandle
+import combo.decisions.CompiledDecisionSpace
+import combo.decisions.IntContextHandle
 
 /**
- * Maps every handle declared on a [DecisionSpace] to a stable index in the dense feature
- * vector consumed by linear bandits.
+ * Linear-bandit-specific feature index over a [CompiledDecisionSpace]. Maps every
+ * decision and context handle to a stable slot in the dense weight vector that the
+ * linear models train against.
  *
  * Slice 1 layout (no optionals, no interactions, no nominals expanded):
  *   `[bool decisions (numBoolVars), int decisions (numIntVars), bool contexts, int contexts]`
+ *
+ * Trees and other non-linear bandits don't go through this layer — they own their own
+ * typed projection over the same [CompiledDecisionSpace].
  */
-class FeatureLayout internal constructor(
+class LinearFeatureLayout internal constructor(
     val numBoolDecisions: Int,
     val numIntDecisions: Int,
     val boolContexts: List<BoolContextHandle>,
@@ -28,15 +34,11 @@ class FeatureLayout internal constructor(
         intContexts.withIndex().associate { (i, h) -> h to (intContextsStart + i) }
 
     companion object {
-        internal fun from(
-            compiled: CompiledProblem,
-            contextBools: List<BoolContextHandle>,
-            contextInts: List<IntContextHandle>,
-        ): FeatureLayout = FeatureLayout(
-            numBoolDecisions = compiled.problem.numBoolVars,
-            numIntDecisions = compiled.problem.numIntVars,
-            boolContexts = contextBools.toList(),
-            intContexts = contextInts.toList(),
+        fun from(space: CompiledDecisionSpace): LinearFeatureLayout = LinearFeatureLayout(
+            numBoolDecisions = space.compiled.problem.numBoolVars,
+            numIntDecisions = space.compiled.problem.numIntVars,
+            boolContexts = space.contextBools,
+            intContexts = space.contextInts,
         )
     }
 }

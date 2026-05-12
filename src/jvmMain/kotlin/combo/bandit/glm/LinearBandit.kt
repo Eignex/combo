@@ -5,7 +5,6 @@ import com.eignex.klause.solver.Sample
 import com.eignex.kumulant.core.SeriesStat
 import combo.bandit.NoFeasibleSampleException
 import combo.bandit.PredictionBandit
-import combo.decisions.CompiledDecisionSpace
 import combo.decisions.Context
 import combo.util.RandomSequence
 import kotlin.math.abs
@@ -19,7 +18,7 @@ import kotlin.math.abs
  * linear model using the same `(Sample, Context) → feature` projection.
  */
 class LinearBandit(
-    val space: CompiledDecisionSpace,
+    val projection: LinearFeatureProjection,
     val linearModel: LinearModel,
     val innerOptimizer: (LinearObjective) -> Sample?,
     override val randomSeed: Int = System.currentTimeMillis().toInt(),
@@ -29,19 +28,21 @@ class LinearBandit(
     override val testAbsError: SeriesStat<*>? = null,
 ) : PredictionBandit<LinearData> {
 
+    val space get() = projection.space
+
     init {
-        require(linearModel.weights.size == space.featureSize) {
-            "Linear model has ${linearModel.weights.size} weights, decision space has ${space.featureSize} features."
+        require(linearModel.weights.size == projection.featureSize) {
+            "Linear model has ${linearModel.weights.size} weights, projection has ${projection.featureSize} features."
         }
     }
 
     private val randomSequence = RandomSequence(randomSeed)
 
     fun predict(sample: Sample, context: Context): Double =
-        linearModel.predict(space.encode(sample, context)).toDouble()
+        linearModel.predict(projection.encode(sample, context)).toDouble()
 
     fun train(sample: Sample, context: Context, reward: Double, weight: Double = 1.0) {
-        linearModel.train(space.encode(sample, context), reward.toFloat(), weight.toFloat())
+        linearModel.train(projection.encode(sample, context), reward.toFloat(), weight.toFloat())
     }
 
     fun update(sample: Sample, context: Context, reward: Double, weight: Double = 1.0) {
@@ -63,7 +64,7 @@ class LinearBandit(
     fun chooseOrThrow(context: Context): Sample {
         val rng = randomSequence.next()
         val sampledWeights = linearModel.sample(rng)
-        val objective = space.toObjective(sampledWeights, linearModel.bias, context, maximize)
+        val objective = projection.toObjective(sampledWeights, linearModel.bias, context, maximize)
         return innerOptimizer(objective)
             ?: throw NoFeasibleSampleException("inner optimizer returned no feasible sample")
     }
@@ -75,7 +76,7 @@ class LinearBandit(
     }
 
     fun optimalOrThrow(context: Context): Sample {
-        val objective = space.toObjective(linearModel.weights, linearModel.bias, context, maximize)
+        val objective = projection.toObjective(linearModel.weights, linearModel.bias, context, maximize)
         return innerOptimizer(objective)
             ?: throw NoFeasibleSampleException("inner optimizer returned no feasible sample")
     }

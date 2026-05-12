@@ -33,17 +33,18 @@ class LinearBanditTest {
     @Test
     fun thompsonSamplingConvergesToBestSampleNoContext() {
         val space = FiveToggles().compileSpace()
+        val projection = LinearFeatureProjection(space)
         val solver = LocalSearchSolver(space.compiled.problem)
         val params = LocalSearchParams(maxFlips = 1_000L, randomSeed = 11L)
 
-        val model = DiagonalizedLinearModel.Builder(space.featureSize)
+        val model = DiagonalizedLinearModel.Builder(projection.featureSize)
             .family(NormalVariance)
             .learningRate(ConstantRate(1f))
             .priorPrecision(0.01f)
             .exploration(0.3f)
             .build()
         val bandit = LinearBandit(
-            space = space,
+            projection = projection,
             linearModel = model,
             innerOptimizer = { obj -> solver.minimize(obj, params) },
             randomSeed = 31,
@@ -80,17 +81,18 @@ class LinearBanditTest {
     fun fixedContextSteersBandit() {
         val schema = TogglesWithContext()
         val space = schema.compileSpace()
+        val projection = LinearFeatureProjection(space)
         val solver = LocalSearchSolver(space.compiled.problem)
         val params = LocalSearchParams(maxFlips = 1_000L, randomSeed = 17L)
 
-        val model = DiagonalizedLinearModel.Builder(space.featureSize)
+        val model = DiagonalizedLinearModel.Builder(projection.featureSize)
             .family(NormalVariance)
             .learningRate(ConstantRate(1f))
             .priorPrecision(0.01f)
             .exploration(0f)
             .build()
         val bandit = LinearBandit(
-            space = space,
+            projection = projection,
             linearModel = model,
             innerOptimizer = { obj -> solver.minimize(obj, params) },
             randomSeed = 17,
@@ -122,11 +124,12 @@ class LinearBanditTest {
     fun missingContextValueThrows() {
         val schema = TogglesWithContext()
         val space = schema.compileSpace()
+        val projection = LinearFeatureProjection(space)
         val solver = LocalSearchSolver(space.compiled.problem)
 
-        val model = DiagonalizedLinearModel.Builder(space.featureSize).build()
+        val model = DiagonalizedLinearModel.Builder(projection.featureSize).build()
         val bandit = LinearBandit(
-            space = space,
+            projection = projection,
             linearModel = model,
             innerOptimizer = { obj -> solver.minimize(obj, LocalSearchParams(randomSeed = 1L)) },
             randomSeed = 1,

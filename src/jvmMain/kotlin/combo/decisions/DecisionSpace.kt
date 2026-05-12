@@ -42,18 +42,17 @@ abstract class DecisionSpace : VariableSchema() {
             ReadOnlyProperty { _, _ -> h }
         }
 
-    /** Compile to a klause [CompiledProblem] + feature layout the bandits consume. */
+    /** Compile to a structural [CompiledDecisionSpace]. Bandit-specific projections (e.g.
+     *  [combo.bandit.glm.LinearFeatureProjection]) layer on top of this. */
     fun compileSpace(): CompiledDecisionSpace {
-        // Snapshot the klause schema as it stands now, but only the decision entries.
         val klauseEntries: SchemaDef<SchemaEntry> = this.definition()
-        // klause.compile() rebuilds the CompiledProblem from those entries.
         val compiled = this.compile()
-        val layout = FeatureLayout.from(
+        return CompiledDecisionSpace(
             compiled = compiled,
-            contextBools = _contextBools,
-            contextInts = _contextInts,
+            contextBools = _contextBools.toList(),
+            contextInts = _contextInts.toList(),
+            schemaDef = klauseEntries,
         )
-        return CompiledDecisionSpace(compiled, layout, klauseEntries)
     }
 
     /** Cast helper: re-tag a klause [BoolHandle] obtained from `boolVar()`. */
