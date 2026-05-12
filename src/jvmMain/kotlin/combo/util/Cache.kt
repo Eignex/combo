@@ -11,10 +11,13 @@ class RandomListCache<E>(val maxSize: Int, randomSeed: Int) {
     private val writeLock: Lock = readWriteLock.writeLock()
 
     private val randomSequence = RandomSequence(randomSeed)
+
     @PublishedApi
     internal val readLock: Lock = readWriteLock.readLock()
+
     @PublishedApi
     internal val array = arrayOfNulls<Any>(maxSize)
+
     @PublishedApi
     internal var size: Int = 0
 
@@ -25,27 +28,30 @@ class RandomListCache<E>(val maxSize: Int, randomSeed: Int) {
         writeLock.withLock {
             if (size < maxSize) {
                 array[size++] = e
-            } else array[rng.nextInt(maxSize)] = e
+            } else {
+                array[rng.nextInt(maxSize)] = e
+            }
         }
     }
 
     inline fun forEach(action: (E) -> Unit) =
-            readLock.withLock {
-                for (i in 0 until size) {
-                    val e = array[i] as E
-                    action.invoke(e)
-                }
+        readLock.withLock {
+            for (i in 0 until size) {
+                val e = array[i] as E
+                action.invoke(e)
             }
+        }
 
     inline fun find(predicate: (E) -> Boolean): E? =
-            readLock.withLock {
-                for (i in 0 until size) {
-                    val e = array[i] as E
-                    if (predicate.invoke(e))
-                        return e
+        readLock.withLock {
+            for (i in 0 until size) {
+                val e = array[i] as E
+                if (predicate.invoke(e)) {
+                    return e
                 }
-                return null
             }
+            return null
+        }
 }
 
 @Suppress("UNCHECKED_CAST")

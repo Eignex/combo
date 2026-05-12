@@ -1,6 +1,6 @@
 package combo.util
 
-import combo.math.permutation
+import com.eignex.kpermute.intPermutation
 import kotlin.random.Random
 
 /**
@@ -8,13 +8,21 @@ import kotlin.random.Random
  * It uses linear probing in order to support backshifting remove operation (so that no tombstone marker is needed).
  * Finally, inserts use the Robin Hood Hash method to stabilize performance.
  */
-class IntHashSet private constructor(private var table: IntArray, size: Int, val nullValue: Int = 0) : MutableIntCollection {
+class IntHashSet private constructor(
+    private var table: IntArray,
+    size: Int,
+    val nullValue: Int = 0
+) : MutableIntCollection {
 
     /**
      * @param initialSize ensure the capacity of this many items
      * @param nullValue use this to represent null values. This value cannot be added to the set.
      */
-    constructor(initialSize: Int = 4, nullValue: Int = 0) : this(IntArray(IntCollection.tableSizeFor(initialSize)) { nullValue }, 0, nullValue)
+    constructor(initialSize: Int = 4, nullValue: Int = 0) : this(
+        IntArray(IntCollection.tableSizeFor(initialSize)) { nullValue },
+        0,
+        nullValue
+    )
 
     override var size: Int = size
         private set
@@ -27,8 +35,9 @@ class IntHashSet private constructor(private var table: IntArray, size: Int, val
 
     override fun clear() {
         table = IntArray(IntCollection.tableSizeFor(4))
-        if (nullValue != 0)
+        if (nullValue != 0) {
             table.forEachIndexed { i, _ -> table[i] = nullValue }
+        }
         size = 0
         threshold = IntCollection.nextThreshold(table.size)
         mask = table.size - 1
@@ -64,7 +73,7 @@ class IntHashSet private constructor(private var table: IntArray, size: Int, val
 
     override fun permutation(rng: Random): IntIterator {
         return object : IntIterator() {
-            private var perm = permutation(table.size, rng)
+            private var perm = intPermutation(table.size, rng)
             private var seen = 0
             private var ptr = 0
             override fun hasNext() = seen < size
@@ -91,8 +100,9 @@ class IntHashSet private constructor(private var table: IntArray, size: Int, val
 
     override fun add(value: Int): Boolean {
         assert(value != nullValue)
-        if (table[linearProbe(value)] != nullValue)
+        if (table[linearProbe(value)] != nullValue) {
             return false
+        }
 
         // Resize if needed
         if (size + 1 >= threshold) {
@@ -100,8 +110,9 @@ class IntHashSet private constructor(private var table: IntArray, size: Int, val
             table = IntArray(IntCollection.tableSizeFor(size + 1) * 2)
             threshold = IntCollection.nextThreshold(table.size)
             mask = table.size - 1
-            if (nullValue != 0)
+            if (nullValue != 0) {
                 table.forEachIndexed { i, _ -> table[i] = nullValue }
+            }
             size = 0
             for (i in old.indices)
                 if (old[i] != nullValue) add(old[i])
@@ -154,8 +165,11 @@ class IntHashSet private constructor(private var table: IntArray, size: Int, val
     private fun probeDistance(pos: Int): Int {
         val desired = IntCollection.spread(table[pos]) and mask
         val dist = pos - desired
-        return if (dist < 0) table.size + dist
-        else dist
+        return if (dist < 0) {
+            table.size + dist
+        } else {
+            dist
+        }
     }
 
     private fun linearProbe(value: Int): Int {

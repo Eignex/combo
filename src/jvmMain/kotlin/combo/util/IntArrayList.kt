@@ -1,6 +1,6 @@
 package combo.util
 
-import combo.math.permutation
+import com.eignex.kpermute.intPermutation
 import kotlin.random.Random
 
 class IntArrayList private constructor(private var array: IntArray, size: Int) : MutableIntCollection, IntList {
@@ -30,9 +30,11 @@ class IntArrayList private constructor(private var array: IntArray, size: Int) :
     override fun toArray() = array.copyOfRange(0, size)
 
     override fun map(transform: (Int) -> Int) =
-            IntArrayList(IntArray(size) { i ->
+        IntArrayList(
+            IntArray(size) { i ->
                 transform(this.array[i])
-            })
+            }
+        )
 
     override fun iterator() = object : IntIterator() {
         private var ptr = 0
@@ -45,7 +47,7 @@ class IntArrayList private constructor(private var array: IntArray, size: Int) :
 
     override fun permutation(rng: Random) = object : IntIterator() {
         private var ptr = 0
-        private var perm = permutation(size, rng)
+        private var perm = intPermutation(size, rng)
         override fun hasNext() = ptr < size
         override fun nextInt(): Int {
             if (ptr >= size) throw NoSuchElementException()
@@ -56,8 +58,9 @@ class IntArrayList private constructor(private var array: IntArray, size: Int) :
     override fun random(rng: Random) = array[rng.nextInt(size)]
 
     override fun add(value: Int): Boolean {
-        if (array.size == size)
+        if (array.size == size) {
             array = array.copyOf(kotlin.math.max(array.size, 1) * 2)
+        }
         array[size++] = value
         return true
     }

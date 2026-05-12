@@ -29,11 +29,14 @@ class FloatVector(val array: FloatArray) : Vector {
 
 class FloatSparseVector(override val size: Int, val values: FloatArray, val index: IntHashMap) : Vector {
 
-    constructor(size: Int, values: FloatArray, indices: IntArray) : this(size, values,
-            IntHashMap(values.size * 2, nullKey = -1).also {
-                for (i in values.indices)
-                    it[indices[i]] = i
-            })
+    constructor(size: Int, values: FloatArray, indices: IntArray) : this(
+        size,
+        values,
+        IntHashMap(values.size * 2, nullKey = -1).also {
+            for (i in values.indices)
+                it[indices[i]] = i
+        }
+    )
 
     override val sparse: Boolean get() = false
 
@@ -52,13 +55,19 @@ class FloatSparseVector(override val size: Int, val values: FloatArray, val inde
 
     override fun get(i: Int): Float {
         val v = index[i, -1]
-        return if (v == -1) 0f
-        else values[v]
+        return if (v == -1) {
+            0f
+        } else {
+            values[v]
+        }
     }
 
     override fun set(i: Int, x: Float) {
-        if (!index.contains(i)) throw UnsupportedOperationException("Can't set new value in sparse vector.")
-        else values[index[i]] = x
+        if (!index.contains(i)) {
+            throw UnsupportedOperationException("Can't set new value in sparse vector.")
+        } else {
+            values[index[i]] = x
+        }
     }
 
     override fun iterator() = index.iterator()
@@ -68,7 +77,6 @@ class FloatSparseVector(override val size: Int, val values: FloatArray, val inde
             it[l.key()] = values[l.value()]
         }
     }
-
 
     override fun copy() = FloatSparseVector(size, values.copyOf(), index.copy())
     override fun vectorCopy() = copy()
@@ -94,9 +102,11 @@ class FloatMatrix(val array: Array<FloatArray>) : Matrix {
     }
 
     override operator fun times(v: VectorView) =
-            FloatVector(FloatArray(rows) {
+        FloatVector(
+            FloatArray(rows) {
                 v dot this@FloatMatrix[it]
-            })
+            }
+        )
 
     override fun transpose() {
         for (i in 0 until rows - 1)
@@ -116,5 +126,9 @@ object FloatVectorFactory : VectorFactory {
     override fun zeroVector(size: Int) = FloatVector(size)
     override fun matrix(values: Array<FloatArray>) = FloatMatrix(values)
     override fun vector(values: FloatArray) = FloatVector(values)
-    override fun sparseVector(size: Int, values: FloatArray, indices: IntArray) = FloatSparseVector(size, values, indices)
+    override fun sparseVector(
+        size: Int,
+        values: FloatArray,
+        indices: IntArray
+    ) = FloatSparseVector(size, values, indices)
 }

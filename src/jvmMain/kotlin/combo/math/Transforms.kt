@@ -73,4 +73,3 @@ object InverseSquaredTransform : Transform {
 object RectifierTransform : Transform {
     override fun apply(value: Float) = max(0f, value)
 }
-

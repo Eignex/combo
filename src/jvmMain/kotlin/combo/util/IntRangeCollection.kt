@@ -1,6 +1,6 @@
 package combo.util
 
-import combo.math.permutation
+import com.eignex.kpermute.intPermutation
 import kotlinx.serialization.Serializable
 import kotlin.random.Random
 
@@ -20,13 +20,19 @@ data class IntRangeCollection(val min: Int, val max: Int) : IntList {
     override fun contains(value: Int): Boolean = value in min..max
 
     override fun indexOf(value: Int): Int {
-        return if (value in min..max) value - min
-        else -1
+        return if (value in min..max) {
+            value - min
+        } else {
+            -1
+        }
     }
 
     override fun get(index: Int): Int {
-        if (index in 0..(max - min)) return min + index
-        else throw IndexOutOfBoundsException("$index")
+        if (index in 0..(max - min)) {
+            return min + index
+        } else {
+            throw IndexOutOfBoundsException("$index")
+        }
     }
 
     override fun toArray(): IntArray {
@@ -40,15 +46,18 @@ data class IntRangeCollection(val min: Int, val max: Int) : IntList {
     override fun map(transform: (Int) -> Int): IntRangeCollection {
         val min1 = transform.invoke(min)
         val max1 = transform.invoke(max)
-        return if (min1 < max1) IntRangeCollection(min1, max1)
-        else IntRangeCollection(max1, min1)
+        return if (min1 < max1) {
+            IntRangeCollection(min1, max1)
+        } else {
+            IntRangeCollection(max1, min1)
+        }
     }
 
     override fun iterator() = (min..max).iterator()
 
     override fun permutation(rng: Random): IntIterator {
         var i = 0
-        val perm = permutation(size, rng)
+        val perm = intPermutation(size, rng)
         return object : IntIterator() {
             override fun hasNext() = i < size
             override fun nextInt(): Int {

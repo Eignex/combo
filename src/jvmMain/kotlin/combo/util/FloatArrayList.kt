@@ -27,9 +27,11 @@ class FloatArrayList private constructor(private var array: FloatArray, size: In
     fun toArray() = array.copyOfRange(0, size)
 
     fun map(transform: (Float) -> Float) =
-            FloatArrayList(FloatArray(size) { i ->
+        FloatArrayList(
+            FloatArray(size) { i ->
                 transform(this.array[i])
-            })
+            }
+        )
 
     override fun iterator() = object : FloatIterator() {
         private var ptr = 0
@@ -41,8 +43,9 @@ class FloatArrayList private constructor(private var array: FloatArray, size: In
     }
 
     fun add(value: Float): Boolean {
-        if (array.size == size)
+        if (array.size == size) {
             array = array.copyOf(kotlin.math.max(array.size, 1) * 2)
+        }
         array[size++] = value
         return true
     }

@@ -17,6 +17,7 @@ class ArrayQueue<E> : Iterable<E> {
         if (write == read) {
             write = array.size
             val breakPoint = array.size - read
+
             @Suppress("UNCHECKED_CAST")
             val a: Array<E?> = arrayOfNulls<Any?>(array.size shl 1) as Array<E?>
             for (i in read until read + breakPoint) a[i - read] = array[i]
@@ -55,8 +56,11 @@ class ArrayQueue<E> : Iterable<E> {
     }
 
     val size: Int
-        get() = if (write >= read) write - read
-        else array.size - (read - write)
+        get() = if (write >= read) {
+            write - read
+        } else {
+            array.size - (read - write)
+        }
 }
 
 class FloatCircleBuffer(private var array: FloatArray) : Iterable<Float> {

@@ -32,6 +32,7 @@ interface Sink<T> {
 class BlockingSink<T>(arraySize: Int) : Sink<T> {
 
     private val lock = ReentrantLock()
+
     @Suppress("UNCHECKED_CAST")
     private val array = arrayOfNulls<Any?>(arraySize) as Array<T?>
     private var size: Int = 0
@@ -53,8 +54,9 @@ class BlockingSink<T>(arraySize: Int) : Sink<T> {
 
     override fun offer(element: T): Boolean {
         lock.withLock {
-            if (size == array.size)
+            if (size == array.size) {
                 return false
+            }
             enqueue(element)
             return true
         }
@@ -126,7 +128,9 @@ class LockingSink<T> : Sink<T> {
                 tail = tail!!.prev
                 size--
                 t
-            } else null
+            } else {
+                null
+            }
         }
     }
 
@@ -154,8 +158,9 @@ class NonBlockingSink<T> : Sink<T> {
         while (true) {
             val tailNode = tail.get()
             val newTailNode: Node<T> = Node(element, tailNode)
-            if (tail.compareAndSet(tailNode, newTailNode))
+            if (tail.compareAndSet(tailNode, newTailNode)) {
                 break
+            }
         }
         return true
     }
@@ -167,8 +172,9 @@ class NonBlockingSink<T> : Sink<T> {
     override fun remove(): T? {
         while (true) {
             val tailNode = tail.get()
-            if (tail.compareAndSet(tailNode, tailNode?.prev))
+            if (tail.compareAndSet(tailNode, tailNode?.prev)) {
                 return tailNode?.obj
+            }
         }
     }
 }

@@ -1,6 +1,6 @@
 package combo.util
 
-import combo.math.permutation
+import com.eignex.kpermute.intPermutation
 import kotlin.random.Random
 
 class IntUnionCollection(val a: IntCollection, val b: IntCollection) : IntCollection {
@@ -16,29 +16,38 @@ class IntUnionCollection(val a: IntCollection, val b: IntCollection) : IntCollec
         return object : IntIterator() {
             override fun hasNext() = aItr.hasNext() || bItr.hasNext()
             override fun nextInt(): Int {
-                return if (aItr.hasNext()) aItr.nextInt()
-                else bItr.nextInt()
+                return if (aItr.hasNext()) {
+                    aItr.nextInt()
+                } else {
+                    bItr.nextInt()
+                }
             }
         }
     }
 
     override fun permutation(rng: Random): IntIterator {
         return object : IntIterator() {
-            val perm = permutation(size, rng)
+            val perm = intPermutation(size, rng)
             val aPerm = a.permutation(rng)
             val bPerm = b.permutation(rng)
             var i = 0
             override fun hasNext() = i < size
             override fun nextInt(): Int {
-                return if (perm.encode(i++) < a.size) aPerm.nextInt()
-                else bPerm.nextInt()
+                return if (perm.encode(i++) < a.size) {
+                    aPerm.nextInt()
+                } else {
+                    bPerm.nextInt()
+                }
             }
         }
     }
 
     override fun random(rng: Random): Int {
-        return if (rng.nextInt(size) < a.size) a.random(rng)
-        else b.random(rng)
+        return if (rng.nextInt(size) < a.size) {
+            a.random(rng)
+        } else {
+            b.random(rng)
+        }
     }
 
     override fun toString() = "IntUnionCollection($a, $b)"

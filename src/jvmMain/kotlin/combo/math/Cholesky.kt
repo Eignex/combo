@@ -50,7 +50,9 @@ fun Matrix.choleskyDowndate(x: VectorView): Float {
             }
         }
         0f
-    } else norm
+    } else {
+        norm
+    }
 }
 
 fun Matrix.cholesky(): Matrix {
@@ -62,12 +64,16 @@ fun Matrix.cholesky(): Matrix {
             for (k in 0 until j)
                 sum += L[i, k] * L[j, k]
 
-            if (i == j) L[i, i] = sqrt(this[i, i] - sum)
-            else L[i, j] = 1.0f / L[j, j] * (this[i, j] - sum)
+            if (i == j) {
+                L[i, i] = sqrt(this[i, i] - sum)
+            } else {
+                L[i, j] = 1.0f / L[j, j] * (this[i, j] - sum)
+            }
         }
-        if (L[i, i] <= 0 || L[i, i].isNaN())
+        if (L[i, i] <= 0 || L[i, i].isNaN()) {
             L[i, i] = 1e-5f
-        //error("Matrix not positive definite")
+        }
+        // error("Matrix not positive definite")
     }
     return L
 }

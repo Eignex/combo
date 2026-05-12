@@ -34,7 +34,6 @@ fun gcd(a: Int, b: Int): Int {
         n++
     }
 
-
     while ((p and 1) == 0)
         p = p shr 1
 
@@ -49,7 +48,7 @@ fun gcd(a: Int, b: Int): Int {
         }
 
         q = (q - p)
-    } while (q != 0);
+    } while (q != 0)
 
     return p shl n
 }

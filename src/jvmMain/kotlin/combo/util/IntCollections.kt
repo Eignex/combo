@@ -116,17 +116,20 @@ fun collectionOf(vararg array: Int): IntCollection {
 }
 
 fun unionCollection(a: IntCollection, value: Int): IntCollection {
-    return if (a is IntRangeCollection && (value + 1 in a || value - 1 in a)) IntRangeCollection(min(a.min, value), max(a.max, value))
-    else IntUnionCollection(a, IntArrayList(intArrayOf(value)))
+    return if (a is IntRangeCollection && (value + 1 in a || value - 1 in a)) {
+        IntRangeCollection(min(a.min, value), max(a.max, value))
+    } else {
+        IntUnionCollection(a, IntArrayList(intArrayOf(value)))
+    }
 }
 
 fun IntCollection.mutableCopy(nullValue: Int): MutableIntCollection =
-        when {
-            this is MutableIntCollection -> this.copy()
-            else -> (if (this.size > 20) IntHashSet(nullValue = nullValue) else IntArrayList()).apply {
-                addAll(this@mutableCopy)
-            }
+    when {
+        this is MutableIntCollection -> this.copy()
+        else -> (if (this.size > 20) IntHashSet(nullValue = nullValue) else IntArrayList()).apply {
+            addAll(this@mutableCopy)
         }
+    }
 
 fun IntCollection.isEmpty() = size == 0
 fun IntCollection.isNotEmpty() = size > 0

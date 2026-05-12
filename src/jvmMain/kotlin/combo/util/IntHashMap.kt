@@ -1,6 +1,6 @@
 package combo.util
 
-import combo.math.permutation
+import com.eignex.kpermute.intPermutation
 import kotlin.random.Random
 
 /**
@@ -11,7 +11,12 @@ import kotlin.random.Random
  */
 class IntHashMap private constructor(private var table: LongArray, size: Int, val nullKey: Int = 0) : IntCollection {
 
-    constructor(initialSize: Int = 4, nullKey: Int = 0) : this(LongArray(IntCollection.tableSizeFor(initialSize)) { entry(nullKey, 0) }, 0, nullKey)
+    constructor(initialSize: Int = 4, nullKey: Int = 0) : this(
+        LongArray(IntCollection.tableSizeFor(initialSize)) {
+            entry(nullKey, 0)
+        },
+        0, nullKey
+    )
 
     override var size: Int = size
         private set
@@ -58,7 +63,7 @@ class IntHashMap private constructor(private var table: LongArray, size: Int, va
 
     override fun permutation(rng: Random): IntIterator {
         return object : IntIterator() {
-            private var perm = permutation(table.size, rng)
+            private var perm = intPermutation(table.size, rng)
             private var seen = 0
             private var ptr = 0
             override fun hasNext() = seen < size
@@ -124,8 +129,11 @@ class IntHashMap private constructor(private var table: LongArray, size: Int, va
     operator fun get(key: Int, default: Int = 0): Int {
         assert(key != nullKey)
         val entry = table[linearProbe(key)]
-        return if (entry.key() != nullKey) entry.value()
-        else default
+        return if (entry.key() != nullKey) {
+            entry.value()
+        } else {
+            default
+        }
     }
 
     operator fun set(key: Int, value: Int): Int {
@@ -141,8 +149,9 @@ class IntHashMap private constructor(private var table: LongArray, size: Int, va
                 table = LongArray(IntCollection.tableSizeFor(size + 1) * 2)
                 threshold = IntCollection.nextThreshold(table.size)
                 mask = table.size - 1
-                if (nullKey != 0)
+                if (nullKey != 0) {
                     table.forEachIndexed { i, _ -> table[i] = entry(nullKey, 0) }
+                }
                 size = 0
                 for (i in old.indices)
                     if (old[i].key() != nullKey) add(old[i])
@@ -200,8 +209,11 @@ class IntHashMap private constructor(private var table: LongArray, size: Int, va
     private fun probeDistance(pos: Int): Int {
         val desired = IntCollection.spread(table[pos].key()) and mask
         val dist = pos - desired
-        return if (dist < 0) table.size + dist
-        else dist
+        return if (dist < 0) {
+            table.size + dist
+        } else {
+            dist
+        }
     }
 
     private fun linearProbe(key: Int): Int {

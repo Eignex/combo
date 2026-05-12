@@ -21,24 +21,24 @@ inline fun FloatArray.sumByFloat(selector: (Float) -> Float): Float {
 }
 
 inline fun FloatArray.mapArray(transform: (Float) -> Float) =
-        FloatArray(this.size) {
-            transform(this[it])
-        }
+    FloatArray(this.size) {
+        transform(this[it])
+    }
 
 inline fun IntArray.mapArray(transform: (Int) -> Int) =
-        IntArray(this.size) {
-            transform(this[it])
-        }
+    IntArray(this.size) {
+        transform(this[it])
+    }
 
 inline fun <T1, reified T2> Array<T1>.mapArray(transform: (T1) -> T2) =
-        Array(this.size) {
-            transform(this[it])
-        }
+    Array(this.size) {
+        transform(this[it])
+    }
 
 inline fun FloatArray.mapArrayIndexed(transform: (Int, Float) -> Float) =
-        FloatArray(this.size) {
-            transform(it, this[it])
-        }
+    FloatArray(this.size) {
+        transform(it, this[it])
+    }
 
 inline fun FloatArray.transformArrayIndexed(transform: (Int, Float) -> Float) {
     for (i in indices)
@@ -67,4 +67,3 @@ fun <T> Array<T>.removeAt(ix: Int) = copyOfRange(0, ix) + copyOfRange(ix + 1, si
 val EMPTY_INT_ARRAY = IntArray(0)
 val EMPTY_FLOAT_ARRAY = FloatArray(0)
 val EMPTY_LONG_ARRAY = LongArray(0)
-
