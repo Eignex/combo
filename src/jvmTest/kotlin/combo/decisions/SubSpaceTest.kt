@@ -32,6 +32,16 @@ private class Nested : DecisionSpace() {
     val middle by submodel(::Middle)
 }
 
+private class AdSlot : SubSpace() {
+    val premium by boolVar()
+    val budget by intVar(0, 1000)
+}
+
+private class TwoAdSlots : DecisionSpace() {
+    val slotA by submodel(::AdSlot)
+    val slotB by submodel(::AdSlot)
+}
+
 class SubSpaceTest {
 
     @Test
@@ -53,6 +63,24 @@ class SubSpaceTest {
         budget as IntSpec
         assertEquals(0, budget.min)
         assertEquals(100, budget.max)
+    }
+
+    @Test
+    fun multipleInstancesOfSameSubModelGetDistinctNamespaces() {
+        val model = TwoAdSlots()
+        val space = model.compileSpace()
+        val entries = space.schemaDef.entries
+
+        // Both instances exist independently under their property-name prefix.
+        assertTrue("slotA.premium" in entries)
+        assertTrue("slotA.budget" in entries)
+        assertTrue("slotB.premium" in entries)
+        assertTrue("slotB.budget" in entries)
+
+        // Their handles point at different klause variables.
+        assertEquals("slotA.premium", model.slotA.premium.name)
+        assertEquals("slotB.premium", model.slotB.premium.name)
+        assertTrue(model.slotA.premium !== model.slotB.premium)
     }
 
     @Test
