@@ -59,6 +59,31 @@ class CompiledDecisionSpace internal constructor(
         activeConditions[handle.name]?.let { evaluate(it, sample) } ?: true
 
     private fun evaluate(expr: BoolExpr, sample: Sample): Boolean = evaluateBool(expr, sample, compiled)
+
+    /**
+     * Render a self-contained, kotlinx-serialization friendly [DecisionSpaceDef] that
+     * captures everything in this compiled space: klause schema, contexts, interactions,
+     * and gate names. Round-trips through JSON / ProtoBuf / etc.
+     */
+    fun definition(): DecisionSpaceDef = DecisionSpaceDef(
+        klause = schemaDef,
+        contextBools = contextBools.map { it.name },
+        contextInts = contextInts.map { it.name },
+        interactions = interactions.map { it.toDef() },
+        gates = gates.values.map { it.name },
+    )
+}
+
+private fun InteractionHandle.toDef(): InteractionDef =
+    InteractionDef(name = name, lhs = lhs.toScalarRef(), rhs = rhs.toScalarRef())
+
+private fun Any.toScalarRef(): ScalarRef = when (this) {
+    is BoolHandle -> ScalarRef(ScalarKind.BoolDecision, name)
+    is IntHandle -> ScalarRef(ScalarKind.IntDecision, name)
+    is NominalHandle -> ScalarRef(ScalarKind.NominalDecision, name, labels)
+    is BoolContextHandle -> ScalarRef(ScalarKind.BoolContext, name)
+    is IntContextHandle -> ScalarRef(ScalarKind.IntContext, name)
+    else -> error("unsupported handle in interaction: $this")
 }
 
 private fun evaluateBool(
