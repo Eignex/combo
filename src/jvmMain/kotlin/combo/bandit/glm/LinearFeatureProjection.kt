@@ -4,6 +4,7 @@ import com.eignex.klause.solver.LinearObjective
 import com.eignex.klause.solver.Sample
 import combo.decisions.CompiledDecisionSpace
 import combo.decisions.Context
+import combo.decisions.FeatureEncoder
 import combo.math.Vector
 import combo.math.VectorView
 import combo.math.vectors
@@ -16,12 +17,12 @@ import combo.math.vectors
  * Bool features are 0/1, int features are raw ints, context features are pulled from
  * the [Context]. Missing context values throw via [Context.get].
  */
-class LinearFeatureProjection(val space: CompiledDecisionSpace) {
+class LinearFeatureProjection(override val space: CompiledDecisionSpace) : FeatureEncoder<VectorView> {
 
     val layout: LinearFeatureLayout = LinearFeatureLayout.from(space)
-    val featureSize: Int get() = layout.featureSize
+    override val featureSize: Int get() = layout.featureSize
 
-    fun encode(sample: Sample, context: Context = Context.Empty): Vector {
+    override fun encode(sample: Sample, context: Context): Vector {
         val out = vectors.zeroVector(layout.featureSize)
         for (b in 0 until layout.numBoolDecisions) {
             out[layout.boolDecisionsStart + b] = if (sample.bools[b]) 1f else 0f
