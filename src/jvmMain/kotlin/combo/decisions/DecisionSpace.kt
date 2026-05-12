@@ -28,14 +28,16 @@ abstract class DecisionSpace : SubSpace() {
 
     protected fun contextBool() =
         PropertyDelegateProvider<DecisionSpace, ReadOnlyProperty<DecisionSpace, BoolContextHandle>> { _, prop ->
-            val h = BoolContextHandle(prop.name)
+            val klauseHandle = ctx.root.registerBool(ctx.qualify(prop.name), ctx.activeCondition)
+            val h = BoolContextHandle(klauseHandle)
             _contextBools += h
             ReadOnlyProperty { _, _ -> h }
         }
 
-    protected fun contextInt() =
+    protected fun contextInt(min: Int, max: Int) =
         PropertyDelegateProvider<DecisionSpace, ReadOnlyProperty<DecisionSpace, IntContextHandle>> { _, prop ->
-            val h = IntContextHandle(prop.name)
+            val klauseHandle = ctx.root.registerInt(ctx.qualify(prop.name), min, max, ctx.activeCondition)
+            val h = IntContextHandle(klauseHandle)
             _contextInts += h
             ReadOnlyProperty { _, _ -> h }
         }

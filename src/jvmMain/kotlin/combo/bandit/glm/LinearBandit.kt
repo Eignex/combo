@@ -1,5 +1,6 @@
 package combo.bandit.glm
 
+import com.eignex.klause.solver.Assumptions
 import com.eignex.klause.solver.LinearObjective
 import com.eignex.klause.solver.Sample
 import com.eignex.kumulant.core.SeriesStat
@@ -20,7 +21,7 @@ import kotlin.math.abs
 class LinearBandit(
     val projection: LinearFeatureProjection,
     val linearModel: LinearModel,
-    val innerOptimizer: (LinearObjective) -> Sample?,
+    val innerOptimizer: (LinearObjective, Assumptions) -> Sample?,
     override val randomSeed: Int = System.currentTimeMillis().toInt(),
     override val maximize: Boolean = true,
     override val rewards: SeriesStat<*>? = null,
@@ -65,7 +66,8 @@ class LinearBandit(
         val rng = randomSequence.next()
         val sampledWeights = linearModel.sample(rng)
         val objective = projection.toObjective(sampledWeights, linearModel.bias, context, maximize)
-        return innerOptimizer(objective)
+        val assumptions = projection.assumptionsFor(context)
+        return innerOptimizer(objective, assumptions)
             ?: throw NoFeasibleSampleException("inner optimizer returned no feasible sample")
     }
 
@@ -77,7 +79,8 @@ class LinearBandit(
 
     fun optimalOrThrow(context: Context): Sample {
         val objective = projection.toObjective(linearModel.weights, linearModel.bias, context, maximize)
-        return innerOptimizer(objective)
+        val assumptions = projection.assumptionsFor(context)
+        return innerOptimizer(objective, assumptions)
             ?: throw NoFeasibleSampleException("inner optimizer returned no feasible sample")
     }
 

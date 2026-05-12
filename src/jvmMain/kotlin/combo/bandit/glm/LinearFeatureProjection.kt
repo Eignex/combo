@@ -17,26 +17,21 @@ import combo.math.VectorView
 import combo.math.vectors
 
 /**
- * Linear bandit's view of a [CompiledDecisionSpace]: projects `(Sample, Context)` into
- * a dense feature vector, and translates a learned weight vector back into a klause
+ * Linear bandit's view of a [CompiledDecisionSpace]: projects a [Sample] into a dense
+ * feature vector, and translates a learned weight vector back into a klause
  * [LinearObjective] for choose-time optimisation.
  *
- * Bool features are 0/1, int features are raw ints, context features are pulled from
- * the [Context]. Missing context values throw via [Context.get].
+ * Contexts are now ordinary solver variables (pinned per-call via assumptions); the
+ * encoder reads them from the sample alongside decisions. The [Context] argument is
+ * still accepted on [encode] for parity with the bandit API but is not consulted —
+ * the canonical context values are whatever the sample carries.
  *
  * Optional decision variables: when their activation condition evaluates to false on
- * a sample, the corresponding feature slot is zeroed. The wrapped [LinearModel]'s
- * iterator yields all indices, but with x_i = 0 the gradient contribution is exactly
- * zero — equivalent to "skip update". Klause's pinning constraint keeps the value at
- * its default for inactive samples, so klause's search-time objective stays consistent
- * for optional bool slots (whose default is 0). For optional int slots with non-zero
- * `min`, there is a small bias at choose-time equal to `w_i * min` on inactive
- * assignments; acceptable for the common case `min == 0`.
+ * a sample, the corresponding feature slot is zeroed so the linear-model gradient
+ * vanishes there.
  *
- * Interactions (declared via [combo.decisions.DecisionSpace.interact]) get an extra
- * feature slot. `context × decision` interactions fold into the bool/int coefficients
- * of klause's objective at choose-time; `context × context` interactions become a
- * constant.
+ * Interactions get extra feature slots. `ctx × decision` interactions fold into the
+ * bool/int coefficients of klause's objective; `ctx × ctx` becomes a constant.
  */
 class LinearFeatureProjection(override val space: CompiledDecisionSpace) : FeatureEncoder<VectorView> {
 
@@ -67,122 +62,113 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
 
     override fun encode(sample: Sample, context: Context): Vector {
         val out = vectors.zeroVector(layout.featureSize)
-        for (b in 0 until layout.numBoolDecisions) {
-            if (boolDecisionActive(b, sample)) {
-                out[layout.boolDecisionsStart + b] = if (sample.bools[b]) 1f else 0f
+        for (b in 0 until layout.numBoolVars) {
+            if (boolActive(b, sample)) {
+                out[layout.boolStart + b] = if (sample.bools[b]) 1f else 0f
             }
         }
-        for (i in 0 until layout.numIntDecisions) {
-            if (intDecisionActive(i, sample)) {
-                out[layout.intDecisionsStart + i] = sample.ints[i].toFloat()
+        for (i in 0 until layout.numIntVars) {
+            if (intActive(i, sample)) {
+                out[layout.intStart + i] = sample.ints[i].toFloat()
             }
-        }
-        for ((handle, idx) in layout.boolContextIndex) {
-            out[idx] = if (context[handle]) 1f else 0f
-        }
-        for ((handle, idx) in layout.intContextIndex) {
-            out[idx] = context[handle].toFloat()
         }
         for (interaction in layout.interactions) {
-            encodeInteractionInto(interaction, sample, context, out)
+            encodeInteractionInto(interaction, sample, out)
         }
         return out
     }
 
-    private fun encodeInteractionInto(it: InteractionHandle, sample: Sample, context: Context, out: Vector) {
+    private fun encodeInteractionInto(it: InteractionHandle, sample: Sample, out: Vector) {
         val start = layout.interactionStart.getValue(it)
         val nominal = it.nominalSide()
         if (nominal == null) {
-            val v = scalarFor(it.lhs, sample, context) * scalarFor(it.rhs, sample, context)
+            val v = scalarFor(it.lhs, sample) * scalarFor(it.rhs, sample)
             out[start] = v.toFloat()
             return
         }
-        // Nominal × context: K slots, one per label. The active label's slot carries
-        // ctx_scalar; the rest stay zero.
         val ctxSide = if (it.lhs === nominal) it.rhs else it.lhs
-        val ctxScalar = ctxScalar(ctxSide, context)
+        val scalar = scalarFor(ctxSide, sample)
         val indicators = space.compiled.nominalIndicators[nominal.name]
             ?: error("interaction references unknown nominal '${nominal.name}'")
         for ((idx, label) in nominal.labels.withIndex()) {
-            val indicatorId = indicators[label] ?: error("nominal '${nominal.name}' missing label '$label'")
-            if (sample.bools[indicatorId]) {
-                out[start + idx] = ctxScalar.toFloat()
-            }
+            val indicatorId = indicators[label]
+                ?: error("nominal '${nominal.name}' missing label '$label'")
+            if (sample.bools[indicatorId]) out[start + idx] = scalar.toFloat()
         }
     }
 
     /**
-     * Build a klause objective whose minimiser is the best-scoring feasible [Sample]
-     * under [weights] given [context]. Context-feature contributions are folded into
-     * the objective's `constant` (they're invariant during this choose). `maximize=true`
-     * flips signs so klause's minimiser searches for the bandit's argmax.
+     * Build a klause objective whose minimiser is the best-scoring feasible sample
+     * under [weights] given [context]. The caller is responsible for also passing
+     * [com.eignex.klause.solver.Assumptions] (built via [assumptionsFor]) to the solver
+     * so the context variables are pinned to the values [context] supplies.
      *
-     * Interaction weights fold accordingly:
-     *  - `ctx × decision_bool` adds `weight * ctx_value` to the bool's klause coefficient
-     *  - `ctx × decision_int`  adds `weight * ctx_value` to the int's klause coefficient
-     *  - `ctx × ctx` contributes a constant `weight * ctx1_value * ctx2_value`
+     * `maximize = true` flips signs so klause's minimiser searches for the bandit's
+     * argmax.
      */
     fun toObjective(weights: VectorView, bias: Float, context: Context, maximize: Boolean): LinearObjective {
         require(weights.size == layout.featureSize) {
             "weights size ${weights.size} must match feature layout ${layout.featureSize}"
         }
         val sign = if (maximize) -1.0 else 1.0
-        val boolWeights = DoubleArray(layout.numBoolDecisions) { weights[layout.boolDecisionsStart + it].toDouble() }
-        val intCoefficients = DoubleArray(layout.numIntDecisions) { weights[layout.intDecisionsStart + it].toDouble() }
+        val boolWeights = DoubleArray(layout.numBoolVars) { weights[layout.boolStart + it].toDouble() }
+        val intCoefficients = DoubleArray(layout.numIntVars) { weights[layout.intStart + it].toDouble() }
         var constant = bias.toDouble()
-        for ((handle, idx) in layout.boolContextIndex) {
-            if (context[handle]) constant += weights[idx].toDouble()
-        }
-        for ((handle, idx) in layout.intContextIndex) {
-            constant += weights[idx].toDouble() * context[handle]
-        }
         for (interaction in layout.interactions) {
-            foldInteraction(interaction, weights, context, boolWeights, intCoefficients) { c ->
-                constant += c
-            }
+            foldInteraction(interaction, weights, context, boolWeights, intCoefficients) { c -> constant += c }
         }
-        // Apply minimisation sign last, to the assembled coefficients.
         for (i in boolWeights.indices) boolWeights[i] *= sign
         for (i in intCoefficients.indices) intCoefficients[i] *= sign
         return LinearObjective(boolWeights, intCoefficients, constant = sign * constant)
     }
 
-    private fun boolDecisionActive(id: Int, sample: Sample): Boolean {
+    /**
+     * Build the klause [com.eignex.klause.solver.Assumptions] that pin every context
+     * variable in [context] to its supplied value for a choose call.
+     */
+    fun assumptionsFor(context: Context): com.eignex.klause.solver.Assumptions {
+        val bools = mutableMapOf<Int, Boolean>()
+        val ints = mutableMapOf<Int, Int>()
+        for (h in space.contextBools) {
+            val id = space.compiled.boolVarIdByName[h.name] ?: continue
+            bools[id] = context[h]
+        }
+        for (h in space.contextInts) {
+            val id = space.compiled.intVarIdByName[h.name] ?: continue
+            ints[id] = context[h]
+        }
+        return com.eignex.klause.solver.Assumptions(bools, ints)
+    }
+
+    private fun boolActive(id: Int, sample: Sample): Boolean {
         if (id !in optionalBoolIds) return true
         return space.isActive(BoolHandle(boolNameById[id]!!), sample)
     }
 
-    private fun intDecisionActive(id: Int, sample: Sample): Boolean {
+    private fun intActive(id: Int, sample: Sample): Boolean {
         if (id !in optionalIntIds) return true
         val name = intNameById[id]!!
-        val domain = space.compiled.problem.intDomains[id]
-        return space.isActive(IntHandle(name, domain.min, domain.max), sample)
+        val d = space.compiled.problem.intDomains[id]
+        return space.isActive(IntHandle(name, d.min, d.max), sample)
     }
 
-    private fun scalarFor(handle: Any, sample: Sample, context: Context): Double = when (handle) {
+    private fun scalarFor(handle: Any, sample: Sample): Double = when (handle) {
         is BoolHandle -> {
             val id = space.compiled.boolVarIdByName[handle.name]
-                ?: error("interaction references unknown bool decision '${handle.name}'")
-            if (!boolDecisionActive(id, sample)) 0.0
-            else if (sample.bools[id]) 1.0 else 0.0
+                ?: error("interaction references unknown bool '${handle.name}'")
+            if (!boolActive(id, sample)) 0.0 else if (sample.bools[id]) 1.0 else 0.0
         }
         is IntHandle -> {
             val id = space.compiled.intVarIdByName[handle.name]
-                ?: error("interaction references unknown int decision '${handle.name}'")
-            if (!intDecisionActive(id, sample)) 0.0
-            else sample.ints[id].toDouble()
+                ?: error("interaction references unknown int '${handle.name}'")
+            if (!intActive(id, sample)) 0.0 else sample.ints[id].toDouble()
         }
-        is BoolContextHandle -> if (context[handle]) 1.0 else 0.0
-        is IntContextHandle -> context[handle].toDouble()
-        else -> error("unsupported interaction handle: $handle")
+        is NominalHandle -> error("nominal handle should not be a direct scalar; expand via interaction logic")
+        is BoolContextHandle -> scalarFor(handle.klauseHandle, sample)
+        is IntContextHandle -> scalarFor(handle.klauseHandle, sample)
+        else -> error("unsupported handle: $handle")
     }
 
-    /**
-     * Decompose an interaction's contribution(s) to klause's objective. For scalar
-     * decision interactions, one slot folds into the decision's klause coefficient.
-     * For nominal interactions, each label's per-slot weight folds into the matching
-     * indicator's klause coefficient. context × context contributes a constant.
-     */
     private fun foldInteraction(
         it: InteractionHandle,
         allWeights: VectorView,
@@ -207,18 +193,30 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
             return
         }
         val w = allWeights[start].toDouble()
-        val lhsIsDecision = it.lhs is BoolHandle || it.lhs is IntHandle
-        val rhsIsDecision = it.rhs is BoolHandle || it.rhs is IntHandle
+        val lhsIsDecision = isDecisionScalar(it.lhs)
+        val rhsIsDecision = isDecisionScalar(it.rhs)
         when {
             !lhsIsDecision && !rhsIsDecision -> {
                 addToConstant(w * ctxScalar(it.lhs, context) * ctxScalar(it.rhs, context))
             }
-            lhsIsDecision -> applyDecisionScaledWeight(it.lhs, w * ctxScalar(it.rhs, context), boolWeights, intCoefficients)
-            else -> applyDecisionScaledWeight(it.rhs, w * ctxScalar(it.lhs, context), boolWeights, intCoefficients)
+            lhsIsDecision -> applyDecisionWeight(it.lhs, w * ctxScalar(it.rhs, context), boolWeights, intCoefficients)
+            else -> applyDecisionWeight(it.rhs, w * ctxScalar(it.lhs, context), boolWeights, intCoefficients)
         }
     }
 
-    private fun applyDecisionScaledWeight(
+    private fun isDecisionScalar(handle: Any): Boolean = when (handle) {
+        is BoolContextHandle, is IntContextHandle -> false
+        is BoolHandle, is IntHandle, is NominalHandle -> true
+        else -> false
+    }
+
+    private fun ctxScalar(handle: Any, context: Context): Double = when (handle) {
+        is BoolContextHandle -> if (context[handle]) 1.0 else 0.0
+        is IntContextHandle -> context[handle].toDouble()
+        else -> error("expected context handle, got $handle")
+    }
+
+    private fun applyDecisionWeight(
         decision: Any,
         weight: Double,
         boolWeights: DoubleArray,
@@ -227,21 +225,15 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
         when (decision) {
             is BoolHandle -> {
                 val id = space.compiled.boolVarIdByName[decision.name]
-                    ?: error("interaction references unknown bool decision '${decision.name}'")
+                    ?: error("interaction references unknown bool '${decision.name}'")
                 boolWeights[id] += weight
             }
             is IntHandle -> {
                 val id = space.compiled.intVarIdByName[decision.name]
-                    ?: error("interaction references unknown int decision '${decision.name}'")
+                    ?: error("interaction references unknown int '${decision.name}'")
                 intCoefficients[id] += weight
             }
-            else -> error("unsupported decision side in interaction: $decision")
+            else -> error("unsupported decision in interaction: $decision")
         }
-    }
-
-    private fun ctxScalar(handle: Any, context: Context): Double = when (handle) {
-        is BoolContextHandle -> if (context[handle]) 1.0 else 0.0
-        is IntContextHandle -> context[handle].toDouble()
-        else -> error("expected context handle, got $handle")
     }
 }

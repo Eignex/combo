@@ -26,7 +26,7 @@ private class TogglesWithContext : DecisionSpace() {
     val choice1 by boolVar()
     val choice2 by boolVar()
     val premium by contextBool()
-    val segment by contextInt()
+    val segment by contextInt(-100, 100)
 }
 
 private class AudioBlock : SubSpace() {
@@ -52,7 +52,7 @@ private class ContextConditionedSchema : DecisionSpace() {
     val choice1 by boolVar()
     val choice2 by boolVar()
     val premium by contextBool()
-    val segment by contextInt()
+    val segment by contextInt(-100, 100)
     val premium_x_c1 by interact(premium, choice1)
     val segment_x_c2 by interact(segment, choice2)
 }
@@ -75,7 +75,7 @@ class LinearBanditTest {
         val bandit = LinearBandit(
             projection = projection,
             linearModel = model,
-            innerOptimizer = { obj -> solver.minimize(obj, params) },
+            innerOptimizer = { obj, asm -> solver.minimize(obj, params.copy(assumptions = asm)) },
             randomSeed = 31,
         )
 
@@ -123,7 +123,7 @@ class LinearBanditTest {
         val bandit = LinearBandit(
             projection = projection,
             linearModel = model,
-            innerOptimizer = { obj -> solver.minimize(obj, params) },
+            innerOptimizer = { obj, asm -> solver.minimize(obj, params.copy(assumptions = asm)) },
             randomSeed = 17,
         )
 
@@ -169,7 +169,7 @@ class LinearBanditTest {
         val bandit = LinearBandit(
             projection = projection,
             linearModel = model,
-            innerOptimizer = { obj -> solver.minimize(obj, params) },
+            innerOptimizer = { obj, asm -> solver.minimize(obj, params.copy(assumptions = asm)) },
             randomSeed = 9,
         )
 
@@ -220,7 +220,7 @@ class LinearBanditTest {
         val bandit = LinearBandit(
             projection = projection,
             linearModel = model,
-            innerOptimizer = { obj -> solver.minimize(obj, params) },
+            innerOptimizer = { obj, asm -> solver.minimize(obj, params.copy(assumptions = asm)) },
             randomSeed = 123,
         )
         val rng = Random(123)
@@ -251,7 +251,7 @@ class LinearBanditTest {
         val bandit = LinearBandit(
             projection = projection,
             linearModel = model,
-            innerOptimizer = { obj -> solver.minimize(obj, params) },
+            innerOptimizer = { obj, asm -> solver.minimize(obj, params.copy(assumptions = asm)) },
             randomSeed = 4,
         )
 
@@ -336,7 +336,7 @@ class LinearBanditTest {
         val bandit = LinearBandit(
             projection = projection,
             linearModel = model,
-            innerOptimizer = { obj -> solver.minimize(obj, LocalSearchParams(randomSeed = 1L)) },
+            innerOptimizer = { obj, asm -> solver.minimize(obj, LocalSearchParams(randomSeed = 1L, assumptions = asm)) },
             randomSeed = 1,
         )
 

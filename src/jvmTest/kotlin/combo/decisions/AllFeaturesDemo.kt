@@ -28,7 +28,7 @@ private class FullModel : DecisionSpace() {
     val slotB by subspace(::AllFeatAdSlot)
 
     val premiumCtx by contextBool()
-    val segment by contextInt()
+    val segment by contextInt(-100, 100)
 
     val premiumXslotABudget by interact(premiumCtx, slotA.budget)
     val premiumXtier by interact(premiumCtx, tier)
