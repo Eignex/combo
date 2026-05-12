@@ -4,6 +4,7 @@ import com.eignex.klause.solver.LocalSearchParams
 import com.eignex.klause.solver.LocalSearchSolver
 import com.eignex.klause.solver.Sample
 import combo.decisions.DecisionSpace
+import combo.decisions.SubSpace
 import combo.decisions.context
 import kotlin.math.abs
 import kotlin.math.ln
@@ -26,6 +27,15 @@ private class TogglesWithContext : DecisionSpace() {
     val choice2 by boolVar()
     val premium by contextBool()
     val segment by contextInt()
+}
+
+private class AudioBlock : SubSpace() {
+    val mute by boolVar()
+}
+
+private class WithOptional : DecisionSpace() {
+    val baseline by boolVar()
+    val audio by optionalSubmodel(::AudioBlock)
 }
 
 class LinearBanditTest {
@@ -118,6 +128,41 @@ class LinearBanditTest {
         val best = bandit.optimalOrThrow(ctx)
         assertTrue(best.bools[0], "choice1 should be picked under positive-reward training")
         assertTrue(best.bools[1], "choice2 should be picked under positive-reward training")
+    }
+
+    @Test
+    fun inactiveOptionalSlotsAreZeroedInEncoding() {
+        val model = WithOptional()
+        val space = model.compileSpace()
+        val projection = LinearFeatureProjection(space)
+        val solver = LocalSearchSolver(space.compiled.problem)
+        val params = LocalSearchParams(maxFlips = 1_000L, randomSeed = 21L)
+
+        // Find a sample with the audio gate OFF (the auto-allocated bool named "audio"
+        // is at id 1, since baseline is at id 0). Pinning forces audio.mute = false.
+        val rng = Random(21)
+        var inactiveSample: Sample? = null
+        var activeSample: Sample? = null
+        repeat(80) {
+            val s = solver.sample(params.copy(randomSeed = rng.nextLong()))!!
+            val gate = space.gateOf(model.audio)!!
+            if (!space.compiled.decode(gate, s) && inactiveSample == null) inactiveSample = s
+            if (space.compiled.decode(gate, s) && activeSample == null) activeSample = s
+        }
+        assertTrue(inactiveSample != null && activeSample != null,
+            "solver should produce both gate-off and gate-on samples")
+
+        // Inactive: the audio.mute slot must be 0 in the feature vector regardless of
+        // its (pinned-to-false) klause value.
+        val inactiveFeatures = projection.encode(inactiveSample!!)
+        val muteSlot = projection.layout.boolDecisionsStart +
+            space.compiled.boolVarIdByName["audio.mute"]!!
+        assertEquals(0f, inactiveFeatures[muteSlot])
+
+        // Active: the audio.mute slot reflects the actual sampled value.
+        val activeFeatures = projection.encode(activeSample!!)
+        val expected = if (activeSample!!.bools[space.compiled.boolVarIdByName["audio.mute"]!!]) 1f else 0f
+        assertEquals(expected, activeFeatures[muteSlot])
     }
 
     @Test
