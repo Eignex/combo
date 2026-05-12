@@ -37,6 +37,22 @@ class CompiledDecisionSpace internal constructor(
      *  sub-space was mounted via plain `subspace { … }` (unconditional). */
     fun gateOf(sub: SubSpace): BoolHandle? = gates[sub]
 
+    /** Decode a context bool's value from a sample. */
+    fun decode(handle: BoolContextHandle, sample: Sample): Boolean =
+        compiled.decode(handle.klauseHandle, sample)
+
+    /** Decode a context int's value from a sample. */
+    fun decode(handle: IntContextHandle, sample: Sample): Int =
+        compiled.decode(handle.klauseHandle, sample)
+
+    fun isActive(handle: BoolContextHandle, sample: Sample): Boolean =
+        isActive(handle.klauseHandle, sample)
+    fun isActive(handle: IntContextHandle, sample: Sample): Boolean =
+        isActive(handle.klauseHandle, sample)
+
+    fun isOptional(handle: BoolContextHandle): Boolean = isOptional(handle.klauseHandle)
+    fun isOptional(handle: IntContextHandle): Boolean = isOptional(handle.klauseHandle)
+
     /** True if [handle] is conditionally present (i.e. has an activation condition). */
     fun isOptional(handle: BoolHandle): Boolean = handle.name in activeConditions
     fun isOptional(handle: IntHandle): Boolean = handle.name in activeConditions

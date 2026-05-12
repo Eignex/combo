@@ -12,10 +12,15 @@ class Context internal constructor(
     internal val ints: Map<IntContextHandle, Int>,
 ) {
     operator fun get(handle: BoolContextHandle): Boolean =
-        bools[handle] ?: error("missing context value for bool handle '${handle.name}'")
+        bools[handle] ?: if (handle.isOptional) false
+        else error("missing context value for bool handle '${handle.name}'")
 
     operator fun get(handle: IntContextHandle): Int =
-        ints[handle] ?: error("missing context value for int handle '${handle.name}'")
+        ints[handle] ?: if (handle.isOptional) handle.min
+        else error("missing context value for int handle '${handle.name}'")
+
+    fun isPresent(handle: BoolContextHandle): Boolean = handle in bools
+    fun isPresent(handle: IntContextHandle): Boolean = handle in ints
 
     companion object {
         val Empty: Context = Context(emptyMap(), emptyMap())

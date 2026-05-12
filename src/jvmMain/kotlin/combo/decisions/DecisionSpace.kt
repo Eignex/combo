@@ -42,6 +42,44 @@ abstract class DecisionSpace : SubSpace() {
             ReadOnlyProperty { _, _ -> h }
         }
 
+    /**
+     * Optional contextual bool: caller may or may not provide a value at choose time.
+     * Allocates a companion `isKnown_<name>` solver variable; when the caller skips
+     * `set(handle, …)`, the bandit pins `isKnown_<name>` to false and the value to
+     * its default (false), masking the feature slot.
+     */
+    protected fun optionalContextBool() =
+        PropertyDelegateProvider<DecisionSpace, ReadOnlyProperty<DecisionSpace, BoolContextHandle>> { _, prop ->
+            val valueName = ctx.qualify(prop.name)
+            val gateName = "isKnown_$valueName"
+            val gateHandle = ctx.root.registerBool(gateName, ctx.activeCondition)
+            val valueHandle = ctx.root.registerBool(
+                valueName,
+                activeCondition = com.eignex.klause.ast.BoolRef(gateName),
+            )
+            val h = BoolContextHandle(valueHandle, isKnownGate = gateHandle)
+            _contextBools += h
+            ReadOnlyProperty { _, _ -> h }
+        }
+
+    /**
+     * Optional contextual int. See [optionalContextBool] for semantics. When absent the
+     * value is pinned to `min` (the domain default).
+     */
+    protected fun optionalContextInt(min: Int, max: Int) =
+        PropertyDelegateProvider<DecisionSpace, ReadOnlyProperty<DecisionSpace, IntContextHandle>> { _, prop ->
+            val valueName = ctx.qualify(prop.name)
+            val gateName = "isKnown_$valueName"
+            val gateHandle = ctx.root.registerBool(gateName, ctx.activeCondition)
+            val valueHandle = ctx.root.registerInt(
+                valueName, min, max,
+                activeCondition = com.eignex.klause.ast.BoolRef(gateName),
+            )
+            val h = IntContextHandle(valueHandle, isKnownGate = gateHandle)
+            _contextInts += h
+            ReadOnlyProperty { _, _ -> h }
+        }
+
     protected fun interact(lhs: Any, rhs: Any) =
         PropertyDelegateProvider<DecisionSpace, ReadOnlyProperty<DecisionSpace, InteractionHandle>> { _, prop ->
             require(isAllowedInteraction(lhs, rhs)) {
