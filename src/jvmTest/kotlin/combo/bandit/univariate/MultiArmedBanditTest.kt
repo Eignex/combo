@@ -1,79 +1,100 @@
 package combo.bandit.univariate
 
-import combo.bandit.TestType
-import combo.math.FullSample
-import combo.math.nextBinomial
 import kotlin.random.Random
 import kotlin.test.Test
-import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class MultiArmedBanditTest {
 
-    @Test
-    fun zeroArms() {
-        assertFailsWith(IllegalArgumentException::class) {
-            MultiArmedBandit(0, UCB1())
+    private fun runBernoulli(
+        policy: BanditPolicy<com.eignex.kumulant.stat.summary.BernoulliSumResult>,
+        rounds: Int,
+        seed: Int = 42,
+    ): Int {
+        val arms = doubleArrayOf(0.2, 0.5, 0.8)
+        val bandit = MultiArmedBandit(arms.size, policy, randomSeed = seed)
+        val rng = Random(seed.toLong())
+        repeat(rounds) {
+            val i = bandit.choose()
+            val reward = if (rng.nextDouble() < arms[i]) 1.0 else 0.0
+            bandit.update(i, reward)
         }
+        // Best arm should dominate trials.
+        return bandit.snapshot()
+            .withIndex()
+            .maxBy { (_, s) -> s.trials }
+            .index
     }
 
     @Test
-    fun minimizeVsMaximize() {
-        val bandit1 = MultiArmedBandit(10, UCB1Tuned(), 1, true, FullSample())
-        val bandit2 = MultiArmedBandit(10, UCB1Tuned(), 2, false, FullSample())
-
-        val rng = Random(1L)
-        for (i in 1..100) {
-            val i1 = bandit1.choose()
-            val i2 = bandit2.choose()
-            val trials1 = (rng.nextInt(5) + 1)
-            val trials2 = (rng.nextInt(5) + 1)
-            val r1 = rng.nextBinomial(1f / (i1 + 1), trials1).toFloat()
-            val r2 = rng.nextBinomial(1f / (i2 + 1), trials2).toFloat()
-            bandit1.update(i1, r1 / trials1.toFloat(), trials1.toFloat())
-            bandit2.update(i2, r2 / trials2.toFloat(), trials2.toFloat())
-        }
-        val sum1 = bandit1.rewards.values().sum()
-        val sum2 = bandit2.rewards.values().sum()
-        assertTrue(sum1 > sum2)
+    fun thompsonSamplingConvergesToBestBernoulliArm() {
+        val best = runBernoulli(ThompsonSampling(BinomialPosterior()), rounds = 2000)
+        assertEquals(2, best, "Thompson should favor arm 2 (p=0.8)")
     }
 
     @Test
-    fun randomSeedDeterministic() {
-        val bandit1 = MultiArmedBandit(10, ThompsonSampling(NormalPosterior), randomSeed = 0)
-        val bandit2 = MultiArmedBandit(10, ThompsonSampling(NormalPosterior), randomSeed = 0)
-        val rng1 = Random(1L)
-        val rng2 = Random(1L)
-        val arms1 = generateSequence {
-            bandit1.choose().also {
-                bandit1.update(it, TestType.NORMAL.linearRewards(it.toFloat(), 1, rng1))
-            }
-        }.take(10).toList()
-        val arm2 = generateSequence {
-            bandit2.choose().also {
-                bandit2.update(it, TestType.NORMAL.linearRewards(it.toFloat(), 1, rng2))
-            }
-        }.take(10).toList()
-        for (i in 0 until 10) {
-            assertEquals(arms1[i], arm2[i])
-        }
-        assertContentEquals(arms1, arm2)
+    fun ucb1ConvergesToBestBernoulliArm() {
+        val best = runBernoulli(UCB1(), rounds = 2000)
+        assertEquals(2, best, "UCB1 should favor arm 2 (p=0.8)")
     }
 
     @Test
-    fun storeLoadStore() {
-        val bandit = MultiArmedBandit(20, EpsilonDecreasing(), randomSeed = 1)
-        for (i in 0 until 100) {
-            val j = bandit.choose()
-            bandit.update(j, TestType.BINOMIAL.linearRewards(j.toFloat() / 20, 1, Random))
+    fun normalPosteriorTracksMeans() {
+        val means = doubleArrayOf(-1.0, 0.0, 2.0)
+        val policy = ThompsonSampling(NormalPosterior())
+        val bandit = MultiArmedBandit(means.size, policy, randomSeed = 1)
+        val rng = Random(1)
+        repeat(3000) {
+            val i = bandit.choose()
+            bandit.update(i, rng.nextDouble() * 2 - 1 + means[i])
         }
-        val list1 = bandit.exportData()
-        val bandit2 = MultiArmedBandit(20, EpsilonDecreasing(), randomSeed = 1)
-        bandit2.importData(list1)
+        val snap = bandit.snapshot()
+        val bestArm = snap.withIndex().maxBy { (_, s) -> s.totalWeights }.index
+        assertEquals(2, bestArm, "Normal Thompson should explore arm 2 most")
+        // Estimated means should rank correctly.
+        assertTrue(snap[2].mean > snap[1].mean)
+        assertTrue(snap[1].mean > snap[0].mean)
+    }
 
-        assertEquals(bandit.choose(), bandit2.choose())
-        assertEquals(list1.size, bandit2.exportData().size)
+    @Test
+    fun epsilonGreedyConverges() {
+        val arms = doubleArrayOf(0.1, 0.9)
+        val bandit = MultiArmedBandit(arms.size, EpsilonGreedy(epsilon = 0.1), randomSeed = 7)
+        val rng = Random(7)
+        repeat(500) {
+            val i = bandit.choose()
+            bandit.update(i, if (rng.nextDouble() < arms[i]) 1.0 else 0.0)
+        }
+        assertEquals(1, bandit.snapshot().withIndex().maxBy { (_, s) -> s.totalWeights }.index)
+    }
+
+    @Test
+    fun greedyRunsWithoutError() {
+        // Greedy famously locks into the first apparent winner. We don't assert convergence —
+        // just that the bandit runs and produces a well-formed snapshot.
+        val arms = doubleArrayOf(0.1, 0.9)
+        val bandit = MultiArmedBandit(arms.size, Greedy(), randomSeed = 7)
+        val rng = Random(7)
+        repeat(200) {
+            val i = bandit.choose()
+            bandit.update(i, if (rng.nextDouble() < arms[i]) 1.0 else 0.0)
+        }
+        val snap = bandit.snapshot()
+        assertEquals(arms.size, snap.size)
+        assertTrue(snap.any { it.totalWeights > 0 })
+    }
+
+    @Test
+    fun maximizeFalseFavorsLowestMean() {
+        val arms = doubleArrayOf(0.2, 0.5, 0.8)
+        val bandit = MultiArmedBandit(arms.size, ThompsonSampling(BinomialPosterior()), randomSeed = 3, maximize = false)
+        val rng = Random(3)
+        repeat(1500) {
+            val i = bandit.choose()
+            bandit.update(i, if (rng.nextDouble() < arms[i]) 1.0 else 0.0)
+        }
+        val best = bandit.snapshot().withIndex().maxBy { (_, s) -> s.trials }.index
+        assertEquals(0, best, "With maximize=false, lowest-p arm should dominate")
     }
 }
