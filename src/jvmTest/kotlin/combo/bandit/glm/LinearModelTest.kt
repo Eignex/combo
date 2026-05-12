@@ -29,7 +29,7 @@ class LinearModelTest {
     }
 
     @Test
-    fun diagonalModelLearnsSignOfWeights() {
+    fun `diagonalized model should learn weight signs`() {
         // Diagonalized model uses precision-weighted updates; precise convergence is
         // sensitive to hyperparameters. The robust assertion is that signs end up correct.
         val rng = Random(42)
@@ -51,7 +51,7 @@ class LinearModelTest {
     }
 
     @Test
-    fun sgdRegressionConvergesToLinearTarget() {
+    fun `sgd regression should converge to linear target`() {
         val rng = Random(7)
         val trueWeights = floatArrayOf(1.0f, -0.5f, 0.3f)
         val (inputs, targets) = synthetic(3, 3000, trueWeights, bias = 0f, noise = 0.02f, rng)
@@ -68,7 +68,7 @@ class LinearModelTest {
     }
 
     @Test
-    fun covarianceModelExportImportRoundtripsWeights() {
+    fun `covariance model should roundtrip weights through export and import`() {
         val rng = Random(13)
         val trueWeights = floatArrayOf(0.7f, -0.4f)
         val (inputs, targets) = synthetic(2, 200, trueWeights, bias = 0f, noise = 0.02f, rng)

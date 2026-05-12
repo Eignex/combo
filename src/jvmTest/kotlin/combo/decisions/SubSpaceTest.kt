@@ -66,7 +66,7 @@ private class AudioLeaf : SubSpace() {
 class SubSpaceTest {
 
     @Test
-    fun subModelVariablesGetQualifiedKlauseNames() {
+    fun `sub-model variables should get qualified klause names`() {
         val space = WithOneSubModel().compileSpace()
         val entries = space.schemaDef.entries
 
@@ -87,7 +87,7 @@ class SubSpaceTest {
     }
 
     @Test
-    fun multipleInstancesOfSameSubModelGetDistinctNamespaces() {
+    fun `multiple instances of same sub-model should get distinct namespaces`() {
         val model = TwoAdSlots()
         val space = model.compileSpace()
         val entries = space.schemaDef.entries
@@ -105,7 +105,7 @@ class SubSpaceTest {
     }
 
     @Test
-    fun nestedSubModelsAccumulateDottedPrefix() {
+    fun `nested sub-models should accumulate dotted prefix`() {
         val model = Nested()
         val space = model.compileSpace()
         val entries = space.schemaDef.entries
@@ -116,7 +116,7 @@ class SubSpaceTest {
     }
 
     @Test
-    fun optionalSubmodelAllocatesGateAndPinsChildrenWhenOff() {
+    fun `optional sub-model should allocate gate and pin children when off`() {
         val model = OptionalAudio()
         val space = model.compileSpace()
 
@@ -155,7 +155,7 @@ class SubSpaceTest {
     }
 
     @Test
-    fun nestedOptionalsComposeActiveConditions() {
+    fun `nested optionals should compose active conditions`() {
         val model = NestedOptionals()
         val space = model.compileSpace()
         // Outer gate
@@ -172,7 +172,7 @@ class SubSpaceTest {
     }
 
     @Test
-    fun subModelHandlesCarryQualifiedNamesEndToEnd() {
+    fun `sub-model handles should carry qualified names end-to-end`() {
         val model = WithOneSubModel()
         val space = model.compileSpace()
 

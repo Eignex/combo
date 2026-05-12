@@ -60,7 +60,7 @@ private class ContextConditionedSchema : DecisionSpace() {
 class LinearBanditTest {
 
     @Test
-    fun thompsonSamplingConvergesToBestSampleNoContext() {
+    fun `thompson sampling should converge to best sample with no context`() {
         val space = FiveToggles().compileSpace()
         val projection = LinearFeatureProjection(space)
         val solver = LocalSearchSolver(space.compiled.problem)
@@ -107,7 +107,7 @@ class LinearBanditTest {
     }
 
     @Test
-    fun fixedContextSteersBandit() {
+    fun `fixed context should steer bandit`() {
         val schema = TogglesWithContext()
         val space = schema.compileSpace()
         val projection = LinearFeatureProjection(space)
@@ -150,7 +150,7 @@ class LinearBanditTest {
     }
 
     @Test
-    fun nominalInteractionExpandsPerLabel() {
+    fun `nominal interaction should expand per label`() {
         val schema = NominalInteraction()
         val space = schema.compileSpace()
         val projection = LinearFeatureProjection(space)
@@ -196,7 +196,7 @@ class LinearBanditTest {
     }
 
     @Test
-    fun nominalDecisionsExpandToPerLabelFeatures() {
+    fun `nominal decisions should expand to per-label features`() {
         val schema = WithNominal()
         val space = schema.compileSpace()
         val projection = LinearFeatureProjection(space)
@@ -235,7 +235,7 @@ class LinearBanditTest {
     }
 
     @Test
-    fun interactionsLetBanditLearnContextConditionedDecisions() {
+    fun `interactions should let bandit learn context-conditioned decisions`() {
         val schema = ContextConditionedSchema()
         val space = schema.compileSpace()
         val projection = LinearFeatureProjection(space)
@@ -291,7 +291,7 @@ class LinearBanditTest {
     }
 
     @Test
-    fun inactiveOptionalSlotsAreZeroedInEncoding() {
+    fun `inactive optional slots should be zeroed in encoding`() {
         val model = WithOptional()
         val space = model.compileSpace()
         val projection = LinearFeatureProjection(space)
@@ -326,7 +326,7 @@ class LinearBanditTest {
     }
 
     @Test
-    fun missingContextValueThrows() {
+    fun `missing context value should throw`() {
         val schema = TogglesWithContext()
         val space = schema.compileSpace()
         val projection = LinearFeatureProjection(space)

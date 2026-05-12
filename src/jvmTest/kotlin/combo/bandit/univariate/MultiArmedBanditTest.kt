@@ -28,19 +28,19 @@ class MultiArmedBanditTest {
     }
 
     @Test
-    fun thompsonSamplingConvergesToBestBernoulliArm() {
+    fun `thompson sampling should converge to best bernoulli arm`() {
         val best = runBernoulli(ThompsonSampling(BinomialPosterior()), rounds = 2000)
         assertEquals(2, best, "Thompson should favor arm 2 (p=0.8)")
     }
 
     @Test
-    fun ucb1ConvergesToBestBernoulliArm() {
+    fun `ucb1 should converge to best bernoulli arm`() {
         val best = runBernoulli(UCB1(), rounds = 2000)
         assertEquals(2, best, "UCB1 should favor arm 2 (p=0.8)")
     }
 
     @Test
-    fun normalPosteriorTracksMeans() {
+    fun `normal posterior should track means`() {
         val means = doubleArrayOf(-1.0, 0.0, 2.0)
         val policy = ThompsonSampling(NormalPosterior())
         val bandit = MultiArmedBandit(means.size, policy, randomSeed = 1)
@@ -58,7 +58,7 @@ class MultiArmedBanditTest {
     }
 
     @Test
-    fun epsilonGreedyConverges() {
+    fun `epsilon greedy should converge`() {
         val arms = doubleArrayOf(0.1, 0.9)
         val bandit = MultiArmedBandit(arms.size, EpsilonGreedy(epsilon = 0.1), randomSeed = 7)
         val rng = Random(7)
@@ -70,7 +70,7 @@ class MultiArmedBanditTest {
     }
 
     @Test
-    fun greedyRunsWithoutError() {
+    fun `greedy should run without error`() {
         // Greedy famously locks into the first apparent winner. We don't assert convergence —
         // just that the bandit runs and produces a well-formed snapshot.
         val arms = doubleArrayOf(0.1, 0.9)
@@ -86,7 +86,7 @@ class MultiArmedBanditTest {
     }
 
     @Test
-    fun maximizeFalseFavorsLowestMean() {
+    fun `bandit with maximize false should favor lowest mean`() {
         val arms = doubleArrayOf(0.2, 0.5, 0.8)
         val bandit = MultiArmedBandit(arms.size, ThompsonSampling(BinomialPosterior()), randomSeed = 3, maximize = false)
         val rng = Random(3)
