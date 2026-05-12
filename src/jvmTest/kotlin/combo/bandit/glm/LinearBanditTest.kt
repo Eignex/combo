@@ -42,6 +42,12 @@ private class WithNominal : DecisionSpace() {
     val type by nominal("a", "b", "c")
 }
 
+private class NominalInteraction : DecisionSpace() {
+    val type by nominal("a", "b", "c")
+    val premium by contextBool()
+    val typeXpremium by interact(premium, type)
+}
+
 private class ContextConditionedSchema : DecisionSpace() {
     val choice1 by boolVar()
     val choice2 by boolVar()
@@ -141,6 +147,52 @@ class LinearBanditTest {
         val best = bandit.optimalOrThrow(ctx)
         assertTrue(best.bools[0], "choice1 should be picked under positive-reward training")
         assertTrue(best.bools[1], "choice2 should be picked under positive-reward training")
+    }
+
+    @Test
+    fun nominalInteractionExpandsPerLabel() {
+        val schema = NominalInteraction()
+        val space = schema.compileSpace()
+        val projection = LinearFeatureProjection(space)
+        val solver = LocalSearchSolver(space.compiled.problem)
+        val params = LocalSearchParams(maxFlips = 1_000L, randomSeed = 9L)
+
+        // Layout: 3 nominal indicators + 1 context bool + 3 interaction slots (per label).
+        assertEquals(7, projection.featureSize)
+
+        val model = DiagonalizedLinearModel.Builder(projection.featureSize)
+            .family(NormalVariance)
+            .learningRate(ConstantRate(1f))
+            .priorPrecision(0.01f)
+            .exploration(0f)
+            .build()
+        val bandit = LinearBandit(
+            projection = projection,
+            linearModel = model,
+            innerOptimizer = { obj -> solver.minimize(obj, params) },
+            randomSeed = 9,
+        )
+
+        // Reward shape: premium=true favours type=b, premium=false favours type=c.
+        fun groundTruth(type: String, premium: Boolean): Double = when {
+            premium && type == "b" -> 1.0
+            !premium && type == "c" -> 1.0
+            else -> 0.0
+        }
+
+        val rng = Random(9)
+        val ctxTrue = context { set(schema.premium, true) }
+        val ctxFalse = context { set(schema.premium, false) }
+        repeat(2000) {
+            val ctx = if (rng.nextBoolean()) ctxTrue else ctxFalse
+            val premium = ctx === ctxTrue
+            val s = solver.sample(params.copy(randomSeed = rng.nextLong()))!!
+            val type = space.compiled.decode(schema.type, s)
+            bandit.train(s, ctx, groundTruth(type, premium))
+        }
+
+        assertEquals("b", space.compiled.decode(schema.type, bandit.optimalOrThrow(ctxTrue)))
+        assertEquals("c", space.compiled.decode(schema.type, bandit.optimalOrThrow(ctxFalse)))
     }
 
     @Test

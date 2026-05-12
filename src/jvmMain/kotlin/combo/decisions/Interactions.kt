@@ -2,6 +2,7 @@ package combo.decisions
 
 import com.eignex.klause.schema.BoolHandle
 import com.eignex.klause.schema.IntHandle
+import com.eignex.klause.schema.NominalHandle
 
 /**
  * A declared product feature `lhs × rhs`. Bandit-family projections layer interactions
@@ -24,7 +25,7 @@ class InteractionHandle internal constructor(
     internal val involvesDecision: Boolean = lhs.isDecision() || rhs.isDecision()
 }
 
-internal fun Any.isDecision(): Boolean = this is BoolHandle || this is IntHandle
+internal fun Any.isDecision(): Boolean = this is BoolHandle || this is IntHandle || this is NominalHandle
 internal fun Any.isContext(): Boolean = this is BoolContextHandle || this is IntContextHandle
 
 internal fun isAllowedInteraction(lhs: Any, rhs: Any): Boolean {

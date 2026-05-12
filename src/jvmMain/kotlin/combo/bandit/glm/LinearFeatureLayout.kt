@@ -1,5 +1,6 @@
 package combo.bandit.glm
 
+import com.eignex.klause.schema.NominalHandle
 import combo.decisions.BoolContextHandle
 import combo.decisions.CompiledDecisionSpace
 import combo.decisions.IntContextHandle
@@ -10,8 +11,10 @@ import combo.decisions.InteractionHandle
  * decision, context, and declared interaction to a stable slot in the dense weight
  * vector that the linear models train against.
  *
- * Layout:
- *   `[bool decisions | int decisions | bool contexts | int contexts | interactions]`
+ * Layout: `[bool decisions | int decisions | bool contexts | int contexts | interactions]`
+ *
+ * Interactions that involve a nominal decision expand to one slot per label; all other
+ * interactions take a single slot.
  *
  * Trees and other non-linear bandits don't go through this layer — they own their own
  * typed projection over the same [CompiledDecisionSpace].
@@ -29,14 +32,29 @@ class LinearFeatureLayout internal constructor(
     val intContextsStart: Int = boolContextsStart + boolContexts.size
     val interactionsStart: Int = intContextsStart + intContexts.size
 
-    val featureSize: Int = interactionsStart + interactions.size
+    internal val interactionSlotCount: Map<InteractionHandle, Int> =
+        interactions.associateWith { interaction ->
+            val nominalSide = interaction.nominalSide()
+            nominalSide?.labels?.size ?: 1
+        }
+
+    internal val interactionStart: Map<InteractionHandle, Int> = run {
+        val out = mutableMapOf<InteractionHandle, Int>()
+        var cursor = interactionsStart
+        for (h in interactions) {
+            out[h] = cursor
+            cursor += interactionSlotCount.getValue(h)
+        }
+        out
+    }
+
+    val featureSize: Int =
+        interactionsStart + (interactionSlotCount.values.sum())
 
     internal val boolContextIndex: Map<BoolContextHandle, Int> =
         boolContexts.withIndex().associate { (i, h) -> h to (boolContextsStart + i) }
     internal val intContextIndex: Map<IntContextHandle, Int> =
         intContexts.withIndex().associate { (i, h) -> h to (intContextsStart + i) }
-    internal val interactionIndex: Map<InteractionHandle, Int> =
-        interactions.withIndex().associate { (i, h) -> h to (interactionsStart + i) }
 
     companion object {
         fun from(space: CompiledDecisionSpace): LinearFeatureLayout = LinearFeatureLayout(
@@ -47,4 +65,10 @@ class LinearFeatureLayout internal constructor(
             interactions = space.interactions,
         )
     }
+}
+
+internal fun InteractionHandle.nominalSide(): NominalHandle? = when {
+    lhs is NominalHandle -> lhs
+    rhs is NominalHandle -> rhs
+    else -> null
 }
