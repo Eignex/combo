@@ -38,6 +38,10 @@ private class WithOptional : DecisionSpace() {
     val audio by optionalSubmodel(::AudioBlock)
 }
 
+private class WithNominal : DecisionSpace() {
+    val type by nominal("a", "b", "c")
+}
+
 private class ContextConditionedSchema : DecisionSpace() {
     val choice1 by boolVar()
     val choice2 by boolVar()
@@ -137,6 +141,45 @@ class LinearBanditTest {
         val best = bandit.optimalOrThrow(ctx)
         assertTrue(best.bools[0], "choice1 should be picked under positive-reward training")
         assertTrue(best.bools[1], "choice2 should be picked under positive-reward training")
+    }
+
+    @Test
+    fun nominalDecisionsExpandToPerLabelFeatures() {
+        val schema = WithNominal()
+        val space = schema.compileSpace()
+        val projection = LinearFeatureProjection(space)
+        val solver = LocalSearchSolver(space.compiled.problem)
+        val params = LocalSearchParams(maxFlips = 1_000L, randomSeed = 123L)
+
+        // klause expands the 3-label nominal into 3 indicator bools — one feature per label.
+        assertEquals(3, space.compiled.problem.numBoolVars)
+        assertEquals(3, projection.featureSize)
+        val indicators = space.compiled.nominalIndicators[schema.type.name]!!
+        assertEquals(setOf("a", "b", "c"), indicators.keys)
+
+        // Linear bandit learns label-specific weights. Reward favours label "b".
+        val labelReward = mapOf("a" to 0.0, "b" to 1.0, "c" to 0.2)
+        val model = DiagonalizedLinearModel.Builder(projection.featureSize)
+            .family(NormalVariance)
+            .learningRate(ConstantRate(1f))
+            .priorPrecision(0.01f)
+            .exploration(0.1f)
+            .build()
+        val bandit = LinearBandit(
+            projection = projection,
+            linearModel = model,
+            innerOptimizer = { obj -> solver.minimize(obj, params) },
+            randomSeed = 123,
+        )
+        val rng = Random(123)
+        repeat(800) {
+            val sample = bandit.chooseOrThrow()
+            val picked = space.compiled.decode(schema.type, sample)
+            val noisy = labelReward[picked]!! + rng.nextGaussian() * 0.05
+            bandit.update(sample, noisy)
+        }
+        val best = bandit.optimalOrThrow()
+        assertEquals("b", space.compiled.decode(schema.type, best))
     }
 
     @Test
