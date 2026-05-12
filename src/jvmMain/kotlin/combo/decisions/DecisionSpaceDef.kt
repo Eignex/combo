@@ -1,33 +1,46 @@
 package combo.decisions
 
 import com.eignex.klause.ast.SchemaEntry
+import com.eignex.klause.compile.CompiledProblem
+import com.eignex.klause.compile.compile
+import com.eignex.klause.schema.VariableSchema
 import com.eignex.skema.SchemaDef
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Combo-side serialization counterpart to [CompiledDecisionSpace]. Carries everything
- * needed to reconstruct the bandit-facing schema:
+ * Single serializable record of a complete combo decision space.
  *
- *  - [klause] — the underlying klause schema (variables, user constraints, auto-
- *    generated pinning constraints for optional sub-spaces). Fully solver-ready as-is.
- *  - [contextBools] / [contextInts] — names of context handles. Klause never sees these;
- *    bandit code reads them at choose/update time via [Context].
+ *  - [entries] — every variable / constraint / auto-generated pinning constraint for
+ *    optional sub-spaces, keyed by fully-qualified dotted name. Solver-compatible:
+ *    project via [toSchemaDef] and feed to a constraint solver.
+ *  - [contextBools] / [contextInts] — names of context handles. The solver never sees
+ *    these; bandit code reads them at choose/update time via [Context].
  *  - [interactions] — declared cross-feature interactions. Each side is a [ScalarRef]
- *    pointing back into either the klause schema (decisions) or the context list.
- *  - [gates] — dotted names of bool variables that gate an optional sub-space, in
- *    declaration order. Redundant with the `__pin_*` constraints in [klause] but
- *    cheaper to consume.
+ *    pointing back into either [entries] (decisions) or the context lists.
+ *  - [gates] — dotted names of bool variables that gate an optional sub-space.
+ *    Redundant with the `__pin_*` constraints in [entries] but cheaper to consume.
  */
 @Serializable
 @SerialName("DecisionSpaceDef")
 data class DecisionSpaceDef(
-    val klause: SchemaDef<SchemaEntry>,
-    val contextBools: List<String>,
-    val contextInts: List<String>,
-    val interactions: List<InteractionDef>,
-    val gates: List<String>,
-)
+    val entries: Map<String, SchemaEntry>,
+    val contextBools: List<String> = emptyList(),
+    val contextInts: List<String> = emptyList(),
+    val interactions: List<InteractionDef> = emptyList(),
+    val gates: List<String> = emptyList(),
+) {
+    /** Project the variable + constraint entries onto the underlying solver's schema
+     *  type for direct consumption. */
+    fun toSchemaDef(): SchemaDef<SchemaEntry> = SchemaDef(entries)
+
+    /** Compile the constraint side of this schema to a solver-ready [CompiledProblem]. */
+    fun compile(): CompiledProblem {
+        val schema = SchemaLoader()
+        for ((name, entry) in entries) schema.addRaw(name, entry)
+        return schema.compile()
+    }
+}
 
 @Serializable
 @SerialName("Interaction")
@@ -50,4 +63,9 @@ data class ScalarRef(
 @Serializable
 enum class ScalarKind {
     BoolDecision, IntDecision, NominalDecision, BoolContext, IntContext,
+}
+
+/** Internal helper: build a [VariableSchema] from a pre-existing entries map. */
+internal class SchemaLoader : VariableSchema() {
+    fun addRaw(name: String, entry: SchemaEntry) = add(name, entry)
 }

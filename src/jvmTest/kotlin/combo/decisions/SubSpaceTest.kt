@@ -68,7 +68,7 @@ class SubSpaceTest {
     @Test
     fun `sub-space variables should get qualified klause names`() {
         val space = WithOneSubModel().compileSpace()
-        val entries = space.schemaDef.entries
+        val entries = space.definition.entries
 
         // Root-level decision is bare-named.
         assertTrue("gate" in entries, "expected 'gate' at root; have ${entries.keys}")
@@ -90,7 +90,7 @@ class SubSpaceTest {
     fun `multiple instances of same sub-space should get distinct namespaces`() {
         val model = TwoAdSlots()
         val space = model.compileSpace()
-        val entries = space.schemaDef.entries
+        val entries = space.definition.entries
 
         // Both instances exist independently under their property-name prefix.
         assertTrue("slotA.premium" in entries)
@@ -108,7 +108,7 @@ class SubSpaceTest {
     fun `nested sub-spaces should accumulate dotted prefix`() {
         val model = Nested()
         val space = model.compileSpace()
-        val entries = space.schemaDef.entries
+        val entries = space.definition.entries
         assertTrue("middle.knob" in entries)
         assertTrue("middle.inner.toggle" in entries)
         assertEquals("middle.inner.toggle", model.middle.inner.toggle.name)
@@ -121,15 +121,15 @@ class SubSpaceTest {
         val space = model.compileSpace()
 
         // The gate is an auto-allocated bool with the property name.
-        assertTrue("audio" in space.schemaDef.entries)
+        assertTrue("audio" in space.definition.entries)
         // Children are namespaced under it and marked optional.
-        assertTrue("audio.mute" in space.schemaDef.entries)
-        assertTrue("audio.volume" in space.schemaDef.entries)
+        assertTrue("audio.mute" in space.definition.entries)
+        assertTrue("audio.volume" in space.definition.entries)
         assertTrue(space.isOptional(model.audio.mute))
         assertTrue(space.isOptional(model.audio.volume))
 
         // Pinning constraints are registered.
-        val pins = space.schemaDef.entries.keys.filter { it.startsWith("__pin_audio.") }
+        val pins = space.definition.entries.keys.filter { it.startsWith("__pin_audio.") }
         assertEquals(setOf("__pin_audio.mute", "__pin_audio.volume"), pins.toSet())
 
         // The compiled space exposes the auto-allocated gate.
@@ -159,11 +159,11 @@ class SubSpaceTest {
         val model = NestedOptionals()
         val space = model.compileSpace()
         // Outer gate
-        assertTrue("outer" in space.schemaDef.entries)
+        assertTrue("outer" in space.definition.entries)
         // Inner gate, nested under outer
-        assertTrue("outer.inner" in space.schemaDef.entries)
+        assertTrue("outer.inner" in space.definition.entries)
         // Leaf variable, nested under inner
-        assertTrue("outer.inner.volume" in space.schemaDef.entries)
+        assertTrue("outer.inner.volume" in space.definition.entries)
         // The leaf has an active condition that requires both gates on.
         val cond = space.activeConditions["outer.inner.volume"]
         assertTrue(cond is com.eignex.klause.ast.And)

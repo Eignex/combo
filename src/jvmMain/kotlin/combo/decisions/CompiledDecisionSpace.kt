@@ -1,18 +1,15 @@
 package combo.decisions
 
 import com.eignex.klause.ast.BoolExpr
-import com.eignex.klause.ast.SchemaEntry
 import com.eignex.klause.compile.CompiledProblem
 import com.eignex.klause.schema.BoolHandle
 import com.eignex.klause.schema.IntHandle
 import com.eignex.klause.schema.NominalHandle
 import com.eignex.klause.solver.Sample
-import com.eignex.skema.SchemaDef
 
 /**
- * Structural snapshot of a compiled [DecisionSpace]: a klause [CompiledProblem] for the
- * decision side plus the lists of context handles declared on the space, and the per-
- * variable activation conditions extracted from any optional sub-spaces.
+ * Structural snapshot of a compiled [DecisionSpace]: a klause [CompiledProblem] paired
+ * with the unified [DecisionSpaceDef] that's the single source of truth for the schema.
  *
  * Bandit-family-specific projections (linear feature vectors, tree split tables, …)
  * live in their own modules and consume this as input. The activation map lets each
@@ -26,16 +23,15 @@ class CompiledDecisionSpace internal constructor(
     val compiled: CompiledProblem,
     val contextBools: List<BoolContextHandle>,
     val contextInts: List<IntContextHandle>,
-    val schemaDef: SchemaDef<SchemaEntry>,
+    val interactions: List<InteractionHandle>,
+    /** Single serialisable record of the entire feature model. */
+    val definition: DecisionSpaceDef,
     /** For each conditionally-present klause variable, the boolean expression that
-     *  must hold for the variable to be active. Absent for always-active variables. */
+     *  must hold for the variable to be active. */
     val activeConditions: Map<String, BoolExpr>,
     /** For each sub-space mounted via `optionalSubspace`, the auto-allocated gate
      *  variable that controls its activation. */
     val gates: Map<SubSpace, BoolHandle>,
-    /** Declared cross-feature interactions. Linear bandits materialise these as extra
-     *  weight slots; trees ignore them. */
-    val interactions: List<InteractionHandle>,
 ) {
     /** Convenience: the auto-allocated gate for an optional sub-space. Null when the
      *  sub-space was mounted via plain `subspace { … }` (unconditional). */
@@ -59,22 +55,9 @@ class CompiledDecisionSpace internal constructor(
         activeConditions[handle.name]?.let { evaluate(it, sample) } ?: true
 
     private fun evaluate(expr: BoolExpr, sample: Sample): Boolean = evaluateBool(expr, sample, compiled)
-
-    /**
-     * Render a self-contained, kotlinx-serialization friendly [DecisionSpaceDef] that
-     * captures everything in this compiled space: klause schema, contexts, interactions,
-     * and gate names. Round-trips through JSON / ProtoBuf / etc.
-     */
-    fun definition(): DecisionSpaceDef = DecisionSpaceDef(
-        klause = schemaDef,
-        contextBools = contextBools.map { it.name },
-        contextInts = contextInts.map { it.name },
-        interactions = interactions.map { it.toDef() },
-        gates = gates.values.map { it.name },
-    )
 }
 
-private fun InteractionHandle.toDef(): InteractionDef =
+internal fun InteractionHandle.toDef(): InteractionDef =
     InteractionDef(name = name, lhs = lhs.toScalarRef(), rhs = rhs.toScalarRef())
 
 private fun Any.toScalarRef(): ScalarRef = when (this) {

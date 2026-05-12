@@ -2,19 +2,19 @@ package combo.decisions
 
 import com.eignex.klause.ast.SchemaEntry
 import com.eignex.klause.compile.compile
-import com.eignex.skema.SchemaDef
 import kotlin.properties.PropertyDelegateProvider
 import kotlin.properties.ReadOnlyProperty
 
 /**
  * Top-level schema for a bandit. Inherits decision declarators (`boolVar`, `intVar`,
- * `nominal`, `constraint { … }`, `subspace { … }`) from [SubSpace], and adds
- * declarators for *context* variables — values the caller supplies at every
- * choose/update call rather than letting the bandit pick.
+ * `nominal`, `constraint { … }`, `subspace { … }`, `optionalSubspace { … }`) from
+ * [SubSpace], and adds declarators for *context* variables and *interactions*.
  *
- * Compile the space with [compileSpace] to get a [CompiledDecisionSpace]; that's the
- * structural artifact the bandit-family projections (e.g.
- * [combo.bandit.glm.LinearFeatureProjection]) build on.
+ * Two ways to consume:
+ *  - [definition] — the unified, klause-compatible [DecisionSpaceDef]. Use this when
+ *    you only need the schema (e.g. to serialize).
+ *  - [compileSpace] — a [CompiledDecisionSpace] that pairs the same definition with a
+ *    klause [com.eignex.klause.compile.CompiledProblem] ready for the solver.
  */
 abstract class DecisionSpace : SubSpace() {
 
@@ -40,19 +40,6 @@ abstract class DecisionSpace : SubSpace() {
             ReadOnlyProperty { _, _ -> h }
         }
 
-    /**
-     * Declare a product feature combining two scalar handles. Supported pairings:
-     *  - `context × decision` (bool or int on either side)
-     *  - `context × context`
-     *
-     * Decision × decision is rejected at registration time — that would require a
-     * quadratic objective which klause's [com.eignex.klause.solver.LinearObjective]
-     * doesn't express.
-     *
-     * Bandit-family projections decide whether to materialise the interaction:
-     * [combo.bandit.glm.LinearFeatureProjection] adds an extra weight slot, trees
-     * ignore the declaration.
-     */
     protected fun interact(lhs: Any, rhs: Any) =
         PropertyDelegateProvider<DecisionSpace, ReadOnlyProperty<DecisionSpace, InteractionHandle>> { _, prop ->
             require(isAllowedInteraction(lhs, rhs)) {
@@ -64,21 +51,56 @@ abstract class DecisionSpace : SubSpace() {
             ReadOnlyProperty { _, _ -> h }
         }
 
-    /** Compile to a structural [CompiledDecisionSpace]. Bandit-specific projections
-     *  (e.g. [combo.bandit.glm.LinearFeatureProjection]) layer on top of this. */
+    /**
+     * The single, fully-serialisable definition of this decision space — variable and
+     * constraint entries plus context handles, interactions, and gate names. No solver
+     * work involved.
+     *
+     * Call exactly once per [DecisionSpace] instance: this clears the construction
+     * thread-local so a fresh space can be built afterwards. [compileSpace] does the
+     * same; they're mutually exclusive entry points.
+     */
+    fun definition(): DecisionSpaceDef {
+        @Suppress("UNCHECKED_CAST")
+        val entries = ctx.root.definition().entries as Map<String, SchemaEntry>
+        val def = DecisionSpaceDef(
+            entries = entries,
+            contextBools = _contextBools.map { it.name },
+            contextInts = _contextInts.map { it.name },
+            interactions = _interactions.map { it.toDef() },
+            gates = ctx.root.gates.values.map { it.name },
+        )
+        SubSpaceContext.clear()
+        return def
+    }
+
+    /**
+     * Compile to a [CompiledDecisionSpace] that pairs [definition] with a solver-ready
+     * [com.eignex.klause.compile.CompiledProblem]. Closes the construction context as a
+     * side effect so this should be called exactly once per [DecisionSpace] instance;
+     * [definition] is the alternative entry point.
+     */
     fun compileSpace(): CompiledDecisionSpace {
         val schema = ctx.root
-        val klauseEntries: SchemaDef<SchemaEntry> = schema.definition()
         val compiled = schema.compile()
+        @Suppress("UNCHECKED_CAST")
+        val entries = schema.definition().entries as Map<String, SchemaEntry>
+        val def = DecisionSpaceDef(
+            entries = entries,
+            contextBools = _contextBools.map { it.name },
+            contextInts = _contextInts.map { it.name },
+            interactions = _interactions.map { it.toDef() },
+            gates = schema.gates.values.map { it.name },
+        )
         SubSpaceContext.clear()
         return CompiledDecisionSpace(
             compiled = compiled,
             contextBools = _contextBools.toList(),
             contextInts = _contextInts.toList(),
-            schemaDef = klauseEntries,
+            interactions = _interactions.toList(),
+            definition = def,
             activeConditions = schema.activeConditions.toMap(),
             gates = schema.gates.toMap(),
-            interactions = _interactions.toList(),
         )
     }
 }
