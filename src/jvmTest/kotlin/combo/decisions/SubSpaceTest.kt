@@ -16,7 +16,7 @@ private class CodeFeature : SubSpace() {
 
 private class WithOneSubModel : DecisionSpace() {
     val gate by boolVar()
-    val area by submodel(::CodeFeature)
+    val area by subspace(::CodeFeature)
 }
 
 private class Inner : SubSpace() {
@@ -25,11 +25,11 @@ private class Inner : SubSpace() {
 
 private class Middle : SubSpace() {
     val knob by intVar(-5, 5)
-    val inner by submodel(::Inner)
+    val inner by subspace(::Inner)
 }
 
 private class Nested : DecisionSpace() {
-    val middle by submodel(::Middle)
+    val middle by subspace(::Middle)
 }
 
 private class AdSlot : SubSpace() {
@@ -38,8 +38,8 @@ private class AdSlot : SubSpace() {
 }
 
 private class TwoAdSlots : DecisionSpace() {
-    val slotA by submodel(::AdSlot)
-    val slotB by submodel(::AdSlot)
+    val slotA by subspace(::AdSlot)
+    val slotB by subspace(::AdSlot)
 }
 
 private class Audio : SubSpace() {
@@ -48,15 +48,15 @@ private class Audio : SubSpace() {
 }
 
 private class OptionalAudio : DecisionSpace() {
-    val audio by optionalSubmodel(::Audio)
+    val audio by optionalSubspace(::Audio)
 }
 
 private class NestedOptionals : DecisionSpace() {
-    val outer by optionalSubmodel(::OptionalAudioInner)
+    val outer by optionalSubspace(::OptionalAudioInner)
 }
 
 private class OptionalAudioInner : SubSpace() {
-    val inner by optionalSubmodel(::AudioLeaf)
+    val inner by optionalSubspace(::AudioLeaf)
 }
 
 private class AudioLeaf : SubSpace() {
@@ -66,7 +66,7 @@ private class AudioLeaf : SubSpace() {
 class SubSpaceTest {
 
     @Test
-    fun `sub-model variables should get qualified klause names`() {
+    fun `sub-space variables should get qualified klause names`() {
         val space = WithOneSubModel().compileSpace()
         val entries = space.schemaDef.entries
 
@@ -87,7 +87,7 @@ class SubSpaceTest {
     }
 
     @Test
-    fun `multiple instances of same sub-model should get distinct namespaces`() {
+    fun `multiple instances of same sub-space should get distinct namespaces`() {
         val model = TwoAdSlots()
         val space = model.compileSpace()
         val entries = space.schemaDef.entries
@@ -105,7 +105,7 @@ class SubSpaceTest {
     }
 
     @Test
-    fun `nested sub-models should accumulate dotted prefix`() {
+    fun `nested sub-spaces should accumulate dotted prefix`() {
         val model = Nested()
         val space = model.compileSpace()
         val entries = space.schemaDef.entries
@@ -116,7 +116,7 @@ class SubSpaceTest {
     }
 
     @Test
-    fun `optional sub-model should allocate gate and pin children when off`() {
+    fun `optional sub-space should allocate gate and pin children when off`() {
         val model = OptionalAudio()
         val space = model.compileSpace()
 
@@ -133,7 +133,7 @@ class SubSpaceTest {
         assertEquals(setOf("__pin_audio.mute", "__pin_audio.volume"), pins.toSet())
 
         // The compiled space exposes the auto-allocated gate.
-        val gate = space.gateOf(model.audio) ?: error("optional sub-model must expose its gate")
+        val gate = space.gateOf(model.audio) ?: error("optional sub-space must expose its gate")
         assertEquals("audio", gate.name)
 
         // klause enforces the pin: every feasible sample with gate=false has mute=false
@@ -172,7 +172,7 @@ class SubSpaceTest {
     }
 
     @Test
-    fun `sub-model handles should carry qualified names end-to-end`() {
+    fun `sub-space handles should carry qualified names end-to-end`() {
         val model = WithOneSubModel()
         val space = model.compileSpace()
 
@@ -181,7 +181,7 @@ class SubSpaceTest {
         assertEquals("area.flag", model.area.flag.name)
         assertEquals("area.budget", model.area.budget.name)
 
-        // Solver sees the sub-model's variables under the qualified names too.
+        // Solver sees the sub-space's variables under the qualified names too.
         val solver = LocalSearchSolver(space.compiled.problem)
         val sample = solver.sample(LocalSearchParams(randomSeed = 1L))
         assertNotNull(sample, "solver must produce a feasible sample over a flat-bool problem")

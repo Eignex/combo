@@ -8,7 +8,7 @@ import kotlin.properties.ReadOnlyProperty
 
 /**
  * Top-level schema for a bandit. Inherits decision declarators (`boolVar`, `intVar`,
- * `nominal`, `constraint { … }`, `submodel { … }`) from [SubSpace], and adds
+ * `nominal`, `constraint { … }`, `subspace { … }`) from [SubSpace], and adds
  * declarators for *context* variables — values the caller supplies at every
  * choose/update call rather than letting the bandit pick.
  *

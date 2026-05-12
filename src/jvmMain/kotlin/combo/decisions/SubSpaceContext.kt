@@ -22,12 +22,12 @@ import com.eignex.klause.schema.VariableSchema
 
 /**
  * Construction-time wiring for [SubSpace]. Threads the current dotted prefix and
- * activation condition down through nested sub-model factories so each `boolVar()` /
+ * activation condition down through nested sub-space factories so each `boolVar()` /
  * `intVar()` / `constraint { ... }` registers with the *root* klause schema under a
  * fully-qualified name, tagged with whichever gate(s) make it conditionally present.
  *
  * Lives on a thread-local — the root [DecisionSpace] installs one before its subclass
- * property initializers run, and child sub-models swap in a derived context for the
+ * property initializers run, and child sub-spaces swap in a derived context for the
  * duration of their factory call.
  */
 internal class SubSpaceContext private constructor(
@@ -37,7 +37,7 @@ internal class SubSpaceContext private constructor(
 ) {
     fun qualify(name: String): String = if (prefix.isEmpty()) name else "$prefix.$name"
 
-    /** Always-active child context, used by plain `submodel { ... }`. */
+    /** Always-active child context, used by plain `subspace { ... }`. */
     fun child(propertyName: String): SubSpaceContext =
         SubSpaceContext(root, qualify(propertyName), activeCondition)
 

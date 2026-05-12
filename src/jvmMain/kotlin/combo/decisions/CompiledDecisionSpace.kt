@@ -12,7 +12,7 @@ import com.eignex.skema.SchemaDef
 /**
  * Structural snapshot of a compiled [DecisionSpace]: a klause [CompiledProblem] for the
  * decision side plus the lists of context handles declared on the space, and the per-
- * variable activation conditions extracted from any optional sub-models.
+ * variable activation conditions extracted from any optional sub-spaces.
  *
  * Bandit-family-specific projections (linear feature vectors, tree split tables, …)
  * live in their own modules and consume this as input. The activation map lets each
@@ -30,15 +30,15 @@ class CompiledDecisionSpace internal constructor(
     /** For each conditionally-present klause variable, the boolean expression that
      *  must hold for the variable to be active. Absent for always-active variables. */
     val activeConditions: Map<String, BoolExpr>,
-    /** For each sub-model mounted via `optionalSubmodel`, the auto-allocated gate
+    /** For each sub-space mounted via `optionalSubspace`, the auto-allocated gate
      *  variable that controls its activation. */
     val gates: Map<SubSpace, BoolHandle>,
     /** Declared cross-feature interactions. Linear bandits materialise these as extra
      *  weight slots; trees ignore them. */
     val interactions: List<InteractionHandle>,
 ) {
-    /** Convenience: the auto-allocated gate for an optional sub-model. Null when the
-     *  sub-model was mounted via plain `submodel { … }` (unconditional). */
+    /** Convenience: the auto-allocated gate for an optional sub-space. Null when the
+     *  sub-space was mounted via plain `subspace { … }` (unconditional). */
     fun gateOf(sub: SubSpace): BoolHandle? = gates[sub]
 
     /** True if [handle] is conditionally present (i.e. has an activation condition). */

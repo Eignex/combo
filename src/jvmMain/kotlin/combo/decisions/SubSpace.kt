@@ -12,7 +12,7 @@ import kotlin.properties.ReadOnlyProperty
 /**
  * Base class for typed, reusable sub-schemas mounted under a [DecisionSpace] (or under
  * another sub-space, transitively). Subclass it, declare variables and constraints with
- * the inherited declarators, then mount instances via [submodel] on a parent.
+ * the inherited declarators, then mount instances via [subspace] on a parent.
  *
  * Construction relies on a thread-local "current context" installed by the root
  * [DecisionSpace] — every `boolVar()` etc. registers with the *same* root klause schema,
@@ -57,7 +57,7 @@ abstract class SubSpace internal constructor() {
      * derived context whose prefix is `"${currentPrefix}.${propertyName}"`, so every
      * declaration inside the factory registers under the qualified namespace.
      */
-    protected fun <T : SubSpace> submodel(factory: () -> T) =
+    protected fun <T : SubSpace> subspace(factory: () -> T) =
         PropertyDelegateProvider<SubSpace, ReadOnlyProperty<SubSpace, T>> { _, prop ->
             val instance = SubSpaceContext.withContext(ctx.child(prop.name), factory)
             ReadOnlyProperty { _, _ -> instance }
@@ -65,15 +65,15 @@ abstract class SubSpace internal constructor() {
 
     /**
      * Mount a typed sub-space *gated* by an auto-allocated bool variable. The gate's
-     * klause name is the property name itself; the sub-model body sits under that
+     * klause name is the property name itself; the sub-space body sits under that
      * namespace. Every variable declared inside the factory is pinned to a default
      * (false / domain minimum / first nominal label) when the gate is off, via a
      * reified klause constraint added at compile time.
      *
-     * Nested optional sub-models compose activation conditions — a variable two levels
+     * Nested optional sub-spaces compose activation conditions — a variable two levels
      * deep is active only when both gates are on.
      */
-    protected fun <T : SubSpace> optionalSubmodel(factory: () -> T) =
+    protected fun <T : SubSpace> optionalSubspace(factory: () -> T) =
         PropertyDelegateProvider<SubSpace, ReadOnlyProperty<SubSpace, T>> { _, prop ->
             val gateName = ctx.qualify(prop.name)
             // Register the gate first, under the *parent's* activation. If we're

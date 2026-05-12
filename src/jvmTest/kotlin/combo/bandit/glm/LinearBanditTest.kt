@@ -35,7 +35,7 @@ private class AudioBlock : SubSpace() {
 
 private class WithOptional : DecisionSpace() {
     val baseline by boolVar()
-    val audio by optionalSubmodel(::AudioBlock)
+    val audio by optionalSubspace(::AudioBlock)
 }
 
 private class WithNominal : DecisionSpace() {
