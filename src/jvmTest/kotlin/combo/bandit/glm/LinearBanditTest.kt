@@ -38,6 +38,15 @@ private class WithOptional : DecisionSpace() {
     val audio by optionalSubmodel(::AudioBlock)
 }
 
+private class ContextConditionedSchema : DecisionSpace() {
+    val choice1 by boolVar()
+    val choice2 by boolVar()
+    val premium by contextBool()
+    val segment by contextInt()
+    val premium_x_c1 by interact(premium, choice1)
+    val segment_x_c2 by interact(segment, choice2)
+}
+
 class LinearBanditTest {
 
     @Test
@@ -128,6 +137,62 @@ class LinearBanditTest {
         val best = bandit.optimalOrThrow(ctx)
         assertTrue(best.bools[0], "choice1 should be picked under positive-reward training")
         assertTrue(best.bools[1], "choice2 should be picked under positive-reward training")
+    }
+
+    @Test
+    fun interactionsLetBanditLearnContextConditionedDecisions() {
+        val schema = ContextConditionedSchema()
+        val space = schema.compileSpace()
+        val projection = LinearFeatureProjection(space)
+        val solver = LocalSearchSolver(space.compiled.problem)
+        val params = LocalSearchParams(maxFlips = 1_000L, randomSeed = 4L)
+
+        val model = DiagonalizedLinearModel.Builder(projection.featureSize)
+            .family(NormalVariance)
+            .learningRate(ConstantRate(1f))
+            .priorPrecision(0.01f)
+            .exploration(0f)
+            .build()
+        val bandit = LinearBandit(
+            projection = projection,
+            linearModel = model,
+            innerOptimizer = { obj -> solver.minimize(obj, params) },
+            randomSeed = 4,
+        )
+
+        // Reward depends on context × decision: positive premium + segment flip
+        // the best decision for each choice.
+        //   reward = (premium ? +1 : -1) * choice1 + (segment > 0 ? +1 : -1) * choice2
+        fun groundTruth(s: Sample, premium: Boolean, segment: Int): Double {
+            val c1 = if (s.bools[0]) 1.0 else 0.0
+            val c2 = if (s.bools[1]) 1.0 else 0.0
+            return (if (premium) 1.0 else -1.0) * c1 + (if (segment > 0) 1.0 else -1.0) * c2
+        }
+
+        val rng = Random(4)
+        // Train across all four context combinations.
+        val contexts = listOf(
+            Triple(true, 1, context { set(schema.premium, true); set(schema.segment, 1) }),
+            Triple(true, -1, context { set(schema.premium, true); set(schema.segment, -1) }),
+            Triple(false, 1, context { set(schema.premium, false); set(schema.segment, 1) }),
+            Triple(false, -1, context { set(schema.premium, false); set(schema.segment, -1) }),
+        )
+        repeat(2000) {
+            val (premium, segment, ctx) = contexts.random(rng)
+            val s = solver.sample(params.copy(randomSeed = rng.nextLong()))!!
+            bandit.train(s, ctx, groundTruth(s, premium, segment))
+        }
+
+        // For each context, the bandit's optimal sample matches the per-context optimum.
+        for ((premium, segment, ctx) in contexts) {
+            val best = bandit.optimalOrThrow(ctx)
+            val c1Optimal = premium
+            val c2Optimal = segment > 0
+            assertEquals(c1Optimal, best.bools[0],
+                "context (premium=$premium, segment=$segment): choice1 should be $c1Optimal")
+            assertEquals(c2Optimal, best.bools[1],
+                "context (premium=$premium, segment=$segment): choice2 should be $c2Optimal")
+        }
     }
 
     @Test

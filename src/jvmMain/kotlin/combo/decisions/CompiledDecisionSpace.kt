@@ -33,6 +33,9 @@ class CompiledDecisionSpace internal constructor(
     /** For each sub-model mounted via `optionalSubmodel`, the auto-allocated gate
      *  variable that controls its activation. */
     val gates: Map<SubSpace, BoolHandle>,
+    /** Declared cross-feature interactions. Linear bandits materialise these as extra
+     *  weight slots; trees ignore them. */
+    val interactions: List<InteractionHandle>,
 ) {
     /** Convenience: the auto-allocated gate for an optional sub-model. Null when the
      *  sub-model was mounted via plain `submodel { … }` (unconditional). */
