@@ -49,7 +49,6 @@ val pendingRewire = listOf(
     "combo/bandit/UpdateEvents.kt",
     "combo/bandit/univariate/ParallelUnivariateBandit.kt",
     "combo/bandit/dt/**",
-    "combo/bandit/glm/LinearBandit.kt",
 )
 val pendingRewireTests = listOf(
     "combo/bandit/BanditsTest.kt",
