@@ -1,3 +1,10 @@
-plugins {
-    id("org.gradle.toolchains.foojay-resolver-convention").version("1.0.0")
+rootProject.name = "combo"
+
+pluginManagement {
+    repositories {
+        mavenCentral()
+        gradlePluginPortal()
+    }
 }
+
+includeBuild("../klause")

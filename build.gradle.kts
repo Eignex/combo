@@ -1,41 +1,41 @@
+@file:OptIn(ExperimentalWasmDsl::class)
+
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+
 plugins {
-    kotlin("jvm") version "2.2.21"
-    kotlin("plugin.serialization") version "2.2.21"
+    id("com.eignex.kmp") version "1.1.4"
+    kotlin("plugin.serialization") version "2.3.0"
 }
 
-group = "com.egenity.combo"
-version = "0.2-SNAPSHOT"
-
-repositories {
-    mavenCentral()
-}
-
-java {
-    sourceCompatibility = JavaVersion.VERSION_24
-    targetCompatibility = JavaVersion.VERSION_24
-}
-
-java {
-    toolchain {
-        languageVersion.set(JavaLanguageVersion.of(24))
-    }
+eignexPublish {
+    description.set("Multi-armed bandit algorithms for combinatorial decision spaces.")
+    githubRepo.set("Eignex/combo")
 }
 
 kotlin {
-    jvmToolchain {
-        languageVersion.set(JavaLanguageVersion.of(24))
+    jvm()
+    js(IR) { browser(); nodejs() }
+    wasmJs { browser(); nodejs() }
+    wasmWasi { nodejs() }
+    linuxX64(); linuxArm64()
+    macosX64(); macosArm64(); mingwX64()
+    iosX64(); iosArm64(); iosSimulatorArm64()
+
+    sourceSets {
+        commonMain.dependencies {
+            api("com.eignex:klause")
+            implementation("com.eignex:kumulant:0.1.0")
+            implementation("com.eignex:kpermute:1.1.2")
+            compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-core:1.10.0")
+        }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+            implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.10.0")
+            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
+        }
+        jvmMain.dependencies {
+            api("com.eignex:klause-logicng")
+            implementation("org.slf4j:slf4j-api:2.0.17")
+        }
     }
-}
-
-dependencies {
-    implementation(kotlin("stdlib"))
-    implementation("org.slf4j:slf4j-api:2.0.17")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
-    implementation("org.ow2.sat4j:org.ow2.sat4j.maxsat:2.3.5")
-    implementation("org.logicng:logicng:2.6.0")
-    testImplementation(kotlin("test"))
-}
-
-tasks.test {
-    useJUnitPlatform()
 }
