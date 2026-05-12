@@ -9,8 +9,7 @@ import combo.decisions.IntContextHandle
  * decision and context handle to a stable slot in the dense weight vector that the
  * linear models train against.
  *
- * Slice 1 layout (no optionals, no interactions, no nominals expanded):
- *   `[bool decisions (numBoolVars), int decisions (numIntVars), bool contexts, int contexts]`
+ * Layout: `[bool decisions (numBoolVars), int decisions (numIntVars), bool contexts, int contexts]`
  *
  * Trees and other non-linear bandits don't go through this layer — they own their own
  * typed projection over the same [CompiledDecisionSpace].
