@@ -11,15 +11,17 @@ import kotlinx.serialization.Serializable
 class NoFeasibleSampleException(message: String) : RuntimeException(message)
 
 /**
- * Per-bandit state that survives import/export. Sealed so a heterogeneous stream of
- * checkpoints can be serialized through kotlinx-serialization, and remap-aware so a
- * schema change can re-key per-variable accumulators without rebuilding from scratch.
+ * Per-bandit state that survives import/export. Concrete subtypes are `@Serializable`
+ * data classes registered with a kotlinx-serialization `SerializersModule` when
+ * polymorphic round-trips are needed; the interface itself is intentionally open so
+ * downstream bandits can ship their own data without cross-package sealed-hierarchy
+ * pain.
  *
- * Concrete subtypes typically wrap kumulant `Result` snapshots: a [BanditData] is the
- * union of "what stats does this bandit hold" plus "which klause slot each one keys on".
+ * Subtypes typically wrap kumulant `Result` snapshots: a [BanditData] is the union of
+ * "what stats does this bandit hold" plus "which klause slot each one keys on", and
+ * [remap] rewrites the latter when the schema changes.
  */
-@Serializable
-sealed interface BanditData {
+interface BanditData {
     /** Rewrite this data against a new schema. Stats whose slot is dropped should be discarded. */
     fun remap(slots: SlotRemap): BanditData
 }

@@ -1,8 +1,7 @@
 package combo.bandit.glm
 
 import combo.math.*
-import combo.sat.NumericalInstabilityException
-import combo.sat.Problem
+import combo.bandit.util.nextNormal
 import kotlin.math.sqrt
 import kotlin.random.Random
 
@@ -123,7 +122,7 @@ class CovarianceLinearModel(val family: VarianceFunction,
                 covarianceL[j, i] = L[i, j] // L is lower triangulate, cholesky is upper
     }
 
-    override fun exportData() = LinearData(weights.toFloatArray(), bias, biasPrecision, step, covariance.toArray() + covarianceL.toArray())
+    override fun exportData() = LinearData(weights.toFloatArray(), bias, biasPrecision, step, (covariance.toArray() + covarianceL.toArray()).toList())
 
     override fun blank(variance: Float): CovarianceLinearModel {
         val covariance = vectors.zeroMatrix(covariance.rows)
@@ -139,7 +138,6 @@ class CovarianceLinearModel(val family: VarianceFunction,
 
     class Builder(val size: Int) {
 
-        constructor(problem: Problem) : this(problem.nbrValues)
 
         private var family: VarianceFunction = NormalVariance
         private var link: Transform? = null

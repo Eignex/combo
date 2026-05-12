@@ -1,8 +1,7 @@
 package combo.bandit.glm
 
 import combo.math.*
-import combo.sat.NumericalInstabilityException
-import combo.sat.Problem
+import combo.bandit.util.nextNormal
 import kotlin.math.sqrt
 import kotlin.random.Random
 
@@ -48,16 +47,15 @@ class SGDLinearModel(link: Transform,
         bias = combineMean(bias, data.bias, 1 - weightMixin, weightMixin)
         for (i in weights.indices)
             weights[i] = combineMean(weights[i], data.weights[i], 1 - weightMixin, weightMixin)
-        updater.importData(vectors.matrix(data.updaterData), varianceMixin, weightMixin)
+        updater.importData(vectors.matrix(data.updaterData.toTypedArray()), varianceMixin, weightMixin)
     }
 
-    override fun exportData() = LinearData(weights.toFloatArray(), bias, 0f, step, updater.exportData().toArray())
+    override fun exportData() = LinearData(weights.toFloatArray(), bias, 0f, step, updater.exportData().toArray().toList())
     override fun blank(variance: Float) = SGDLinearModel(
             link, loss, regularization, regularizationFactor, updater.copyReset(), exploration, 0L, vectors.zeroVector(weights.size), biasRate, bias)
 
     class Builder(val size: Int) {
 
-        constructor(problem: Problem) : this(problem.nbrValues)
 
         private var link: Transform = IdentityTransform
         private var loss: Transform = HuberLoss(0.1f)

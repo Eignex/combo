@@ -9,6 +9,8 @@ import kotlin.random.Random
 
 private const val MIN_POS = Double.MIN_VALUE
 
+fun Random.nextNormal(mean: Float, std: Float): Float = nextNormal(mean.toDouble(), std.toDouble()).toFloat()
+
 fun Random.nextNormal(mean: Double = 0.0, std: Double = 1.0): Double {
     var u: Double
     var s: Double

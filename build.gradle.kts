@@ -49,7 +49,7 @@ val pendingRewire = listOf(
     "combo/bandit/UpdateEvents.kt",
     "combo/bandit/univariate/ParallelUnivariateBandit.kt",
     "combo/bandit/dt/**",
-    "combo/bandit/glm/**",
+    "combo/bandit/glm/LinearBandit.kt",
 )
 val pendingRewireTests = listOf(
     "combo/bandit/BanditsTest.kt",
@@ -58,7 +58,7 @@ val pendingRewireTests = listOf(
     "combo/bandit/univariate/ParallelUnivariateBanditTest.kt",
     "combo/bandit/univariate/UnivariatePosteriorsTest.kt",
     "combo/bandit/dt/**",
-    "combo/bandit/glm/**",
+    "combo/bandit/glm/LinearBanditTest.kt",
     // Math tests that exercise dropped Sampling/Estimators APIs:
     "combo/math/CholeskyTest.kt",
     "combo/math/FloatVectorsTest.kt",

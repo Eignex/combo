@@ -1,8 +1,7 @@
 package combo.bandit.glm
 
 import combo.math.*
-import combo.sat.NumericalInstabilityException
-import combo.sat.Problem
+import combo.bandit.util.nextNormal
 import kotlin.math.sqrt
 import kotlin.random.Random
 
@@ -57,14 +56,13 @@ class DiagonalizedLinearModel(val family: VarianceFunction,
         }
     }
 
-    override fun exportData() = LinearData(weights.toFloatArray(), bias, biasPrecision, step, arrayOf(precision.toFloatArray()))
+    override fun exportData() = LinearData(weights.toFloatArray(), bias, biasPrecision, step, listOf(precision.toFloatArray()))
     override fun blank(variance: Float) = DiagonalizedLinearModel(
             family, link, loss, regularization, regularizationFactor, learningRate, exploration, 0L, vectors.zeroVector(weights.size),
             vectors.zeroVector(precision.size).apply { add(1f / variance) }, bias, 1f / variance)
 
     class Builder(val size: Int) {
 
-        constructor(problem: Problem) : this(problem.nbrValues)
 
         private var family: VarianceFunction = NormalVariance
         private var link: Transform? = null
