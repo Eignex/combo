@@ -42,6 +42,27 @@ private class TwoAdSlots : DecisionSpace() {
     val slotB by submodel(::AdSlot)
 }
 
+private class Audio : SubSpace() {
+    val mute by boolVar()
+    val volume by intVar(0, 11)
+}
+
+private class OptionalAudio : DecisionSpace() {
+    val audio by optionalSubmodel(::Audio)
+}
+
+private class NestedOptionals : DecisionSpace() {
+    val outer by optionalSubmodel(::OptionalAudioInner)
+}
+
+private class OptionalAudioInner : SubSpace() {
+    val inner by optionalSubmodel(::AudioLeaf)
+}
+
+private class AudioLeaf : SubSpace() {
+    val volume by intVar(0, 11)
+}
+
 class SubSpaceTest {
 
     @Test
@@ -92,6 +113,62 @@ class SubSpaceTest {
         assertTrue("middle.inner.toggle" in entries)
         assertEquals("middle.inner.toggle", model.middle.inner.toggle.name)
         assertEquals("middle.knob", model.middle.knob.name)
+    }
+
+    @Test
+    fun optionalSubmodelAllocatesGateAndPinsChildrenWhenOff() {
+        val model = OptionalAudio()
+        val space = model.compileSpace()
+
+        // The gate is an auto-allocated bool with the property name.
+        assertTrue("audio" in space.schemaDef.entries)
+        // Children are namespaced under it and marked optional.
+        assertTrue("audio.mute" in space.schemaDef.entries)
+        assertTrue("audio.volume" in space.schemaDef.entries)
+        assertTrue(space.isOptional(model.audio.mute))
+        assertTrue(space.isOptional(model.audio.volume))
+
+        // Pinning constraints are registered.
+        val pins = space.schemaDef.entries.keys.filter { it.startsWith("__pin_audio.") }
+        assertEquals(setOf("__pin_audio.mute", "__pin_audio.volume"), pins.toSet())
+
+        // The compiled space exposes the auto-allocated gate.
+        val gate = space.gateOf(model.audio) ?: error("optional sub-model must expose its gate")
+        assertEquals("audio", gate.name)
+
+        // klause enforces the pin: every feasible sample with gate=false has mute=false
+        // and volume=0 (the domain minimum).
+        val solver = LocalSearchSolver(space.compiled.problem)
+        repeat(50) { seed ->
+            val sample = solver.sample(LocalSearchParams(randomSeed = seed.toLong()))!!
+            val gateOn = space.compiled.decode(gate, sample)
+            if (!gateOn) {
+                assertEquals(false, sample.bools[space.compiled.boolVarIdByName["audio.mute"]!!],
+                    "audio.mute should be pinned to false when gate is off")
+                assertEquals(0, sample.ints[space.compiled.intVarIdByName["audio.volume"]!!],
+                    "audio.volume should be pinned to 0 when gate is off")
+            }
+            // isActive matches gate state for the variables inside the optional.
+            assertEquals(gateOn, space.isActive(model.audio.mute, sample))
+            assertEquals(gateOn, space.isActive(model.audio.volume, sample))
+        }
+    }
+
+    @Test
+    fun nestedOptionalsComposeActiveConditions() {
+        val model = NestedOptionals()
+        val space = model.compileSpace()
+        // Outer gate
+        assertTrue("outer" in space.schemaDef.entries)
+        // Inner gate, nested under outer
+        assertTrue("outer.inner" in space.schemaDef.entries)
+        // Leaf variable, nested under inner
+        assertTrue("outer.inner.volume" in space.schemaDef.entries)
+        // The leaf has an active condition that requires both gates on.
+        val cond = space.activeConditions["outer.inner.volume"]
+        assertTrue(cond is com.eignex.klause.ast.And)
+        cond as com.eignex.klause.ast.And
+        assertEquals(2, cond.children.size)
     }
 
     @Test

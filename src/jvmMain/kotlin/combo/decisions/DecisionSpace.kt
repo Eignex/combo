@@ -50,6 +50,8 @@ abstract class DecisionSpace : SubSpace() {
             contextBools = _contextBools.toList(),
             contextInts = _contextInts.toList(),
             schemaDef = klauseEntries,
+            activeConditions = schema.activeConditions.toMap(),
+            gates = schema.gates.toMap(),
         )
     }
 }

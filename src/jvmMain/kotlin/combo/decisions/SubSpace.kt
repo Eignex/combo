@@ -28,19 +28,19 @@ abstract class SubSpace internal constructor() {
 
     protected fun boolVar() =
         PropertyDelegateProvider<SubSpace, ReadOnlyProperty<SubSpace, BoolHandle>> { _, prop ->
-            val handle = ctx.root.registerBool(ctx.qualify(prop.name))
+            val handle = ctx.root.registerBool(ctx.qualify(prop.name), ctx.activeCondition)
             ReadOnlyProperty { _, _ -> handle }
         }
 
     protected fun intVar(min: Int, max: Int) =
         PropertyDelegateProvider<SubSpace, ReadOnlyProperty<SubSpace, IntHandle>> { _, prop ->
-            val handle = ctx.root.registerInt(ctx.qualify(prop.name), min, max)
+            val handle = ctx.root.registerInt(ctx.qualify(prop.name), min, max, ctx.activeCondition)
             ReadOnlyProperty { _, _ -> handle }
         }
 
     protected fun nominal(vararg labels: String) =
         PropertyDelegateProvider<SubSpace, ReadOnlyProperty<SubSpace, NominalHandle>> { _, prop ->
-            val handle = ctx.root.registerNominal(ctx.qualify(prop.name), labels.toList())
+            val handle = ctx.root.registerNominal(ctx.qualify(prop.name), labels.toList(), ctx.activeCondition)
             ReadOnlyProperty { _, _ -> handle }
         }
 
@@ -59,7 +59,29 @@ abstract class SubSpace internal constructor() {
      */
     protected fun <T : SubSpace> submodel(factory: () -> T) =
         PropertyDelegateProvider<SubSpace, ReadOnlyProperty<SubSpace, T>> { _, prop ->
-            val instance = SubSpaceContext.withContext(ctx.child(prop.name)) { factory() }
+            val instance = SubSpaceContext.withContext(ctx.child(prop.name), factory)
+            ReadOnlyProperty { _, _ -> instance }
+        }
+
+    /**
+     * Mount a typed sub-space *gated* by an auto-allocated bool variable. The gate's
+     * klause name is the property name itself; the sub-model body sits under that
+     * namespace. Every variable declared inside the factory is pinned to a default
+     * (false / domain minimum / first nominal label) when the gate is off, via a
+     * reified klause constraint added at compile time.
+     *
+     * Nested optional sub-models compose activation conditions — a variable two levels
+     * deep is active only when both gates are on.
+     */
+    protected fun <T : SubSpace> optionalSubmodel(factory: () -> T) =
+        PropertyDelegateProvider<SubSpace, ReadOnlyProperty<SubSpace, T>> { _, prop ->
+            val gateName = ctx.qualify(prop.name)
+            // Register the gate first, under the *parent's* activation. If we're
+            // already inside an optional, the gate itself becomes optional too — it
+            // gets pinned to false when the outer gate is off, which is correct.
+            val gateHandle = ctx.root.registerBool(gateName, ctx.activeCondition)
+            val instance = SubSpaceContext.withContext(ctx.gatedChild(prop.name, gateName), factory)
+            ctx.root.recordGate(instance, gateHandle)
             ReadOnlyProperty { _, _ -> instance }
         }
 }
