@@ -57,23 +57,10 @@ val pendingRewireTests = listOf(
     "combo/bandit/univariate/ParallelUnivariateBanditTest.kt",
     "combo/bandit/univariate/UnivariatePosteriorsTest.kt",
     "combo/bandit/dt/**",
-    // Math tests that exercise dropped Sampling/Estimators APIs:
+    // Depends on combo.sat.BitArray (dropped) for vector indexing — the cholesky
+    // downdate path is exercised by combo.bandit.glm.LinearModelTest via
+    // CovarianceLinearModel.
     "combo/math/CholeskyTest.kt",
-    "combo/math/FloatVectorsTest.kt",
-    "combo/math/NumbersTest.kt",
-    "combo/math/VectorTest.kt",
-    // Util tests pending verification of the kpermute swap:
-    "combo/util/ArraysTest.kt",
-    "combo/util/BitsTest.kt",
-    "combo/util/IntArrayListTest.kt",
-    "combo/util/IntEntryTest.kt",
-    "combo/util/IntHashMapTest.kt",
-    "combo/util/IntHashSetTest.kt",
-    "combo/util/IntRangeCollectionTest.kt",
-    "combo/util/IntUnionCollectionTest.kt",
-    "combo/util/QueuesTest.kt",
-    "combo/util/SinksTest.kt",
-    "combo/test/Assert.kt",
 )
 kotlin.sourceSets["jvmMain"].kotlin.exclude(pendingRewire)
 kotlin.sourceSets["jvmTest"].kotlin.exclude(pendingRewireTests)

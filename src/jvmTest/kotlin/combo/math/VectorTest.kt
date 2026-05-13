@@ -1,5 +1,6 @@
 package combo.math
 
+import combo.bandit.util.nextNormal
 import combo.test.assertContentEquals
 import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
@@ -143,7 +144,7 @@ abstract class VectorTest(val vectorFactory: VectorFactory) {
     @Test
     fun toIntArrayGcd() {
         val rng = Random
-        val vector = vector(*FloatArray(100) { rng.nextNormal() })
+        val vector = vector(*FloatArray(100) { rng.nextNormal(0f, 1f) })
         val rounded = vector.toIntArray(1.0f, false)
         for (i in rounded.indices)
             assertEquals(rounded[i], vector[i].roundToInt())
