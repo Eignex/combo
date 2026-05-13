@@ -56,18 +56,11 @@ val pendingRewire = listOf(
     "combo/bandit/dt/VoteStrategies.kt",
 )
 val pendingRewireTests = listOf(
-    "combo/bandit/BanditsTest.kt",
-    "combo/bandit/univariate/BanditPoliciesTest.kt",
-    "combo/bandit/univariate/UnivariatePosteriorsTest.kt",
     "combo/bandit/dt/DecisionTreeBanditTest.kt",
     "combo/bandit/dt/RandomForestBanditTest.kt",
     "combo/bandit/dt/SplitMetricTest.kt",
     "combo/bandit/dt/TreeNodesTest.kt",
     "combo/bandit/dt/ValueSplittersTest.kt",
-    // Depends on combo.sat.BitArray (dropped) for vector indexing — the cholesky
-    // downdate path is exercised by combo.bandit.glm.LinearModelTest via
-    // CovarianceLinearModel.
-    "combo/math/CholeskyTest.kt",
 )
 kotlin.sourceSets["jvmMain"].kotlin.exclude(pendingRewire)
 kotlin.sourceSets["jvmTest"].kotlin.exclude(pendingRewireTests)

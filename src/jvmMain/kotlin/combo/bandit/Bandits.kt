@@ -2,10 +2,7 @@ package combo.bandit
 
 import com.eignex.klause.compile.CompiledProblem
 import com.eignex.klause.solver.Sample
-import com.eignex.klause.solver.Sampler
-import com.eignex.klause.solver.SolverParams
 import com.eignex.kumulant.core.SeriesStat
-import kotlinx.serialization.Serializable
 
 /** Thrown when a bandit cannot produce a feasible sample within its budget. */
 class NoFeasibleSampleException(message: String) : RuntimeException(message)
@@ -88,35 +85,3 @@ interface PredictionBandit<D : BanditData> : Bandit<D> {
     }
 }
 
-/**
- * Baseline bandit that delegates sampling to a klause [Sampler] and ignores rewards.
- * Useful as an A/B control or for warm-starting more expensive bandits.
- */
-class RandomBandit<P : SolverParams>(
-    val sampler: Sampler<P>,
-    val params: P,
-    override val randomSeed: Int = 0,
-    override val rewards: SeriesStat<*>? = null,
-) : Bandit<RandomBanditData> {
-    override val maximize: Boolean get() = true
-
-    override fun chooseOrThrow(): Sample =
-        sampler.sample(params) ?: throw NoFeasibleSampleException("klause sampler returned no feasible assignment")
-
-    override fun optimalOrThrow(): Sample = chooseOrThrow()
-
-    @Suppress("UNCHECKED_CAST")
-    override fun update(sample: Sample, reward: Double, weight: Double) {
-        // SeriesStat<R>.update takes (Double, Long, Double) regardless of R, so the star
-        // projection is safe here.
-        (rewards as? SeriesStat<Any>)?.update(reward, 0L, weight)
-    }
-
-    override fun importData(data: RandomBanditData) {}
-    override fun exportData(): RandomBanditData = RandomBanditData
-}
-
-@Serializable
-data object RandomBanditData : BanditData {
-    override fun remap(slots: SlotRemap): BanditData = this
-}
