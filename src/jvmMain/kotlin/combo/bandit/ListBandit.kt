@@ -1,145 +1,111 @@
 package combo.bandit
 
+import com.eignex.klause.solver.Sample
+import com.eignex.kumulant.core.Result
+import com.eignex.kumulant.core.SeriesStat
 import combo.bandit.univariate.BanditPolicy
-import combo.bandit.univariate.Greedy
-import combo.math.DataSample
-import combo.math.VarianceEstimator
-import combo.math.VoidSample
-import combo.expressions.Constraint
-import combo.expressions.Tautology
-import combo.sat.*
-import combo.expressions.Conjunction
-import combo.sat.optimizers.ExhaustiveSolver
-import combo.sat.optimizers.LocalSearch
-import combo.sat.optimizers.Optimizer
-import combo.util.*
+import combo.decisions.CompiledDecisionSpace
+import combo.decisions.Context
+import combo.util.RandomSequence
 import java.util.concurrent.atomic.AtomicLong
+import kotlinx.serialization.Serializable
 
 /**
- * This bandit uses an independent univariate bandit policy for each of a pre-defined [Instance].
- * Use the sequence method in [combo.sat.optimizers.Optimizer] to generate the instances.
+ * Bandit over a pre-defined list of klause [Sample]s. Each sample is an arm with its
+ * own [BanditPolicy]-owned accumulator; [chooseOrThrow] picks the best-scoring arm
+ * among those compatible with the round's [Context] (i.e. whose pinned-context bits
+ * match the caller-supplied assumptions).
  *
- * @param instances all arms to use by the bandit.
- * @param banditPolicy the policy that the next bandit arm is selected with.
- * @param priors set specific priors or use to import historic data after restarts.
- * @param randomSeed Set the random seed to a specific value to have a reproducible algorithm.
- * @param maximize Whether the bandit should maximize or minimize the total rewards. By default true.
- * @param rewards All rewards are added to this for inspecting how well the bandit performs.
+ * Use a klause [com.eignex.klause.solver.Sampler.enumerate] to populate [samples] from
+ * a [combo.decisions.DecisionSpace] when you don't want to hand-curate them.
+ *
+ * @param samples the arms; should be feasible against the [space]'s constraints.
+ * @param policy decides which arm to play and owns each arm's [SeriesStat].
+ * @param space resolves [Context] to klause [com.eignex.klause.solver.Assumptions]
+ *              and matches them against each sample.
  */
-class ListBandit(instances: Array<Instance>,
-                 val banditPolicy: BanditPolicy,
-                 priors: Map<Instance, VarianceEstimator> = emptyMap(),
-                 override val randomSeed: Int = System.currentTimeMillis().toInt(),
-                 override val maximize: Boolean = true,
-                 override val rewards: DataSample = VoidSample) : Bandit<InstancesData> {
+class ListBandit<R : Result>(
+    val samples: List<Sample>,
+    val policy: BanditPolicy<R>,
+    val space: CompiledDecisionSpace,
+    override val randomSeed: Int = System.currentTimeMillis().toInt(),
+    override val maximize: Boolean = true,
+    override val rewards: SeriesStat<*>? = null,
+) : Bandit<ListBanditData> {
 
-    private val instanceData = LinkedHashMap<Instance, VarianceEstimator>().apply {
-        instances.associateTo(this) {
-            val e = priors[it] ?: banditPolicy.baseData()
-            banditPolicy.addArm(e)
-            it to e
-        }
+    init {
+        require(samples.isNotEmpty()) { "ListBandit needs at least one sample arm" }
     }
 
-    private var randomSequence = RandomSequence(randomSeed)
+    private val arms: Array<SeriesStat<R>> = Array(samples.size) {
+        policy.createArm().also { stat -> policy.addArm(stat.read(0L)) }
+    }
+    private val randomSequence = RandomSequence(randomSeed)
     private val step = AtomicLong()
 
-    override fun importData(data: InstancesData) {
-        for ((instance, e) in data.instances) {
-            val old = this.instanceData[instance] ?: continue
-            banditPolicy.removeArm(old)
-            val combined = old.combine(e)
-            this.instanceData[instance] = combined
-            banditPolicy.addArm(combined)
-        }
-    }
-
-    override fun exportData(): InstancesData {
-        val itr = instanceData.iterator()
-        return InstancesData(List(instanceData.size) {
-            val (l, t) = itr.next()
-            InstanceData(l, t)
-        })
-    }
-
-    override fun update(instance: Instance, result: Float, weight: Float) {
-        rewards.accept(result, weight)
-        val e = instanceData[instance]
-        if (e != null) banditPolicy.update(e, result, weight)
-    }
-
-    private fun opt(assumptions: IntCollection, policy: BanditPolicy, t: Long): Instance {
-        val con: Constraint = if (assumptions.isNotEmpty()) Conjunction(assumptions) else Tautology
+    fun chooseOrThrow(context: Context): Sample {
+        val assumptions = space.assumptionsFor(context)
         val rng = randomSequence.next()
-        val instance = instanceData.maxByOrNull {
-            if (con.satisfies(it.key)) {
-                policy.evaluate(it.value, t, maximize, rng)
-            } else Float.NEGATIVE_INFINITY
-        }?.key
-        if (instance == null || !con.satisfies(instance))
-            throw UnsatisfiableException("No instance matching assumption literals.")
-        return instance
-    }
-
-    override fun optimalOrThrow(assumptions: IntCollection) = opt(assumptions, Greedy, step.get())
-    override fun chooseOrThrow(assumptions: IntCollection) = opt(assumptions, banditPolicy, step.getAndIncrement())
-
-    class Builder private constructor(
-            val banditPolicy: BanditPolicy,
-            private val problem: Problem? = null,
-            private val limit: Int = 500,
-            private val instances: MutableList<Instance>? = null)
-        : BanditBuilder<InstancesData> {
-
-        private var randomSeed: Int = System.currentTimeMillis().toInt()
-        private var maximize: Boolean = true
-        private var rewards: DataSample = VoidSample
-        private var import: InstancesData? = null
-
-        /**
-         * Use pre-generated [instances] as base.
-         */
-        constructor(instances: Collection<Instance>, banditPolicy: BanditPolicy)
-                : this(banditPolicy, instances = instances.toMutableList())
-
-        /**
-         * Generates up to [limit] instances using the specified constraints in the [problem].
-         */
-        constructor(problem: Problem, banditPolicy: BanditPolicy, limit: Int = 500) : this(
-                banditPolicy, problem, limit)
-
-        override fun importData(data: InstancesData) = apply { this.import = data }
-        override fun randomSeed(randomSeed: Int) = apply { this.randomSeed = randomSeed }
-        override fun maximize(maximize: Boolean) = apply { this.maximize = maximize }
-        override fun rewards(rewards: DataSample) = apply { this.rewards = rewards }
-        override fun parallel() = ParallelBandit.Builder(this)
-
-        override fun suggestOptimizer(optimizer: Optimizer<*>) = this
-        override fun build(): ListBandit {
-            val priors = if (import != null) {
-                val priors = HashMap<Instance, VarianceEstimator>()
-                for ((instance, e) in import!!.instances)
-                    priors[instance] = e.copy()
-                priors
-            } else emptyMap<Instance, VarianceEstimator>()
-            val instances = if (instances != null) {
-                if (import != null) {
-                    val instanceSet = instances.toHashSet()
-                    instanceSet.addAll(priors.keys)
-                    instanceSet.toTypedArray()
-                } else instances.toTypedArray()
-            } else {
-                problem!!
-                val optimizer = if (problem.nbrValues <= 20) ExhaustiveSolver(problem, randomSeed)
-                else LocalSearch.Builder(problem).restarts(Int.MAX_VALUE).randomSeed(randomSeed).build()
-                val data = if (optimizer.complete) optimizer.asSequence().take(limit)
-                else optimizer.asSequence().take(limit * 2).distinct().take(limit)
-                if (import != null) {
-                    (data + import!!.instances.asSequence().map { it.instance }).toSet().toTypedArray()
-                } else data.toList().toTypedArray()
-            }
-            return ListBandit(instances = instances, banditPolicy = banditPolicy,
-                    randomSeed = randomSeed, maximize = maximize, rewards = rewards, priors = priors)
+        val t = step.getAndIncrement()
+        var bestIdx = -1
+        var bestScore = Double.NEGATIVE_INFINITY
+        for (i in samples.indices) {
+            if (!space.matches(samples[i], assumptions)) continue
+            val score = policy.evaluate(arms[i].read(0L), t, maximize, rng)
+            if (score > bestScore) { bestScore = score; bestIdx = i }
         }
+        if (bestIdx < 0) throw NoFeasibleSampleException(
+            "no sample in the list matches the supplied context assumptions",
+        )
+        return samples[bestIdx]
     }
+
+    fun choose(context: Context): Sample? = try {
+        chooseOrThrow(context)
+    } catch (_: NoFeasibleSampleException) {
+        null
+    }
+
+    fun optimalOrThrow(context: Context): Sample {
+        // "Optimal" = exploit best-mean arm. We use a fixed-seed RNG so the answer is
+        // deterministic across rounds; the policy's evaluate is called once per arm.
+        val assumptions = space.assumptionsFor(context)
+        val rng = kotlin.random.Random(0L)
+        val t = step.get()
+        var bestIdx = -1
+        var bestScore = Double.NEGATIVE_INFINITY
+        for (i in samples.indices) {
+            if (!space.matches(samples[i], assumptions)) continue
+            val score = policy.evaluate(arms[i].read(0L), t, maximize, rng)
+            if (score > bestScore) { bestScore = score; bestIdx = i }
+        }
+        if (bestIdx < 0) throw NoFeasibleSampleException(
+            "no sample in the list matches the supplied context assumptions",
+        )
+        return samples[bestIdx]
+    }
+
+    fun update(sample: Sample, context: Context, reward: Double, weight: Double = 1.0) {
+        val idx = samples.indexOf(sample)
+        if (idx >= 0) policy.update(arms[idx], reward, weight)
+        @Suppress("UNCHECKED_CAST")
+        (rewards as? SeriesStat<Any>)?.update(reward, 0L, weight)
+    }
+
+    // Bandit<D> interface — contextless overloads default to empty context.
+    override fun chooseOrThrow(): Sample = chooseOrThrow(Context.Empty)
+    override fun optimalOrThrow(): Sample = optimalOrThrow(Context.Empty)
+    override fun update(sample: Sample, reward: Double, weight: Double) =
+        update(sample, Context.Empty, reward, weight)
+
+    /** Snapshot the current per-arm stats. */
+    fun snapshot(): List<R> = arms.map { it.read(0L) }
+
+    override fun importData(data: ListBanditData) { /* no-op for now */ }
+    override fun exportData(): ListBanditData = ListBanditData
+}
+
+@Serializable
+data object ListBanditData : BanditData {
+    override fun remap(slots: SlotRemap): BanditData = this
 }

@@ -122,52 +122,8 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
         return LinearObjective(boolWeights, intCoefficients, constant = sign * constant)
     }
 
-    /**
-     * Build the klause [com.eignex.klause.solver.Assumptions] that pin every context
-     * variable in [context] to its supplied value for a choose call. For optional
-     * contexts: when present, pin both the isKnown gate (true) and the value; when
-     * absent, pin just the isKnown gate to false and let klause's schema-level pinning
-     * constraint force the value to its default.
-     */
-    fun assumptionsFor(context: Context): com.eignex.klause.solver.Assumptions {
-        val bools = mutableMapOf<Int, Boolean>()
-        val ints = mutableMapOf<Int, Int>()
-        for (h in space.contextBools) {
-            val gate = h.isKnownGate
-            if (gate != null) {
-                val gateId = space.compiled.boolVarIdByName[gate.name]
-                    ?: error("optional context '${h.name}' lost its isKnown gate '${gate.name}'")
-                if (context.isPresent(h)) {
-                    bools[gateId] = true
-                    val valueId = space.compiled.boolVarIdByName[h.name] ?: continue
-                    bools[valueId] = context[h]
-                } else {
-                    bools[gateId] = false
-                }
-            } else {
-                val id = space.compiled.boolVarIdByName[h.name] ?: continue
-                bools[id] = context[h]
-            }
-        }
-        for (h in space.contextInts) {
-            val gate = h.isKnownGate
-            if (gate != null) {
-                val gateId = space.compiled.boolVarIdByName[gate.name]
-                    ?: error("optional context '${h.name}' lost its isKnown gate '${gate.name}'")
-                if (context.isPresent(h)) {
-                    bools[gateId] = true
-                    val valueId = space.compiled.intVarIdByName[h.name] ?: continue
-                    ints[valueId] = context[h]
-                } else {
-                    bools[gateId] = false
-                }
-            } else {
-                val id = space.compiled.intVarIdByName[h.name] ?: continue
-                ints[id] = context[h]
-            }
-        }
-        return com.eignex.klause.solver.Assumptions(bools, ints)
-    }
+    /** Convenience: delegates to [CompiledDecisionSpace.assumptionsFor]. */
+    fun assumptionsFor(context: Context) = space.assumptionsFor(context)
 
     private fun boolActive(id: Int, sample: Sample): Boolean {
         if (id !in optionalBoolIds) return true

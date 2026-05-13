@@ -5,6 +5,7 @@ import com.eignex.klause.compile.CompiledProblem
 import com.eignex.klause.schema.BoolHandle
 import com.eignex.klause.schema.IntHandle
 import com.eignex.klause.schema.NominalHandle
+import com.eignex.klause.solver.Assumptions
 import com.eignex.klause.solver.Sample
 
 /**
@@ -52,6 +53,60 @@ class CompiledDecisionSpace internal constructor(
 
     fun isOptional(handle: BoolContextHandle): Boolean = isOptional(handle.klauseHandle)
     fun isOptional(handle: IntContextHandle): Boolean = isOptional(handle.klauseHandle)
+
+    /**
+     * Build the klause [Assumptions] that pin every context variable in [context] to
+     * its supplied value for a choose call. For optional contexts: when present, pin
+     * both the isKnown gate (true) and the value; when absent, pin just the isKnown
+     * gate to false and let the schema's pinning constraint force the value to its
+     * default.
+     */
+    fun assumptionsFor(context: Context): Assumptions {
+        val bools = mutableMapOf<Int, Boolean>()
+        val ints = mutableMapOf<Int, Int>()
+        for (h in contextBools) {
+            val gate = h.isKnownGate
+            if (gate != null) {
+                val gateId = compiled.boolVarIdByName[gate.name]
+                    ?: error("optional context '${h.name}' lost its isKnown gate '${gate.name}'")
+                if (context.isPresent(h)) {
+                    bools[gateId] = true
+                    val valueId = compiled.boolVarIdByName[h.name] ?: continue
+                    bools[valueId] = context[h]
+                } else {
+                    bools[gateId] = false
+                }
+            } else {
+                val id = compiled.boolVarIdByName[h.name] ?: continue
+                bools[id] = context[h]
+            }
+        }
+        for (h in contextInts) {
+            val gate = h.isKnownGate
+            if (gate != null) {
+                val gateId = compiled.boolVarIdByName[gate.name]
+                    ?: error("optional context '${h.name}' lost its isKnown gate '${gate.name}'")
+                if (context.isPresent(h)) {
+                    bools[gateId] = true
+                    val valueId = compiled.intVarIdByName[h.name] ?: continue
+                    ints[valueId] = context[h]
+                } else {
+                    bools[gateId] = false
+                }
+            } else {
+                val id = compiled.intVarIdByName[h.name] ?: continue
+                ints[id] = context[h]
+            }
+        }
+        return Assumptions(bools, ints)
+    }
+
+    /** True iff [sample] satisfies every pin in [assumptions]. */
+    fun matches(sample: Sample, assumptions: Assumptions): Boolean {
+        for ((id, v) in assumptions.bools) if (sample.bools[id] != v) return false
+        for ((id, v) in assumptions.ints) if (sample.ints[id] != v) return false
+        return true
+    }
 
     /** True if [handle] is conditionally present (i.e. has an activation condition). */
     fun isOptional(handle: BoolHandle): Boolean = handle.name in activeConditions

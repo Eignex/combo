@@ -44,7 +44,6 @@ kotlin {
 // Each entry will be lifted out as its subsystem is migrated.
 val pendingRewire = listOf(
     "combo/bandit/InstancesData.kt",
-    "combo/bandit/ListBandit.kt",
     // Old tree-bandit sources still on combo.sat / combo.model / VarianceEstimator —
     // rewired piecewise as slices land. The new TreeRow / Split / TreeFeatureProjection
     // files in combo/bandit/dt/ are kept compiling.
@@ -59,7 +58,6 @@ val pendingRewire = listOf(
 )
 val pendingRewireTests = listOf(
     "combo/bandit/BanditsTest.kt",
-    "combo/bandit/ListBanditTest.kt",
     "combo/bandit/univariate/BanditPoliciesTest.kt",
     "combo/bandit/univariate/UnivariatePosteriorsTest.kt",
     "combo/bandit/dt/DecisionTreeBanditTest.kt",
