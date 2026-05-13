@@ -315,7 +315,7 @@ class LinearBanditTest {
         // Inactive: the audio.mute slot must be 0 in the feature vector regardless of
         // its (pinned-to-false) klause value.
         val inactiveFeatures = projection.encode(inactiveSample!!)
-        val muteSlot = projection.layout.boolDecisionsStart +
+        val muteSlot = projection.layout.boolStart +
             space.compiled.boolVarIdByName["audio.mute"]!!
         assertEquals(0f, inactiveFeatures[muteSlot])
 
