@@ -45,16 +45,12 @@ kotlin {
 val pendingRewire = listOf(
     "combo/bandit/InstancesData.kt",
     "combo/bandit/ListBandit.kt",
-    "combo/bandit/ParallelBandit.kt",
-    "combo/bandit/UpdateEvents.kt",
-    "combo/bandit/univariate/ParallelUnivariateBandit.kt",
     "combo/bandit/dt/**",
 )
 val pendingRewireTests = listOf(
     "combo/bandit/BanditsTest.kt",
     "combo/bandit/ListBanditTest.kt",
     "combo/bandit/univariate/BanditPoliciesTest.kt",
-    "combo/bandit/univariate/ParallelUnivariateBanditTest.kt",
     "combo/bandit/univariate/UnivariatePosteriorsTest.kt",
     "combo/bandit/dt/**",
     // Depends on combo.sat.BitArray (dropped) for vector indexing — the cholesky
