@@ -43,7 +43,6 @@ kotlin {
 // Files awaiting rewire onto the new bandit harness (klause Sample + kumulant Result).
 // Each entry will be lifted out as its subsystem is migrated.
 val pendingRewire = listOf(
-    "combo/bandit/InstancesData.kt",
     // Old tree-bandit sources still on combo.sat / combo.model / VarianceEstimator —
     // rewired piecewise as slices land. The new TreeRow / Split / TreeFeatureProjection
     // files in combo/bandit/dt/ are kept compiling.
