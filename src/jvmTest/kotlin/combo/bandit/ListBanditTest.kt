@@ -3,8 +3,11 @@ package combo.bandit
 import com.eignex.klause.solver.LocalSearchParams
 import com.eignex.klause.solver.LocalSearchSolver
 import com.eignex.klause.solver.Sample
+import com.eignex.kumulant.stat.summary.BernoulliSumResult
+import com.eignex.kumulant.stat.summary.MeanStat
 import combo.bandit.univariate.BinomialPosterior
 import combo.bandit.univariate.ThompsonSampling
+import combo.decisions.CompiledDecisionSpace
 import combo.decisions.DecisionSpace
 import combo.decisions.context
 import kotlin.random.Random
@@ -21,6 +24,24 @@ private class TinyBoolSpace : DecisionSpace() {
 private class WithContext : DecisionSpace() {
     val a by boolVar()
     val premium by contextBool()
+}
+
+/** Suite contract: ListBandit over a klause-enumerated sample pool with Thompson + BinomialPosterior. */
+class ListBanditSuiteTest : BanditTestSuite<ListBanditData>() {
+    override fun build(
+        space: CompiledDecisionSpace,
+        samples: List<Sample>,
+        randomSeed: Int,
+        maximize: Boolean,
+        rewards: MeanStat?,
+    ): Bandit<ListBanditData> = ListBandit<BernoulliSumResult>(
+        samples = samples,
+        policy = ThompsonSampling(BinomialPosterior()),
+        space = space,
+        randomSeed = randomSeed,
+        maximize = maximize,
+        rewards = rewards,
+    )
 }
 
 class ListBanditTest {
