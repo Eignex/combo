@@ -45,14 +45,28 @@ kotlin {
 val pendingRewire = listOf(
     "combo/bandit/InstancesData.kt",
     "combo/bandit/ListBandit.kt",
-    "combo/bandit/dt/**",
+    // Old tree-bandit sources still on combo.sat / combo.model / VarianceEstimator —
+    // rewired piecewise as slices land. The new TreeRow / Split / TreeFeatureProjection
+    // files in combo/bandit/dt/ are kept compiling.
+    "combo/bandit/dt/DecisionTreeBandit.kt",
+    "combo/bandit/dt/ITreeParameters.kt",
+    "combo/bandit/dt/RandomForestBandit.kt",
+    "combo/bandit/dt/SplitMetric.kt",
+    "combo/bandit/dt/TreeData.kt",
+    "combo/bandit/dt/TreeNodes.kt",
+    "combo/bandit/dt/ValueSplitters.kt",
+    "combo/bandit/dt/VoteStrategies.kt",
 )
 val pendingRewireTests = listOf(
     "combo/bandit/BanditsTest.kt",
     "combo/bandit/ListBanditTest.kt",
     "combo/bandit/univariate/BanditPoliciesTest.kt",
     "combo/bandit/univariate/UnivariatePosteriorsTest.kt",
-    "combo/bandit/dt/**",
+    "combo/bandit/dt/DecisionTreeBanditTest.kt",
+    "combo/bandit/dt/RandomForestBanditTest.kt",
+    "combo/bandit/dt/SplitMetricTest.kt",
+    "combo/bandit/dt/TreeNodesTest.kt",
+    "combo/bandit/dt/ValueSplittersTest.kt",
     // Depends on combo.sat.BitArray (dropped) for vector indexing — the cholesky
     // downdate path is exercised by combo.bandit.glm.LinearModelTest via
     // CovarianceLinearModel.
