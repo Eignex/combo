@@ -75,9 +75,27 @@ subset".
 
 ## Bandit
 
-Random forest is a good default — robust to bad tuning, copes with both discrete and
-mixed search spaces. The bandit takes a compiled decision space plus a klause sampler
-that produces feasible candidates:
+The flagship algorithm is **`RandomForestBandit`** — an online, constraint-aware
+contextual bandit built on Hoeffding-bound decision trees (VFDT-style growth) that
+each carry a *posterior distribution* at every leaf. At decision time the forest does
+a guided descent against klause: each tree's split decisions are pinned as klause
+assumptions, the local-search sampler proposes a feasible candidate consistent with
+the pins, and if propagation reports the path infeasible the bandit backjumps to the
+deepest conflicting decision rather than restarting. A complete `BacktrackSolver`
+cascades behind the local search so a null sample means *definitive UNSAT*, not "the
+sampler gave up under its budget" — the bandit's training data never carries
+silently-biased exploration misses.
+
+Exploration is per-leaf Thompson sampling on a Bayesian posterior over the leaf
+reward, Oza–Russell online bagging diversifies the trees as updates stream in, and
+Breiman-style mtry restricts each tree's split candidates to a random subspace. None
+of this assumes a binary decision space: bools, integers, nominals, multi-selects, and
+bucketed floats all carry their own typed split kinds, and constraints over them are
+honored at every choose call by construction — there's no rejection-sample fallback
+that quietly violates the model.
+
+The bandit takes a compiled decision space plus a klause sampler that produces
+feasible candidates:
 
 ```kotlin
 val space = MyDecisionSpace().compileSpace()
