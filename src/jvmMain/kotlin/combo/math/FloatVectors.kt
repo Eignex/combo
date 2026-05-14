@@ -1,9 +1,5 @@
 package combo.math
 
-import combo.util.IntHashMap
-import combo.util.key
-import combo.util.sumByFloat
-import combo.util.value
 import kotlin.math.sqrt
 
 class FloatVector(val array: FloatArray) : Vector {
@@ -27,58 +23,66 @@ class FloatVector(val array: FloatArray) : Vector {
     override fun asVector() = this
 }
 
-class FloatSparseVector(override val size: Int, val values: FloatArray, val index: IntHashMap) : Vector {
+/**
+ * Sparse vector backed by parallel index/value arrays. [indices] holds the feature
+ * positions that are nonzero; [values] holds those nonzero values in matching order.
+ * Linear lookup — fine for the bandit's typical use case (sparse feature vectors from
+ * nominal-heavy spaces, where each sample touches a handful of indicator slots out of
+ * hundreds-to-thousands).
+ *
+ * Vectors are constructed-once: [set] only updates existing nonzero positions, never
+ * introduces new ones, so [indices] is immutable after construction. Callers that need
+ * to add nonzero slots should materialise a fresh sparse vector.
+ */
+class FloatSparseVector(override val size: Int, val indices: IntArray, val values: FloatArray) : Vector {
 
-    constructor(size: Int, values: FloatArray, indices: IntArray) : this(
-        size,
-        values,
-        IntHashMap(values.size * 2, nullKey = -1).also {
-            for (i in values.indices)
-                it[indices[i]] = i
+    init {
+        require(indices.size == values.size) {
+            "indices/values must align: ${indices.size} vs ${values.size}"
         }
-    )
+    }
 
-    override val sparse: Boolean get() = false
+    override val sparse: Boolean get() = true
 
     override infix fun dot(v: VectorView): Float {
         var sum = 0f
-        for (l in index.entryIterator()) {
-            val i = l.key()
-            val j = l.value()
-            sum += v[i] * values[j]
-        }
+        for (k in indices.indices) sum += v[indices[k]] * values[k]
         return sum
     }
 
-    override fun norm2() = sqrt(values.sumByFloat { it * it })
+    override fun norm2(): Float {
+        var sum = 0f
+        for (v in values) sum += v * v
+        return sqrt(sum)
+    }
+
     override fun sum() = values.sum()
 
     override fun get(i: Int): Float {
-        val v = index[i, -1]
-        return if (v == -1) {
-            0f
-        } else {
-            values[v]
-        }
+        val pos = positionOf(i)
+        return if (pos < 0) 0f else values[pos]
     }
 
     override fun set(i: Int, x: Float) {
-        if (!index.contains(i)) {
-            throw UnsupportedOperationException("Can't set new value in sparse vector.")
-        } else {
-            values[index[i]] = x
-        }
+        val pos = positionOf(i)
+        if (pos < 0) throw UnsupportedOperationException(
+            "FloatSparseVector position $i is not in the index — sparse vectors are constructed-once",
+        )
+        values[pos] = x
     }
 
-    override fun iterator() = index.iterator()
+    private fun positionOf(i: Int): Int {
+        for (k in indices.indices) if (indices[k] == i) return k
+        return -1
+    }
+
+    override fun iterator(): IntIterator = indices.iterator()
 
     override fun toFloatArray() = FloatArray(size).also {
-        for (l in index.entryIterator()) {
-            it[l.key()] = values[l.value()]
-        }
+        for (k in indices.indices) it[indices[k]] = values[k]
     }
 
-    override fun copy() = FloatSparseVector(size, values.copyOf(), index.copy())
+    override fun copy() = FloatSparseVector(size, indices.copyOf(), values.copyOf())
     override fun vectorCopy() = copy()
     override fun asVector() = this
 }
@@ -130,5 +134,5 @@ object FloatVectorFactory : VectorFactory {
         size: Int,
         values: FloatArray,
         indices: IntArray
-    ) = FloatSparseVector(size, values, indices)
+    ) = FloatSparseVector(size, indices, values)
 }

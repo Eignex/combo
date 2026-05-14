@@ -2,7 +2,6 @@
 
 package combo.math
 
-import combo.util.transformArray
 import kotlin.jvm.JvmName
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
@@ -112,7 +111,7 @@ fun VectorView.toIntArray(delta: Float, gcd: Boolean): IntArray {
     }
     if (gcd) {
         val g = gcdAll(*array)
-        if (g > 1) array.transformArray { it / g }
+        if (g > 1) for (i in array.indices) array[i] = array[i] / g
     }
     return array
 }
