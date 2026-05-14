@@ -48,25 +48,16 @@ optimal configuration is learned over time from how each category performs:
       "games": {
         "type": "multiple",
         "labels": ["Shooter", "Platform", "Sports", "Action", "Adventure", "Strategy"]
-      }
-    },
-
-    "spaces": {
+      },
       "movies": {
-        "variables": {
-          "genre": {
-            "type": "multiple",
-            "labels": ["Slasher", "Thriller", "MartialArts", "Crime", "Supernatural", "SuperHeroes", "Fantasy"]
-          }
-        },
-        "constraints": {
-          "noSlasherForKids": "customerType == \"Child\" implies !movies.genre.contains(\"Slasher\")"
-        }
+        "type": "multiple",
+        "labels": ["Slasher", "Thriller", "MartialArts", "Crime", "Supernatural", "SuperHeroes", "Fantasy"]
       }
     },
 
     "constraints": {
-      "betweenTwoAndFive": "|games| + |movies.genre| in [2, 5]"
+      "noSlasherForKids": "customerType == \"Child\" implies !movies.contains(\"Slasher\")",
+      "betweenTwoAndFive": "|games| + |movies| in [2, 5]"
     }
   }
 }
