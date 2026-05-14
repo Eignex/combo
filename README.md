@@ -10,17 +10,25 @@
 
 # COMBO
 
-Combo is a library for **Constraint-Oriented Multi-variate Bandit Optimization** of
-software parameters: each user gets their own configuration drawn from a constrained
-decision space, and the reward signal (clicks, sales, latency, …) shapes future
-configurations in real time. Supported algorithms are random forest (Thompson sampling
-on a per-leaf posterior), GLM (linear Thompson sampling with a Bayesian linear model),
-and a univariate multi-armed bandit for the no-context case.
+Combo is a library for optimizing software parameters under constraints. It covers
+two regimes from one decision-space definition:
 
-Combo sits on top of two sibling libraries:
-[klause](https://github.com/Eignex/klause) handles the constraint solving and
-sampling, and [kumulant](https://github.com/Eignex/kumulant) provides the streaming
-statistics that drive each leaf's posterior update.
+- **Bandit optimization** for online, high-volume settings: production traffic where
+  every user gets their own configuration, each observation streams back as a reward,
+  and cumulative regret across millions of decisions is what matters. Decision latency
+  is in the milliseconds. This is the path the random forest, GLM, and univariate
+  bandits target.
+- **Bayesian optimization** for offline, low-volume settings: expensive evaluations
+  (simulator runs, A/B experiments, hyperparameter sweeps) where only the final
+  recommended configuration matters and you have a budget of tens to hundreds of
+  trials total. Decision latency can be seconds. This is the path the upcoming
+  BoBandit and GP surrogate target.
+
+Both share the same constraint solver and decision-space schema, so the cost of
+switching regimes is a different bandit class, not a different model. Combo sits on
+top of two sibling libraries: [klause](https://github.com/Eignex/klause) handles the
+constraint solving and sampling, and [kumulant](https://github.com/Eignex/kumulant)
+provides the streaming statistics that drive each leaf's posterior update.
 
 Using it requires three steps:
 
