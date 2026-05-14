@@ -3,7 +3,6 @@
 package combo.math
 
 import kotlin.jvm.JvmName
-import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 interface VectorView : Iterable<Int> {
@@ -38,8 +37,6 @@ interface VectorView : Iterable<Int> {
      * Returns a copy of the backing data.
      */
     fun toFloatArray(): FloatArray
-
-    fun toIntArray() = IntArray(size) { get(it).roundToInt() }
 }
 
 interface Vector : VectorView {
@@ -102,19 +99,7 @@ interface VectorFactory {
 
 var vectors: VectorFactory = FloatVectorFactory
 
-val EMPTY_VECTOR = FloatVector(0)
 val EMPTY_MATRIX = FloatMatrix(0)
-
-fun VectorView.toIntArray(delta: Float, gcd: Boolean): IntArray {
-    val array = IntArray(size) {
-        (this[it] / delta).roundToInt()
-    }
-    if (gcd) {
-        val g = gcdAll(*array)
-        if (g > 1) for (i in array.indices) array[i] = array[i] / g
-    }
-    return array
-}
 
 inline fun Vector.transform(transform: (Float) -> Float) {
     for (i in indices)
@@ -126,6 +111,7 @@ inline fun Vector.transformIndexed(transform: (Int, Float) -> Float) {
         this[i] = transform(i, this[i])
 }
 
+/** Backing helper for [VectorView.norm2] / [VectorView.sum] default impls. */
 inline fun VectorView.sumBy(selector: (Float) -> Float): Float {
     var sum = 0.0f
     for (i in this) {

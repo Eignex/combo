@@ -136,25 +136,6 @@ abstract class VectorTest(val vectorFactory: VectorFactory) {
     }
 
     @Test
-    fun toIntArray() {
-        val vector = vector(-1.2f, 2.1f, 1041.1f)
-        assertContentEquals(intArrayOf(-1, 2, 1041), vector.toIntArray())
-    }
-
-    @Test
-    fun toIntArrayGcd() {
-        val rng = Random
-        val vector = vector(*FloatArray(100) { rng.nextNormal(0f, 1f) })
-        val rounded = vector.toIntArray(1.0f, false)
-        for (i in rounded.indices)
-            assertEquals(rounded[i], vector[i].roundToInt())
-        val larger = vector.toIntArray(1e-4f, false)
-        for (i in rounded.indices) {
-            assertTrue(larger[i].absoluteValue >= rounded[i].absoluteValue)
-        }
-    }
-
-    @Test
     fun inlineAddScalar() {
         val v = vector(-1.0f, 2.0f, 0.0f)
         v.add(5.0f)
