@@ -24,7 +24,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api("com.eignex:klause")
-            implementation("com.eignex:kumulant:0.1.0")
+            implementation("com.eignex:kumulant:0.1.1")
             implementation("com.eignex:kpermute:1.1.2")
             compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-core:1.10.0")
         }
