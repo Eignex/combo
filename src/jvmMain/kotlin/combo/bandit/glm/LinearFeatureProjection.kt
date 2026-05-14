@@ -6,6 +6,7 @@ import com.eignex.klause.schema.IntHandle
 import com.eignex.klause.schema.NominalHandle
 import com.eignex.klause.solver.LinearObjective
 import com.eignex.klause.solver.Sample
+import combo.decisions.BanditSample
 import combo.decisions.BoolContextHandle
 import combo.decisions.CompiledDecisionSpace
 import combo.decisions.Context
@@ -60,16 +61,22 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
         for ((name, id) in space.compiled.intVarIdByName) arr[id] = name
     }
 
-    override fun encode(sample: Sample, context: Context): Vector {
+    override fun encode(sample: BanditSample, context: Context): Vector {
         val out = vectors.zeroVector(layout.featureSize)
         for (b in 0 until layout.numBoolVars) {
-            if (boolActive(b, sample)) {
+            if (boolActive(b, sample.sample)) {
                 out[layout.boolStart + b] = if (sample.bools[b]) 1f else 0f
             }
         }
         for (i in 0 until layout.numIntVars) {
-            if (intActive(i, sample)) {
-                out[layout.intStart + i] = sample.ints[i].toFloat()
+            if (intActive(i, sample.sample)) {
+                // For float slots we prefer the dithered continuous value (carried by
+                // BanditSample) over the bucket midpoint — same dimensional units,
+                // sub-bucket precision. realValue handles the identity case for true ints.
+                val scaling = layout.floatScaling[i]
+                val v = if (scaling != null) floatFeatureFor(i, sample)
+                        else layout.realValue(i, sample.ints[i])
+                out[layout.intStart + i] = v.toFloat()
             }
         }
         for (interaction in layout.interactions) {
@@ -78,7 +85,17 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
         return out
     }
 
-    private fun encodeInteractionInto(it: InteractionHandle, sample: Sample, out: Vector) {
+    /** Resolve the continuous float value at int slot [intVarId] from the bandit
+     *  sample's dither, falling back to the bucket midpoint when no dither is present. */
+    private fun floatFeatureFor(intVarId: Int, sample: BanditSample): Double {
+        val name = intNameById[intVarId] ?: return sample.sample.ints[intVarId].toDouble()
+        val spec = space.compiled.floatDecoders[name]
+            ?: return sample.sample.ints[intVarId].toDouble()
+        val handle = com.eignex.klause.schema.FloatHandle(name, spec.min, spec.max, spec.buckets)
+        return sample.float(handle, space)
+    }
+
+    private fun encodeInteractionInto(it: InteractionHandle, sample: BanditSample, out: Vector) {
         val start = layout.interactionStart.getValue(it)
         val nominal = it.nominalSide()
         if (nominal == null) {
@@ -97,6 +114,25 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
         }
     }
 
+    private fun scalarFor(handle: Any, sample: BanditSample): Double = when (handle) {
+        is BoolHandle -> {
+            val id = space.compiled.boolVarIdByName[handle.name]
+                ?: error("interaction references unknown bool '${handle.name}'")
+            if (!boolActive(id, sample.sample)) 0.0 else if (sample.bools[id]) 1.0 else 0.0
+        }
+        is IntHandle -> {
+            val id = space.compiled.intVarIdByName[handle.name]
+                ?: error("interaction references unknown int '${handle.name}'")
+            if (!intActive(id, sample.sample)) 0.0
+            else if (id in layout.floatScaling) floatFeatureFor(id, sample)
+            else layout.realValue(id, sample.ints[id])
+        }
+        is NominalHandle -> error("nominal handle should not be a direct scalar; expand via interaction logic")
+        is BoolContextHandle -> scalarFor(handle.klauseHandle, sample)
+        is IntContextHandle -> scalarFor(handle.klauseHandle, sample)
+        else -> error("unsupported handle: $handle")
+    }
+
     /**
      * Build a klause objective whose minimiser is the best-scoring feasible sample
      * under [weights] given [context]. The caller is responsible for also passing
@@ -112,8 +148,19 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
         }
         val sign = if (maximize) -1.0 else 1.0
         val boolWeights = DoubleArray(layout.numBoolVars) { weights[layout.boolStart + it].toDouble() }
-        val intCoefficients = DoubleArray(layout.numIntVars) { weights[layout.intStart + it].toDouble() }
+        // Per-int weights enter klause as bucket-coefficients. For bucketed-float slots
+        // that means scaling the model weight by the bucket→real scale; the leftover
+        // offset (weight · min) rolls into the objective's constant so the round-trip
+        // model_weight · real_value = bucket_coefficient · bucket + constant_contribution
+        // is exact.
+        val intCoefficients = DoubleArray(layout.numIntVars)
         var constant = bias.toDouble()
+        for (i in 0 until layout.numIntVars) {
+            val w = weights[layout.intStart + i].toDouble()
+            val (bucketCoeff, constantContribution) = layout.coefficientForInt(i, w)
+            intCoefficients[i] = bucketCoeff
+            constant += constantContribution
+        }
         for (interaction in layout.interactions) {
             foldInteraction(interaction, weights, context, boolWeights, intCoefficients) { c -> constant += c }
         }
@@ -135,23 +182,6 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
         val name = intNameById[id]!!
         val d = space.compiled.problem.intDomains[id]
         return space.isActive(IntHandle(name, d.min, d.max), sample)
-    }
-
-    private fun scalarFor(handle: Any, sample: Sample): Double = when (handle) {
-        is BoolHandle -> {
-            val id = space.compiled.boolVarIdByName[handle.name]
-                ?: error("interaction references unknown bool '${handle.name}'")
-            if (!boolActive(id, sample)) 0.0 else if (sample.bools[id]) 1.0 else 0.0
-        }
-        is IntHandle -> {
-            val id = space.compiled.intVarIdByName[handle.name]
-                ?: error("interaction references unknown int '${handle.name}'")
-            if (!intActive(id, sample)) 0.0 else sample.ints[id].toDouble()
-        }
-        is NominalHandle -> error("nominal handle should not be a direct scalar; expand via interaction logic")
-        is BoolContextHandle -> scalarFor(handle.klauseHandle, sample)
-        is IntContextHandle -> scalarFor(handle.klauseHandle, sample)
-        else -> error("unsupported handle: $handle")
     }
 
     private fun foldInteraction(
@@ -184,8 +214,14 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
             !lhsIsDecision && !rhsIsDecision -> {
                 addToConstant(w * ctxScalar(it.lhs, context) * ctxScalar(it.rhs, context))
             }
-            lhsIsDecision -> applyDecisionWeight(it.lhs, w * ctxScalar(it.rhs, context), boolWeights, intCoefficients)
-            else -> applyDecisionWeight(it.rhs, w * ctxScalar(it.lhs, context), boolWeights, intCoefficients)
+            lhsIsDecision -> {
+                val c = applyDecisionWeight(it.lhs, w * ctxScalar(it.rhs, context), boolWeights, intCoefficients)
+                if (c != 0.0) addToConstant(c)
+            }
+            else -> {
+                val c = applyDecisionWeight(it.rhs, w * ctxScalar(it.lhs, context), boolWeights, intCoefficients)
+                if (c != 0.0) addToConstant(c)
+            }
         }
     }
 
@@ -206,17 +242,21 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
         weight: Double,
         boolWeights: DoubleArray,
         intCoefficients: DoubleArray,
-    ) {
+    ): Double {
+        // Returns the constant-term contribution introduced by float scaling, if any.
         when (decision) {
             is BoolHandle -> {
                 val id = space.compiled.boolVarIdByName[decision.name]
                     ?: error("interaction references unknown bool '${decision.name}'")
                 boolWeights[id] += weight
+                return 0.0
             }
             is IntHandle -> {
                 val id = space.compiled.intVarIdByName[decision.name]
                     ?: error("interaction references unknown int '${decision.name}'")
-                intCoefficients[id] += weight
+                val (bucketCoeff, constantContribution) = layout.coefficientForInt(id, weight)
+                intCoefficients[id] += bucketCoeff
+                return constantContribution
             }
             else -> error("unsupported decision in interaction: $decision")
         }

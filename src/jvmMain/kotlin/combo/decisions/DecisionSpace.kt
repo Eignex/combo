@@ -1,9 +1,21 @@
 package combo.decisions
 
+import com.eignex.klause.ast.And
+import com.eignex.klause.ast.BoolExpr
+import com.eignex.klause.ast.BoolRef
+import com.eignex.klause.ast.BoolSpec
+import com.eignex.klause.ast.NamedConstraint
 import com.eignex.klause.ast.SchemaEntry
+import com.eignex.klause.ast.VarSpec
 import com.eignex.klause.compile.compile
 import kotlin.properties.PropertyDelegateProvider
 import kotlin.properties.ReadOnlyProperty
+
+private fun directGateOf(expr: BoolExpr): String = when (expr) {
+    is BoolRef -> expr.name
+    is And -> directGateOf(expr.children.last())
+    else -> error("unexpected activeCondition shape: $expr")
+}
 
 /**
  * Top-level schema for a bandit. Inherits decision declarators (`boolVar`, `intVar`,
@@ -17,6 +29,11 @@ import kotlin.properties.ReadOnlyProperty
  *    klause [com.eignex.klause.compile.CompiledProblem] ready for the solver.
  */
 abstract class DecisionSpace : SubSpace() {
+
+    /** Identifier serialized as `name` in [DecisionSpaceDef]. Defaults to the subclass's
+     *  simple class name; override to a stable string when the JVM name might drift
+     *  (e.g. anonymous inner classes). */
+    open val name: String get() = this::class.simpleName ?: "DecisionSpace"
 
     private val _contextBools = mutableListOf<BoolContextHandle>()
     private val _contextInts = mutableListOf<IntContextHandle>()
@@ -101,17 +118,115 @@ abstract class DecisionSpace : SubSpace() {
      * same; they're mutually exclusive entry points.
      */
     fun definition(): DecisionSpaceDef {
-        @Suppress("UNCHECKED_CAST")
-        val entries = ctx.root.definition().entries as Map<String, SchemaEntry>
-        val def = DecisionSpaceDef(
-            entries = entries,
-            contextBools = _contextBools.map { it.name },
-            contextInts = _contextInts.map { it.name },
-            interactions = _interactions.map { it.toDef() },
-            gates = ctx.root.gates.values.map { it.name },
-        )
+        val def = buildDef()
         SubSpaceContext.clear()
         return def
+    }
+
+    private fun buildDef(): DecisionSpaceDef {
+        @Suppress("UNCHECKED_CAST")
+        val allEntries = ctx.root.definition().entries as Map<String, *>
+        // Context variables are klause variables too; tag them so buildLevel doesn't
+        // put them in `variables` at the root.
+        val contextNames = (_contextBools.map { it.name } + _contextInts.map { it.name }).toSet()
+        val rootDef = buildLevel(
+            node = this,
+            prefix = "",
+            allEntries = allEntries,
+            ancestorGates = emptyList(),
+            excludeNames = contextNames,
+        )
+        val ctxBools = _contextBools.filter { it.isKnownGate == null }.associate { it.name to (BoolSpec as VarSpec) }
+        val ctxInts = _contextInts.filter { it.isKnownGate == null }
+            .associate { it.name to (com.eignex.klause.ast.IntSpec(it.min, it.max) as VarSpec) }
+        val ctxBoolsOpt = _contextBools.filter { it.isKnownGate != null }.associate { it.name to (BoolSpec as VarSpec) }
+        val ctxIntsOpt = _contextInts.filter { it.isKnownGate != null }
+            .associate { it.name to (com.eignex.klause.ast.IntSpec(it.min, it.max) as VarSpec) }
+        return rootDef.copy(
+            name = name,
+            context = ctxBools + ctxInts,
+            optionalContext = ctxBoolsOpt + ctxIntsOpt,
+            interactions = _interactions.map { it.toDef() },
+        )
+    }
+
+    /**
+     * Build a [DecisionSpaceDef] for [node] given the qualifying [prefix]. Recursively
+     * walks the [SubSpace.children] tree. Variables/constraints owned at this level are
+     * those whose fully-qualified name has no dots after [prefix]. [ancestorGates]
+     * carries the chain of optional-sub-space gates above this level so we can
+     * recognise variables that are "just regular here" (their `activeCondition` is
+     * exactly the ancestor chain) vs. *additionally* optional ones (activeCondition
+     * adds an `isKnown_<self>` beyond the ancestor chain).
+     */
+    private fun buildLevel(
+        node: SubSpace,
+        prefix: String,
+        allEntries: Map<String, *>,
+        ancestorGates: List<String>,
+        excludeNames: Set<String> = emptySet(),
+    ): DecisionSpaceDef {
+        val childPrefixes = node.children.map { "$prefix${it.name}." }.toSet()
+        val gateNames = node.children.mapNotNull { if (it.isOptional) "$prefix${it.name}" else null }.toSet()
+        val ownVariables = LinkedHashMap<String, VarSpec>()
+        val ownOptionalVariables = LinkedHashMap<String, VarSpec>()
+        val ownConstraints = LinkedHashMap<String, BoolExpr>()
+
+        for ((entryName, entry) in allEntries) {
+            if (!entryName.startsWith(prefix)) continue
+            val rest = entryName.removePrefix(prefix)
+            // Skip entries that belong to a nested child.
+            if (childPrefixes.any { entryName.startsWith(it) }) continue
+            // Skip auto-allocated gate variables — they're regenerated from structure.
+            if (entryName in gateNames) continue
+            if (entryName in excludeNames) continue
+            // Skip the `isKnown_*` gates of optional variables — we recover them from
+            // the optional-variable slot instead.
+            if (rest.startsWith("isKnown_")) continue
+            val localName = rest
+            when (entry) {
+                is VarSpec -> {
+                    val ac = ctx.root.activeConditions[entryName]
+                    val gates = ac?.let { gateNamesOf(it) } ?: emptyList()
+                    val extra = gates - ancestorGates.toSet()
+                    when {
+                        extra.isEmpty() -> ownVariables[localName] = entry
+                        extra.size == 1 && extra.single() == "isKnown_$entryName" ->
+                            ownOptionalVariables[localName] = entry
+                        // else: orphaned — fall through silently. Shouldn't happen with
+                        // current declarators.
+                    }
+                }
+                is NamedConstraint -> {
+                    if (localName.startsWith("__pin_")) continue
+                    ownConstraints[localName] = unqualify(entry.expr, prefix)
+                }
+            }
+        }
+
+        val nested = LinkedHashMap<String, DecisionSpaceDef>()
+        val optionalNested = LinkedHashMap<String, DecisionSpaceDef>()
+        for (child in node.children) {
+            val childGates = if (child.isOptional) ancestorGates + "$prefix${child.name}" else ancestorGates
+            val childDef = buildLevel(child.space, "$prefix${child.name}.", allEntries, childGates)
+            if (child.isOptional) optionalNested[child.name] = childDef else nested[child.name] = childDef
+        }
+
+        return DecisionSpaceDef(
+            variables = ownVariables,
+            optionalVariables = ownOptionalVariables,
+            constraints = ownConstraints,
+            spaces = nested,
+            optionalSpaces = optionalNested,
+        )
+    }
+
+    /** Flatten an `And(BoolRef("g1"), BoolRef("g2"))` or single `BoolRef("g")` active
+     *  condition into a list of gate variable names. */
+    private fun gateNamesOf(expr: BoolExpr): List<String> = when (expr) {
+        is BoolRef -> listOf(expr.name)
+        is com.eignex.klause.ast.And -> expr.children.flatMap { gateNamesOf(it) }
+        else -> emptyList()
     }
 
     /**
@@ -123,15 +238,7 @@ abstract class DecisionSpace : SubSpace() {
     fun compileSpace(): CompiledDecisionSpace {
         val schema = ctx.root
         val compiled = schema.compile()
-        @Suppress("UNCHECKED_CAST")
-        val entries = schema.definition().entries as Map<String, SchemaEntry>
-        val def = DecisionSpaceDef(
-            entries = entries,
-            contextBools = _contextBools.map { it.name },
-            contextInts = _contextInts.map { it.name },
-            interactions = _interactions.map { it.toDef() },
-            gates = schema.gates.values.map { it.name },
-        )
+        val def = buildDef()
         SubSpaceContext.clear()
         return CompiledDecisionSpace(
             compiled = compiled,

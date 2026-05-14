@@ -17,15 +17,15 @@ private class AllFeatAdSlot : SubSpace() {
     val premium by boolVar()
     val budget by intVar(0, 1000)
     val type by nominal("a", "b", "c")
-    val audio by optionalSubspace(::AllFeatAudioBlock)
+    val audio by optionalDecisionSpace(::AllFeatAudioBlock)
     val noPremiumForA by constraint { (type eq "a") implies !premium }
 }
 
 private class FullModel : DecisionSpace() {
     val baseline by boolVar()
     val tier by nominal("free", "pro", "enterprise")
-    val slotA by subspace(::AllFeatAdSlot)
-    val slotB by subspace(::AllFeatAdSlot)
+    val slotA by decisionSpace(::AllFeatAdSlot)
+    val slotB by decisionSpace(::AllFeatAdSlot)
 
     val premiumCtx by contextBool()
     val segment by contextInt(-100, 100)
@@ -48,19 +48,20 @@ class AllFeaturesDemo {
     @Test
     fun `DecisionSpaceDef should round-trip and recompile to the same constraint problem`() {
         val original = FullModel().definition()
-
         val encoded = SchemaJson.encodeToString(DecisionSpaceDef.serializer(), original)
         val decoded = SchemaJson.decodeFromString(DecisionSpaceDef.serializer(), encoded)
 
-        assertEquals(original.entries.keys, decoded.entries.keys)
-        assertEquals(listOf("premiumCtx"), decoded.contextBools)
-        assertEquals(listOf("segment"), decoded.contextInts)
+        assertEquals(original.name, decoded.name)
+        assertEquals(original.variables.keys, decoded.variables.keys)
+        assertEquals(original.spaces.keys, decoded.spaces.keys)
+        assertEquals(original.context.keys, decoded.context.keys)
         assertEquals(
-            listOf("premiumXslotABudget", "premiumXtier", "premiumXsegment"),
+            original.interactions.map { it.name },
             decoded.interactions.map { it.name },
         )
-        assertTrue("slotA.audio" in decoded.gates)
-        assertTrue("slotB.audio" in decoded.gates)
+        // slotA's audio sub-space should survive as an optional nested space.
+        val slotA = decoded.spaces.getValue("slotA")
+        assertTrue("audio" in slotA.optionalSpaces.keys)
 
         val recompiled = decoded.compile()
         val direct = original.compile()

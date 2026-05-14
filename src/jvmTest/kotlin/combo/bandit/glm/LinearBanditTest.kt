@@ -81,7 +81,7 @@ class LinearBanditTest {
 
         // Reward = Σ w_i * bool_i (raw 0/1 features). Best arms: a, c, e set; b, d unset.
         val trueWeights = doubleArrayOf(+1.0, -1.0, +1.0, -1.0, +1.0)
-        fun groundTruth(sample: Sample): Double {
+        fun groundTruth(sample: combo.decisions.BanditSample): Double {
             var r = 0.0
             for (i in 0 until 5) r += trueWeights[i] * (if (sample.bools[i]) 1.0 else 0.0)
             return r
@@ -138,13 +138,13 @@ class LinearBanditTest {
             set(schema.premium, true)
             set(schema.segment, 1)
         }
-        fun groundTruth(s: Sample): Double {
+        fun groundTruth(s: combo.decisions.BanditSample): Double {
             return (if (s.bools[0]) 1.0 else 0.0) + (if (s.bools[1]) 1.0 else 0.0)
         }
 
         val rng = Random(17)
         repeat(800) {
-            val s = solver.sample(params.copy(randomSeed = rng.nextLong()))!!
+            val s = combo.decisions.BanditSample.undithered(solver.sample(params.copy(randomSeed = rng.nextLong()))!!)
             bandit.train(s, ctx, groundTruth(s))
         }
 
@@ -190,13 +190,13 @@ class LinearBanditTest {
         repeat(2000) {
             val ctx = if (rng.nextBoolean()) ctxTrue else ctxFalse
             val premium = ctx === ctxTrue
-            val s = solver.sample(params.copy(randomSeed = rng.nextLong()))!!
-            val type = space.compiled.decode(schema.type, s)
+            val s = combo.decisions.BanditSample.undithered(solver.sample(params.copy(randomSeed = rng.nextLong()))!!)
+            val type = space.compiled.decode(schema.type, s.sample)
             bandit.train(s, ctx, groundTruth(type, premium))
         }
 
-        assertEquals("b", space.compiled.decode(schema.type, bandit.optimalOrThrow(ctxTrue)))
-        assertEquals("c", space.compiled.decode(schema.type, bandit.optimalOrThrow(ctxFalse)))
+        assertEquals("b", space.compiled.decode(schema.type, bandit.optimalOrThrow(ctxTrue).sample))
+        assertEquals("c", space.compiled.decode(schema.type, bandit.optimalOrThrow(ctxFalse).sample))
     }
 
     @Test
@@ -230,12 +230,12 @@ class LinearBanditTest {
         val rng = Random(123)
         repeat(800) {
             val sample = bandit.chooseOrThrow()
-            val picked = space.compiled.decode(schema.type, sample)
+            val picked = space.compiled.decode(schema.type, sample.sample)
             val noisy = labelReward[picked]!! + rng.nextGaussian() * 0.05
             bandit.update(sample, noisy)
         }
         val best = bandit.optimalOrThrow()
-        assertEquals("b", space.compiled.decode(schema.type, best))
+        assertEquals("b", space.compiled.decode(schema.type, best.sample))
     }
 
     @Test
@@ -262,7 +262,7 @@ class LinearBanditTest {
         // Reward depends on context × decision: positive premium + segment flip
         // the best decision for each choice.
         //   reward = (premium ? +1 : -1) * choice1 + (segment > 0 ? +1 : -1) * choice2
-        fun groundTruth(s: Sample, premium: Boolean, segment: Int): Double {
+        fun groundTruth(s: combo.decisions.BanditSample, premium: Boolean, segment: Int): Double {
             val c1 = if (s.bools[0]) 1.0 else 0.0
             val c2 = if (s.bools[1]) 1.0 else 0.0
             return (if (premium) 1.0 else -1.0) * c1 + (if (segment > 0) 1.0 else -1.0) * c2
@@ -281,7 +281,7 @@ class LinearBanditTest {
             // Sample with the same assumptions the bandit will use at choose-time, so
             // the sample's context-slot values match the context being trained against.
             val asm = projection.assumptionsFor(ctx)
-            val s = solver.sample(params.copy(randomSeed = rng.nextLong(), assumptions = asm))!!
+            val s = combo.decisions.BanditSample.undithered(solver.sample(params.copy(randomSeed = rng.nextLong(), assumptions = asm))!!)
             bandit.train(s, ctx, groundTruth(s, premium, segment))
         }
 
@@ -321,13 +321,13 @@ class LinearBanditTest {
 
         // Inactive: the audio.mute slot must be 0 in the feature vector regardless of
         // its (pinned-to-false) klause value.
-        val inactiveFeatures = projection.encode(inactiveSample!!)
+        val inactiveFeatures = projection.encode(combo.decisions.BanditSample.undithered(inactiveSample!!))
         val muteSlot = projection.layout.boolStart +
             space.compiled.boolVarIdByName["audio.mute"]!!
         assertEquals(0f, inactiveFeatures[muteSlot])
 
         // Active: the audio.mute slot reflects the actual sampled value.
-        val activeFeatures = projection.encode(activeSample!!)
+        val activeFeatures = projection.encode(combo.decisions.BanditSample.undithered(activeSample!!))
         val expected = if (activeSample!!.bools[space.compiled.boolVarIdByName["audio.mute"]!!]) 1f else 0f
         assertEquals(expected, activeFeatures[muteSlot])
     }

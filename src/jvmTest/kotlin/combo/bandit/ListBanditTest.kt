@@ -55,7 +55,7 @@ class ListBanditTest {
         assertEquals(4, samples.size)
 
         // Reward depends only on `a`: a=true → 0.8, a=false → 0.2.
-        fun pSuccess(s: Sample): Double = if (s.bools[0]) 0.8 else 0.2
+        fun pSuccess(s: combo.decisions.BanditSample): Double = if (s.bools[0]) 0.8 else 0.2
 
         val bandit = ListBandit(
             samples = samples,

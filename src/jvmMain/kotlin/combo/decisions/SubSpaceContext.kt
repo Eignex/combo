@@ -4,6 +4,7 @@ import com.eignex.klause.ast.And
 import com.eignex.klause.ast.BoolExpr
 import com.eignex.klause.ast.BoolRef
 import com.eignex.klause.ast.BoolSpec
+import com.eignex.klause.ast.FloatSpec
 import com.eignex.klause.ast.Implies
 import com.eignex.klause.ast.IntCmpOp
 import com.eignex.klause.ast.IntCompare
@@ -16,6 +17,7 @@ import com.eignex.klause.ast.NominalSpec
 import com.eignex.klause.ast.Not
 import com.eignex.klause.ast.SchemaEntry
 import com.eignex.klause.schema.BoolHandle
+import com.eignex.klause.schema.FloatHandle
 import com.eignex.klause.schema.IntHandle
 import com.eignex.klause.schema.NominalHandle
 import com.eignex.klause.schema.VariableSchema
@@ -123,6 +125,24 @@ internal class RootKlauseSchema : VariableSchema() {
             )
         }
         return IntHandle(name, min, max)
+    }
+
+    fun registerFloat(name: String, min: Double, max: Double, buckets: Int, activeCondition: BoolExpr?): FloatHandle {
+        add(name, FloatSpec(min, max, buckets))
+        if (activeCondition != null) {
+            _activeConditions[name] = activeCondition
+            // !activeCondition → var's bucket == 0 (default = lower bound, mirrors int pinning).
+            add(
+                "__pin_$name",
+                NamedConstraint(
+                    Implies(
+                        Not(activeCondition),
+                        IntCompare(IntRef(name), IntCmpOp.EQ, IntLit(0)),
+                    ),
+                ),
+            )
+        }
+        return FloatHandle(name, min, max, buckets)
     }
 
     fun registerNominal(name: String, labels: List<String>, activeCondition: BoolExpr?): NominalHandle {

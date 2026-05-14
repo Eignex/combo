@@ -1,6 +1,33 @@
 package combo.decisions
 
+import com.eignex.klause.ast.And
+import com.eignex.klause.ast.AtLeast
+import com.eignex.klause.ast.AtMost
+import com.eignex.klause.ast.BoolExpr
+import com.eignex.klause.ast.BoolRef
+import com.eignex.klause.ast.BoolSpec
+import com.eignex.klause.ast.CardinalityExpr
+import com.eignex.klause.ast.Iff
+import com.eignex.klause.ast.Implies
+import com.eignex.klause.ast.IntAbs
+import com.eignex.klause.ast.IntCmpOp
+import com.eignex.klause.ast.IntCompare
+import com.eignex.klause.ast.IntExpr
+import com.eignex.klause.ast.IntIfThenElse
+import com.eignex.klause.ast.IntLit
+import com.eignex.klause.ast.IntMax
+import com.eignex.klause.ast.IntMin
+import com.eignex.klause.ast.IntRef
+import com.eignex.klause.ast.IntScale
+import com.eignex.klause.ast.IntSpec
+import com.eignex.klause.ast.IntSum
+import com.eignex.klause.ast.NamedConstraint
+import com.eignex.klause.ast.NominalEq
+import com.eignex.klause.ast.NominalSpec
+import com.eignex.klause.ast.Not
+import com.eignex.klause.ast.Or
 import com.eignex.klause.ast.SchemaEntry
+import com.eignex.klause.ast.VarSpec
 import com.eignex.klause.compile.CompiledProblem
 import com.eignex.klause.compile.compile
 import com.eignex.klause.schema.VariableSchema
@@ -9,36 +36,98 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Single serializable record of a complete combo decision space.
+ * Cloud-native config shape for a complete decision space. Hierarchical: every level
+ * carries its own variables, constraints, and nested spaces, mirroring how the author
+ * organised the Kotlin DSL.
  *
- *  - [entries] — every variable / constraint / auto-generated pinning constraint for
- *    optional sub-spaces, keyed by fully-qualified dotted name. Solver-compatible:
- *    project via [toSchemaDef] and feed to a constraint solver.
- *  - [contextBools] / [contextInts] — names of context handles. The solver never sees
- *    these; bandit code reads them at choose/update time via [Context].
- *  - [interactions] — declared cross-feature interactions. Each side is a [ScalarRef]
- *    pointing back into either [entries] (decisions) or the context lists.
- *  - [gates] — dotted names of bool variables that gate an optional sub-space.
- *    Redundant with the `__pin_*` constraints in [entries] but cheaper to consume.
+ * Names inside a nested space are *local* — a constraint that says `!premium` inside
+ * `slotA` references `slotA.premium` at the solver level. The compile step
+ * [toSchemaDef] / [compile] re-qualifies names on the way to klause.
+ *
+ * Top-level (root) fields:
+ *  - [name]: stable identifier carrying through the round-trip.
+ *  - [context] / [optionalContext]: caller-supplied values at bandit choose/update.
+ *  - [interactions]: declared cross-feature interaction features.
+ *
+ * Nested levels omit those three. Every level has:
+ *  - [variables]: solver variables declared at this level. Keys are local names.
+ *  - [constraints]: user-declared constraints. Expression refs use local names.
+ *  - [spaces]: always-on nested spaces.
+ *  - [optionalSpaces]: gated nested spaces. The compiler synthesises a bool
+ *    "gate" variable at the parent level and pinning constraints for everything
+ *    inside; neither appears in the JSON.
  */
 @Serializable
 @SerialName("DecisionSpaceDef")
 data class DecisionSpaceDef(
-    val entries: Map<String, SchemaEntry>,
-    val contextBools: List<String> = emptyList(),
-    val contextInts: List<String> = emptyList(),
+    val name: String? = null,
+    val variables: Map<String, VarSpec> = emptyMap(),
+    /** Single-variable optionals: each gets an auto-allocated bool gate named
+     *  `isKnown_<localName>` and a pin to its default value when the gate is off. */
+    val optionalVariables: Map<String, VarSpec> = emptyMap(),
+    val constraints: Map<String, BoolExpr> = emptyMap(),
+    val spaces: Map<String, DecisionSpaceDef> = emptyMap(),
+    val optionalSpaces: Map<String, DecisionSpaceDef> = emptyMap(),
+    val context: Map<String, VarSpec> = emptyMap(),
+    val optionalContext: Map<String, VarSpec> = emptyMap(),
     val interactions: List<InteractionDef> = emptyList(),
-    val gates: List<String> = emptyList(),
 ) {
-    /** Project the variable + constraint entries onto the underlying solver's schema
-     *  type for direct consumption. */
-    fun toSchemaDef(): SchemaDef<SchemaEntry> = SchemaDef(entries)
+    /** Flatten to klause's [SchemaDef]: qualify every name with its path prefix, splice
+     *  user constraints in, synthesise auto-pinning constraints for optional spaces. */
+    fun toSchemaDef(): SchemaDef<SchemaEntry> {
+        val out = LinkedHashMap<String, SchemaEntry>()
+        emit(out, prefix = "")
+        return SchemaDef(out)
+    }
 
-    /** Compile the constraint side of this schema to a solver-ready [CompiledProblem]. */
+    /** Compile via klause. */
     fun compile(): CompiledProblem {
         val schema = SchemaLoader()
-        for ((name, entry) in entries) schema.addRaw(name, entry)
+        val entries = LinkedHashMap<String, SchemaEntry>()
+        emit(entries, prefix = "")
+        for ((entryName, entry) in entries) schema.addRaw(entryName, entry)
         return schema.compile()
+    }
+
+    private fun emit(out: MutableMap<String, SchemaEntry>, prefix: String) {
+        for ((localName, spec) in variables) {
+            out[prefix + localName] = spec
+        }
+        for ((localName, spec) in optionalVariables) {
+            val qualified = prefix + localName
+            val gateName = "isKnown_$qualified"
+            out[gateName] = BoolSpec
+            out[qualified] = spec
+            out["__pin_$qualified"] = NamedConstraint(synthesizePin(qualified, spec, gateName))
+        }
+        for ((localName, spec) in context) {
+            out[prefix + localName] = spec
+        }
+        for ((localName, spec) in optionalContext) {
+            val qualified = prefix + localName
+            val gateName = "isKnown_$qualified"
+            out[gateName] = BoolSpec
+            out[qualified] = spec
+            out["__pin_$qualified"] = NamedConstraint(synthesizePin(qualified, spec, gateName))
+        }
+        for ((localName, expr) in constraints) {
+            out[prefix + localName] = NamedConstraint(qualify(expr, prefix))
+        }
+        for ((localName, child) in spaces) {
+            child.emit(out, prefix = "$prefix$localName.")
+        }
+        for ((localName, child) in optionalSpaces) {
+            val gateName = prefix + localName
+            out[gateName] = BoolSpec
+            val childPrefix = "$prefix$localName."
+            val sizeBefore = out.size
+            child.emit(out, prefix = childPrefix)
+            for ((entryName, entry) in out.toList().drop(sizeBefore)) {
+                if (entry is VarSpec && entryName.startsWith(childPrefix) && !entryName.startsWith("isKnown_")) {
+                    out["__pin_$entryName"] = NamedConstraint(synthesizePin(entryName, entry, gateName))
+                }
+            }
+        }
     }
 }
 
@@ -50,22 +139,104 @@ data class InteractionDef(
     val rhs: ScalarRef,
 )
 
-/** Tagged reference to one operand of an interaction. */
+/**
+ * Reference to one side of an interaction. The path navigates the decision-space tree:
+ *  - `[ "context", "premiumCtx" ]` → the root's `context["premiumCtx"]`
+ *  - `[ "slotA", "budget" ]` → `spaces["slotA"].variables["budget"]`
+ *  - `[ "slotA", "audio", "mute" ]` → nested into an `optionalSpaces["audio"]`
+ *
+ * The last segment is the leaf variable / context name; earlier segments are nested
+ * decision-space names. The wire format uses local-name segments only.
+ */
 @Serializable
 @SerialName("ScalarRef")
 data class ScalarRef(
     val kind: ScalarKind,
-    val name: String,
-    /** Populated only when [kind] is [ScalarKind.NominalDecision]. */
+    val path: List<String>,
+    /** Populated only when [kind] is [ScalarKind.NominalDecision] or
+     *  [ScalarKind.NominalContext]. */
     val labels: List<String> = emptyList(),
-)
+) {
+    init {
+        require(path.isNotEmpty()) { "ScalarRef path must be non-empty" }
+    }
+}
 
 @Serializable
 enum class ScalarKind {
-    BoolDecision, IntDecision, NominalDecision, BoolContext, IntContext,
+    BoolDecision, IntDecision, NominalDecision,
+    BoolContext, IntContext, NominalContext,
 }
 
 /** Internal helper: build a [VariableSchema] from a pre-existing entries map. */
 internal class SchemaLoader : VariableSchema() {
     fun addRaw(name: String, entry: SchemaEntry) = add(name, entry)
+}
+
+/**
+ * Default-value pin for a variable whose gate is off:
+ *  - bool   → false
+ *  - int    → domain min
+ *  - nominal → first label
+ */
+internal fun synthesizePin(qualifiedName: String, spec: VarSpec, gateName: String): BoolExpr {
+    val notGate = Not(BoolRef(gateName))
+    return when (spec) {
+        is BoolSpec -> Implies(notGate, Not(BoolRef(qualifiedName)))
+        is IntSpec -> Implies(notGate, IntCompare(IntRef(qualifiedName), IntCmpOp.EQ, IntLit(spec.min)))
+        is NominalSpec -> Implies(notGate, NominalEq(qualifiedName, spec.labels[0]))
+        is com.eignex.klause.ast.FloatSpec ->
+            // Pin the underlying bucket-int to 0 → real value is `min` (the float's lower bound),
+            // mirroring the int convention.
+            Implies(notGate, IntCompare(IntRef(qualifiedName), IntCmpOp.EQ, IntLit(0)))
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Expression name rewriting — strips a qualifying prefix when emitting (so JSON
+// inside a subspace says `!premium` not `!slotA.premium`) and re-adds it on the
+// way back to klause.
+// -----------------------------------------------------------------------------
+
+/** Walk [expr] and replace every name with `prefix + name`. */
+internal fun qualify(expr: BoolExpr, prefix: String): BoolExpr {
+    if (prefix.isEmpty()) return expr
+    return rewriteBool(expr) { name -> prefix + name }
+}
+
+/** Walk [expr] and strip [prefix] from any name that starts with it. */
+internal fun unqualify(expr: BoolExpr, prefix: String): BoolExpr {
+    if (prefix.isEmpty()) return expr
+    return rewriteBool(expr) { name -> if (name.startsWith(prefix)) name.removePrefix(prefix) else name }
+}
+
+private fun rewriteBool(expr: BoolExpr, transform: (String) -> String): BoolExpr = when (expr) {
+    is BoolRef -> BoolRef(transform(expr.name), expr.negated)
+    is NominalEq -> NominalEq(transform(expr.name), expr.label)
+    is Not -> Not(rewriteBool(expr.child, transform))
+    is And -> And(expr.children.map { rewriteBool(it, transform) })
+    is Or -> Or(expr.children.map { rewriteBool(it, transform) })
+    is Implies -> Implies(rewriteBool(expr.left, transform), rewriteBool(expr.right, transform))
+    is Iff -> Iff(rewriteBool(expr.left, transform), rewriteBool(expr.right, transform))
+    is AtMost -> AtMost(expr.children.map { rewriteBool(it, transform) }, expr.k)
+    is AtLeast -> AtLeast(expr.children.map { rewriteBool(it, transform) }, expr.k)
+    is CardinalityExpr -> CardinalityExpr(expr.children.map { rewriteBool(it, transform) }, expr.min, expr.max)
+    is IntCompare -> IntCompare(rewriteInt(expr.left, transform), expr.op, rewriteInt(expr.right, transform))
+    else -> expr  // AllDifferent, TableConstraint, XorExpr, PseudoBoolean: not yet exercised; pass-through
+}
+
+private fun rewriteInt(expr: IntExpr, transform: (String) -> String): IntExpr = when (expr) {
+    is IntRef -> IntRef(transform(expr.name))
+    is IntLit -> expr
+    is IntScale -> IntScale(expr.coeff, rewriteInt(expr.child, transform))
+    is IntSum -> IntSum(expr.children.map { rewriteInt(it, transform) })
+    is IntMin -> IntMin(expr.children.map { rewriteInt(it, transform) })
+    is IntMax -> IntMax(expr.children.map { rewriteInt(it, transform) })
+    is IntAbs -> IntAbs(rewriteInt(expr.child, transform))
+    is IntIfThenElse -> IntIfThenElse(
+        rewriteBool(expr.cond, transform),
+        rewriteInt(expr.thenE, transform),
+        rewriteInt(expr.elseE, transform),
+    )
+    else -> expr  // IntElement / IntMul / IntDiv / IntMod: pass-through until exercised
 }

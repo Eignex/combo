@@ -42,25 +42,11 @@ kotlin {
 
 // Files awaiting rewire onto the new bandit harness (klause Sample + kumulant Result).
 // Each entry will be lifted out as its subsystem is migrated.
-val pendingRewire = listOf(
-    // Old tree-bandit sources still on combo.sat / combo.model / VarianceEstimator —
-    // rewired piecewise as slices land. The new TreeRow / Split / TreeFeatureProjection
-    // files in combo/bandit/dt/ are kept compiling.
-    "combo/bandit/dt/DecisionTreeBandit.kt",
-    "combo/bandit/dt/ITreeParameters.kt",
-    "combo/bandit/dt/RandomForestBandit.kt",
-    "combo/bandit/dt/SplitMetric.kt",
-    "combo/bandit/dt/TreeData.kt",
-    "combo/bandit/dt/TreeNodes.kt",
-    "combo/bandit/dt/ValueSplitters.kt",
-    "combo/bandit/dt/VoteStrategies.kt",
+val pendingRewire = listOf<String>(
+    // DT slice 1 rewire complete. RandomForestBandit and serialisable TreeData
+    // round-trip land in follow-up slices; their files were deleted rather than
+    // excluded so the package compiles cleanly without dead code.
 )
-val pendingRewireTests = listOf(
-    "combo/bandit/dt/DecisionTreeBanditTest.kt",
-    "combo/bandit/dt/RandomForestBanditTest.kt",
-    "combo/bandit/dt/SplitMetricTest.kt",
-    "combo/bandit/dt/TreeNodesTest.kt",
-    "combo/bandit/dt/ValueSplittersTest.kt",
-)
-kotlin.sourceSets["jvmMain"].kotlin.exclude(pendingRewire)
-kotlin.sourceSets["jvmTest"].kotlin.exclude(pendingRewireTests)
+val pendingRewireTests = listOf<String>()
+if (pendingRewire.isNotEmpty()) kotlin.sourceSets["jvmMain"].kotlin.exclude(pendingRewire)
+if (pendingRewireTests.isNotEmpty()) kotlin.sourceSets["jvmTest"].kotlin.exclude(pendingRewireTests)

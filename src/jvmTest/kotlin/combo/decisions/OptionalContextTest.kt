@@ -8,6 +8,7 @@ import com.eignex.klause.solver.LocalSearchSolver
 import combo.bandit.glm.ConstantRate
 import combo.bandit.glm.DiagonalizedLinearModel
 import combo.bandit.glm.LinearBandit
+import combo.decisions.BanditSample
 import combo.bandit.glm.LinearFeatureProjection
 import combo.bandit.glm.NormalVariance
 import kotlin.test.Test
@@ -93,7 +94,7 @@ class OptionalContextTest {
         // Build a synthetic sample with choice=true. Encode under absent vs present age.
         val params = LocalSearchParams(randomSeed = 1L)
         val sAbsent = solver.sample(params.copy(assumptions = projection.assumptionsFor(context { })))!!
-        val fAbsent = projection.encode(sAbsent, context { })
+        val fAbsent = projection.encode(BanditSample.undithered(sAbsent), context { })
         // ageXchoice slot is the last one in the layout (numBool + numInt offset).
         // When absent: age is pinned to 0, so age * choice = 0 regardless of choice.
         // Find the interaction slot.
@@ -106,7 +107,7 @@ class OptionalContextTest {
         // Present, age=30: interaction = 30 * choice_value.
         val ctxPresent = context { set(model.age, 30) }
         val sPresent = solver.sample(params.copy(assumptions = projection.assumptionsFor(ctxPresent)))!!
-        val fPresent = projection.encode(sPresent, ctxPresent)
+        val fPresent = projection.encode(BanditSample.undithered(sPresent), ctxPresent)
         val choiceVal = if (space.compiled.decode(model.choice, sPresent)) 1f else 0f
         assertEquals(30f * choiceVal, fPresent[interactionSlot])
     }
@@ -140,9 +141,9 @@ class OptionalContextTest {
 
         // optimal under absent context must produce age=0 (pinned default).
         val outAbsent = bandit.optimalOrThrow(context { })
-        assertEquals(0, space.decode(model.age, outAbsent))
+        assertEquals(0, space.decode(model.age, outAbsent.sample))
         // optimal under present context must produce age=50 (pinned).
         val outPresent = bandit.optimalOrThrow(ctxPresent)
-        assertEquals(50, space.decode(model.age, outPresent))
+        assertEquals(50, space.decode(model.age, outPresent.sample))
     }
 }

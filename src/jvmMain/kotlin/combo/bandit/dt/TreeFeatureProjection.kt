@@ -1,6 +1,6 @@
 package combo.bandit.dt
 
-import com.eignex.klause.solver.Sample
+import combo.decisions.BanditSample
 import combo.decisions.CompiledDecisionSpace
 import combo.decisions.Context
 import combo.decisions.FeatureEncoder
@@ -32,6 +32,6 @@ class TreeFeatureProjection(override val space: CompiledDecisionSpace) : Feature
     override val featureSize: Int =
         space.compiled.problem.numBoolVars + space.compiled.problem.numIntVars
 
-    override fun encode(sample: Sample, context: Context): TreeRow =
+    override fun encode(sample: BanditSample, context: Context): TreeRow =
         SampleTreeRow(space, sample)
 }

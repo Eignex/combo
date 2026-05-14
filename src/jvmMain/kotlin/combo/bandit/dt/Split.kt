@@ -1,6 +1,7 @@
 package combo.bandit.dt
 
 import com.eignex.klause.schema.BoolHandle
+import com.eignex.klause.schema.FloatHandle
 import com.eignex.klause.schema.IntHandle
 import com.eignex.klause.schema.NominalHandle
 
@@ -49,4 +50,25 @@ data class NominalSplit(val handle: NominalHandle, val leftLabels: Set<String>) 
         }
     }
     override fun direction(row: TreeRow): Boolean = row.nominal(handle) in leftLabels
+}
+
+/**
+ * Route by `floatValue <= threshold` in **real-value Double space**. [threshold] is a
+ * Double in the handle's `[min, max]` range — not a bucket index. The split decodes the
+ * sample's bucketed integer back to a Double at evaluation time, so the tree's branching
+ * semantics are independent of klause's bucket count: changing buckets only changes
+ * quantization error of the sample, not which subtree the split routes to (modulo
+ * threshold-vs-bucket-boundary edge cases).
+ *
+ * Materialization can't pin a float range in klause's value-pinned `Assumptions`, so the
+ * direction check is enforced post-sample (rejection-style) — identical handling to
+ * [IntThresholdSplit].
+ */
+data class FloatThresholdSplit(val handle: FloatHandle, val threshold: Double) : Split {
+    init {
+        require(threshold in handle.min..handle.max) {
+            "threshold $threshold outside float handle '${handle.name}' domain [${handle.min}, ${handle.max}]"
+        }
+    }
+    override fun direction(row: TreeRow): Boolean = row.float(handle) <= threshold
 }

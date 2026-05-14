@@ -1,7 +1,5 @@
 package combo.decisions
 
-import com.eignex.klause.solver.Sample
-
 /**
  * Projects a `(Sample, Context)` pair into the representation [R] that a bandit's
  * machine-learning model consumes. The encoder is the user-pluggable seam between a
@@ -23,6 +21,8 @@ interface FeatureEncoder<out R> {
     /** Number of feature columns the encoder produces. Constant for a given encoder. */
     val featureSize: Int
 
-    /** Project (`sample`, `context`) into the model-facing representation. */
-    fun encode(sample: Sample, context: Context = Context.Empty): R
+    /** Project (`sample`, `context`) into the model-facing representation. The sample is
+     *  the bandit-side wrapper so encoders that read floats see the dithered continuous
+     *  value instead of the bucket midpoint. */
+    fun encode(sample: BanditSample, context: Context = Context.Empty): R
 }

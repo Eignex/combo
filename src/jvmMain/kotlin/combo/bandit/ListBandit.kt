@@ -4,6 +4,7 @@ import com.eignex.klause.solver.Sample
 import com.eignex.kumulant.core.Result
 import com.eignex.kumulant.core.SeriesStat
 import combo.bandit.univariate.BanditPolicy
+import combo.decisions.BanditSample
 import combo.decisions.CompiledDecisionSpace
 import combo.decisions.Context
 import combo.util.RandomSequence
@@ -43,7 +44,7 @@ class ListBandit<R : Result>(
     private val randomSequence = RandomSequence(randomSeed)
     private val step = AtomicLong()
 
-    fun chooseOrThrow(context: Context): Sample {
+    fun chooseOrThrow(context: Context): BanditSample {
         val assumptions = space.assumptionsFor(context)
         val rng = randomSequence.next()
         val t = step.getAndIncrement()
@@ -57,16 +58,16 @@ class ListBandit<R : Result>(
         if (bestIdx < 0) throw NoFeasibleSampleException(
             "no sample in the list matches the supplied context assumptions",
         )
-        return samples[bestIdx]
+        return BanditSample.dithered(samples[bestIdx], space, rng)
     }
 
-    fun choose(context: Context): Sample? = try {
+    fun choose(context: Context): BanditSample? = try {
         chooseOrThrow(context)
     } catch (_: NoFeasibleSampleException) {
         null
     }
 
-    fun optimalOrThrow(context: Context): Sample {
+    fun optimalOrThrow(context: Context): BanditSample {
         // "Optimal" = exploit best-mean arm. We use a fixed-seed RNG so the answer is
         // deterministic across rounds; the policy's evaluate is called once per arm.
         val assumptions = space.assumptionsFor(context)
@@ -82,20 +83,22 @@ class ListBandit<R : Result>(
         if (bestIdx < 0) throw NoFeasibleSampleException(
             "no sample in the list matches the supplied context assumptions",
         )
-        return samples[bestIdx]
+        return BanditSample.dithered(samples[bestIdx], space, rng)
     }
 
-    fun update(sample: Sample, context: Context, reward: Double, weight: Double = 1.0) {
-        val idx = samples.indexOf(sample)
+    fun update(sample: BanditSample, context: Context, reward: Double, weight: Double = 1.0) {
+        // ListBandit's arms are keyed on the raw klause sample identity; the dither layer
+        // is bookkeeping on top — we look up the arm by the underlying [Sample].
+        val idx = samples.indexOf(sample.sample)
         if (idx >= 0) policy.update(arms[idx], reward, weight)
         @Suppress("UNCHECKED_CAST")
         (rewards as? SeriesStat<Any>)?.update(reward, 0L, weight)
     }
 
     // Bandit<D> interface — contextless overloads default to empty context.
-    override fun chooseOrThrow(): Sample = chooseOrThrow(Context.Empty)
-    override fun optimalOrThrow(): Sample = optimalOrThrow(Context.Empty)
-    override fun update(sample: Sample, reward: Double, weight: Double) =
+    override fun chooseOrThrow(): BanditSample = chooseOrThrow(Context.Empty)
+    override fun optimalOrThrow(): BanditSample = optimalOrThrow(Context.Empty)
+    override fun update(sample: BanditSample, reward: Double, weight: Double) =
         update(sample, Context.Empty, reward, weight)
 
     /** Snapshot the current per-arm stats. */

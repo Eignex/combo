@@ -5,6 +5,9 @@ import com.eignex.klause.solver.Sample
 import com.eignex.klause.solver.Sampler
 import com.eignex.klause.solver.SolverParams
 import com.eignex.kumulant.core.SeriesStat
+import combo.decisions.BanditSample
+import combo.decisions.CompiledDecisionSpace
+import combo.util.RandomSequence
 import kotlinx.serialization.Serializable
 
 /** Thrown when a bandit cannot produce a feasible sample within its budget. */
@@ -40,22 +43,28 @@ interface SlotRemap {
 
 /**
  * A bandit optimises an online decision problem over a combinatorial domain. Each round
- * the user calls [choose] to get a feasible [Sample], plays it externally, then reports
- * the observed reward through [update]. The bandit owns the search strategy; klause owns
- * feasibility (samples come from a klause [Sampler] or [com.eignex.klause.solver.Optimizer]).
+ * the user calls [choose] to get a feasible [BanditSample], plays it externally, then
+ * reports the observed reward through [update]. The bandit owns the search strategy;
+ * klause owns feasibility (samples come from a klause [Sampler] or
+ * [com.eignex.klause.solver.Optimizer]).
+ *
+ * Float variables are bucketed in klause but the bandit emits continuous values: every
+ * [BanditSample] returned by `choose`/`optimal` carries per-float dither drawn uniformly
+ * within the chosen bucket. Models trained via [update] see those dithered values and
+ * thus learn the continuous reward signal directly.
  *
  * Reward bookkeeping is delegated to an optional kumulant [SeriesStat] sink — if [rewards]
  * is non-null, every observed reward is folded in.
  */
 interface Bandit<D : BanditData> {
-    fun chooseOrThrow(): Sample
-    fun choose(): Sample? = try { chooseOrThrow() } catch (_: NoFeasibleSampleException) { null }
+    fun chooseOrThrow(): BanditSample
+    fun choose(): BanditSample? = try { chooseOrThrow() } catch (_: NoFeasibleSampleException) { null }
 
-    fun optimalOrThrow(): Sample
-    fun optimal(): Sample? = try { optimalOrThrow() } catch (_: NoFeasibleSampleException) { null }
+    fun optimalOrThrow(): BanditSample
+    fun optimal(): BanditSample? = try { optimalOrThrow() } catch (_: NoFeasibleSampleException) { null }
 
-    fun update(sample: Sample, reward: Double, weight: Double = 1.0)
-    fun updateAll(samples: List<Sample>, rewards: DoubleArray, weights: DoubleArray? = null) {
+    fun update(sample: BanditSample, reward: Double, weight: Double = 1.0)
+    fun updateAll(samples: List<BanditSample>, rewards: DoubleArray, weights: DoubleArray? = null) {
         require(samples.size == rewards.size) { "samples and rewards must have equal size" }
         require(weights == null || weights.size == rewards.size) { "weights must match rewards size" }
         for (i in samples.indices) update(samples[i], rewards[i], weights?.get(i) ?: 1.0)
@@ -78,10 +87,10 @@ interface PredictionBandit<D : BanditData> : Bandit<D> {
     val trainAbsError: SeriesStat<*>?
     val testAbsError: SeriesStat<*>?
 
-    fun predict(sample: Sample): Double
+    fun predict(sample: BanditSample): Double
 
-    fun train(sample: Sample, reward: Double, weight: Double = 1.0)
-    fun trainAll(samples: List<Sample>, rewards: DoubleArray, weights: DoubleArray? = null) {
+    fun train(sample: BanditSample, reward: Double, weight: Double = 1.0)
+    fun trainAll(samples: List<BanditSample>, rewards: DoubleArray, weights: DoubleArray? = null) {
         require(samples.size == rewards.size) { "samples and rewards must have equal size" }
         require(weights == null || weights.size == rewards.size) { "weights must match rewards size" }
         for (i in samples.indices) train(samples[i], rewards[i], weights?.get(i) ?: 1.0)
@@ -93,6 +102,7 @@ interface PredictionBandit<D : BanditData> : Bandit<D> {
  * Useful as an A/B control or for warm-starting more expensive bandits.
  */
 class RandomBandit<P : SolverParams>(
+    val space: CompiledDecisionSpace,
     val sampler: Sampler<P>,
     val params: P,
     override val randomSeed: Int = 0,
@@ -100,13 +110,18 @@ class RandomBandit<P : SolverParams>(
 ) : Bandit<RandomBanditData> {
     override val maximize: Boolean get() = true
 
-    override fun chooseOrThrow(): Sample =
-        sampler.sample(params) ?: throw NoFeasibleSampleException("klause sampler returned no feasible assignment")
+    private val randomSequence = RandomSequence(randomSeed)
 
-    override fun optimalOrThrow(): Sample = chooseOrThrow()
+    override fun chooseOrThrow(): BanditSample {
+        val s = sampler.sample(params)
+            ?: throw NoFeasibleSampleException("klause sampler returned no feasible assignment")
+        return BanditSample.dithered(s, space, randomSequence.next())
+    }
+
+    override fun optimalOrThrow(): BanditSample = chooseOrThrow()
 
     @Suppress("UNCHECKED_CAST")
-    override fun update(sample: Sample, reward: Double, weight: Double) {
+    override fun update(sample: BanditSample, reward: Double, weight: Double) {
         (rewards as? SeriesStat<Any>)?.update(reward, 0L, weight)
     }
 

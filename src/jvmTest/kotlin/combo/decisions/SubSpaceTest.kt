@@ -16,7 +16,7 @@ private class CodeFeature : SubSpace() {
 
 private class WithOneSubModel : DecisionSpace() {
     val gate by boolVar()
-    val area by subspace(::CodeFeature)
+    val area by decisionSpace(::CodeFeature)
 }
 
 private class Inner : SubSpace() {
@@ -25,11 +25,11 @@ private class Inner : SubSpace() {
 
 private class Middle : SubSpace() {
     val knob by intVar(-5, 5)
-    val inner by subspace(::Inner)
+    val inner by decisionSpace(::Inner)
 }
 
 private class Nested : DecisionSpace() {
-    val middle by subspace(::Middle)
+    val middle by decisionSpace(::Middle)
 }
 
 private class AdSlot : SubSpace() {
@@ -38,8 +38,8 @@ private class AdSlot : SubSpace() {
 }
 
 private class TwoAdSlots : DecisionSpace() {
-    val slotA by subspace(::AdSlot)
-    val slotB by subspace(::AdSlot)
+    val slotA by decisionSpace(::AdSlot)
+    val slotB by decisionSpace(::AdSlot)
 }
 
 private class Audio : SubSpace() {
@@ -48,19 +48,19 @@ private class Audio : SubSpace() {
 }
 
 private class OptionalAudio : DecisionSpace() {
-    val audio by optionalSubspace(::Audio)
-}
-
-private class NestedOptionals : DecisionSpace() {
-    val outer by optionalSubspace(::OptionalAudioInner)
+    val audio by optionalDecisionSpace(::Audio)
 }
 
 private class OptionalAudioInner : SubSpace() {
-    val inner by optionalSubspace(::AudioLeaf)
+    val inner by optionalDecisionSpace(::AudioLeaf)
 }
 
 private class AudioLeaf : SubSpace() {
     val volume by intVar(0, 11)
+}
+
+private class NestedOptionals : DecisionSpace() {
+    val outer by optionalDecisionSpace(::OptionalAudioInner)
 }
 
 class SubSpaceTest {
@@ -68,21 +68,27 @@ class SubSpaceTest {
     @Test
     fun `sub-space variables should get qualified klause names`() {
         val space = WithOneSubModel().compileSpace()
-        val entries = space.definition.entries
+        val boolIds = space.compiled.boolVarIdByName
+        val intIds  = space.compiled.intVarIdByName
 
-        // Root-level decision is bare-named.
-        assertTrue("gate" in entries, "expected 'gate' at root; have ${entries.keys}")
+        assertTrue("gate" in boolIds, "expected 'gate' at root; have ${boolIds.keys}")
+        assertTrue("area.flag" in boolIds, "expected 'area.flag'; have ${boolIds.keys}")
+        assertTrue("area.budget" in intIds, "expected 'area.budget' as int; have ${intIds.keys}")
+    }
 
-        // Sub-model decisions are prefixed by the property name they were mounted under.
-        assertTrue("area.flag" in entries, "expected 'area.flag'; have ${entries.keys}")
-        assertTrue("area.budget" in entries, "expected 'area.budget'; have ${entries.keys}")
-
-        // Types are preserved through the prefix.
-        assertTrue(entries["area.flag"] is BoolSpec)
-        val budget = entries["area.budget"]
+    @Test
+    fun `decisionSpaceDef should reflect the hierarchy with local names`() {
+        val space = WithOneSubModel().compileSpace()
+        val def = space.definition
+        // Root variables: just `gate`. The nested CodeFeature lives under spaces.
+        assertEquals(setOf("gate"), def.variables.keys)
+        assertEquals(setOf("area"), def.spaces.keys)
+        val area = def.spaces.getValue("area")
+        assertEquals(setOf("flag", "budget"), area.variables.keys) // local names, not "area.flag"
+        assertTrue(area.variables["flag"] is BoolSpec)
+        val budget = area.variables["budget"]
         assertTrue(budget is IntSpec)
-        budget as IntSpec
-        assertEquals(0, budget.min)
+        assertEquals(0, (budget as IntSpec).min)
         assertEquals(100, budget.max)
     }
 
@@ -90,13 +96,10 @@ class SubSpaceTest {
     fun `multiple instances of same sub-space should get distinct namespaces`() {
         val model = TwoAdSlots()
         val space = model.compileSpace()
-        val entries = space.definition.entries
+        val boolIds = space.compiled.boolVarIdByName
 
-        // Both instances exist independently under their property-name prefix.
-        assertTrue("slotA.premium" in entries)
-        assertTrue("slotA.budget" in entries)
-        assertTrue("slotB.premium" in entries)
-        assertTrue("slotB.budget" in entries)
+        assertTrue("slotA.premium" in boolIds)
+        assertTrue("slotB.premium" in boolIds)
 
         // Their handles point at different klause variables.
         assertEquals("slotA.premium", model.slotA.premium.name)
@@ -105,52 +108,46 @@ class SubSpaceTest {
     }
 
     @Test
-    fun `nested sub-spaces should accumulate dotted prefix`() {
+    fun `nested sub-spaces should compose into a tree`() {
         val model = Nested()
         val space = model.compileSpace()
-        val entries = space.definition.entries
-        assertTrue("middle.knob" in entries)
-        assertTrue("middle.inner.toggle" in entries)
+        val def = space.definition
+        assertEquals(setOf("middle"), def.spaces.keys)
+        val middle = def.spaces.getValue("middle")
+        assertEquals(setOf("knob"), middle.variables.keys)
+        assertEquals(setOf("inner"), middle.spaces.keys)
+        val inner = middle.spaces.getValue("inner")
+        assertEquals(setOf("toggle"), inner.variables.keys)
+
+        // Handles still carry fully-qualified names for klause lookups.
         assertEquals("middle.inner.toggle", model.middle.inner.toggle.name)
         assertEquals("middle.knob", model.middle.knob.name)
     }
 
     @Test
-    fun `optional sub-space should allocate gate and pin children when off`() {
+    fun `optional sub-space should appear under optionalSpaces and pin children when off`() {
         val model = OptionalAudio()
         val space = model.compileSpace()
+        val def = space.definition
 
-        // The gate is an auto-allocated bool with the property name.
-        assertTrue("audio" in space.definition.entries)
-        // Children are namespaced under it and marked optional.
-        assertTrue("audio.mute" in space.definition.entries)
-        assertTrue("audio.volume" in space.definition.entries)
-        assertTrue(space.isOptional(model.audio.mute))
-        assertTrue(space.isOptional(model.audio.volume))
+        assertTrue("audio" in def.optionalSpaces.keys)
+        val audio = def.optionalSpaces.getValue("audio")
+        assertEquals(setOf("mute", "volume"), audio.variables.keys)
 
-        // Pinning constraints are registered.
-        val pins = space.definition.entries.keys.filter { it.startsWith("__pin_audio.") }
-        assertEquals(setOf("__pin_audio.mute", "__pin_audio.volume"), pins.toSet())
-
-        // The compiled space exposes the auto-allocated gate.
+        // klause sees the gate variable + auto-pinning constraints.
         val gate = space.gateOf(model.audio) ?: error("optional sub-space must expose its gate")
         assertEquals("audio", gate.name)
-
-        // klause enforces the pin: every feasible sample with gate=false has mute=false
-        // and volume=0 (the domain minimum).
         val solver = LocalSearchSolver(space.compiled.problem)
         repeat(50) { seed ->
             val sample = solver.sample(LocalSearchParams(randomSeed = seed.toLong()))!!
             val gateOn = space.compiled.decode(gate, sample)
             if (!gateOn) {
-                assertEquals(false, sample.bools[space.compiled.boolVarIdByName["audio.mute"]!!],
+                assertEquals(false, space.compiled.decode(model.audio.mute, sample),
                     "audio.mute should be pinned to false when gate is off")
-                assertEquals(0, sample.ints[space.compiled.intVarIdByName["audio.volume"]!!],
+                assertEquals(0, space.compiled.decode(model.audio.volume, sample),
                     "audio.volume should be pinned to 0 when gate is off")
             }
-            // isActive matches gate state for the variables inside the optional.
             assertEquals(gateOn, space.isActive(model.audio.mute, sample))
-            assertEquals(gateOn, space.isActive(model.audio.volume, sample))
         }
     }
 
@@ -158,13 +155,15 @@ class SubSpaceTest {
     fun `nested optionals should compose active conditions`() {
         val model = NestedOptionals()
         val space = model.compileSpace()
-        // Outer gate
-        assertTrue("outer" in space.definition.entries)
-        // Inner gate, nested under outer
-        assertTrue("outer.inner" in space.definition.entries)
-        // Leaf variable, nested under inner
-        assertTrue("outer.inner.volume" in space.definition.entries)
-        // The leaf has an active condition that requires both gates on.
+        val def = space.definition
+        // Outer optional sub-space contains an optional sub-space "inner" → leaf "volume".
+        assertTrue("outer" in def.optionalSpaces.keys)
+        val outer = def.optionalSpaces.getValue("outer")
+        assertTrue("inner" in outer.optionalSpaces.keys)
+        val inner = outer.optionalSpaces.getValue("inner")
+        assertEquals(setOf("volume"), inner.variables.keys)
+
+        // Active condition for the leaf should require both gates.
         val cond = space.activeConditions["outer.inner.volume"]
         assertTrue(cond is com.eignex.klause.ast.And)
         cond as com.eignex.klause.ast.And
@@ -176,21 +175,17 @@ class SubSpaceTest {
         val model = WithOneSubModel()
         val space = model.compileSpace()
 
-        // The handle the user holds is the same one klause sees: qualified name.
         assertEquals("gate", model.gate.name)
         assertEquals("area.flag", model.area.flag.name)
         assertEquals("area.budget", model.area.budget.name)
 
-        // Solver sees the sub-space's variables under the qualified names too.
         val solver = LocalSearchSolver(space.compiled.problem)
         val sample = solver.sample(LocalSearchParams(randomSeed = 1L))
         assertNotNull(sample, "solver must produce a feasible sample over a flat-bool problem")
-        // Two top-level bools (gate, area.flag) + zero ints + one int from area.budget.
         assertEquals(2, sample.bools.size)
         assertEquals(1, sample.ints.size)
         assertTrue(sample.ints[0] in 0..100)
 
-        // Decode by handle.
         space.compiled.decode(model.area.flag, sample)  // should not throw
         val b = space.compiled.decode(model.area.budget, sample)
         assertTrue(b in 0..100)

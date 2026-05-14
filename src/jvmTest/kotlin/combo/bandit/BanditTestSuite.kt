@@ -196,7 +196,7 @@ abstract class PredictionBanditTestSuite<D : BanditData> : BanditTestSuite<D>() 
         val samples = solver.enumerate(LocalSearchParams(randomSeed = 6L)).take(4).toList()
         val bandit = buildPrediction(space, samples, randomSeed = 6, maximize = true)
         for (s in samples) {
-            val y = bandit.predict(s)
+            val y = bandit.predict(combo.decisions.BanditSample.undithered(s))
             assertTrue(y.isFinite(), "predict produced non-finite: $y")
         }
     }
@@ -209,7 +209,7 @@ abstract class PredictionBanditTestSuite<D : BanditData> : BanditTestSuite<D>() 
         val bandit = buildPrediction(space, samples, randomSeed = 7, maximize = true)
 
         // Pick a fixed sample, train it many times with reward=1.0, verify predict rises.
-        val target = samples.first()
+        val target = combo.decisions.BanditSample.undithered(samples.first())
         val before = bandit.predict(target)
         repeat(100) { bandit.train(target, reward = 1.0) }
         val after = bandit.predict(target)

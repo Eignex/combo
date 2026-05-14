@@ -26,6 +26,10 @@ abstract class SubSpace internal constructor() {
         SubSpaceContext.makeRoot()
     }
 
+    /** Direct children mounted via `decisionSpace` / `optionalDecisionSpace` on this
+     *  space. Drives the hierarchical [DecisionSpaceDef] emission. */
+    internal val children: MutableList<ChildSpace> = mutableListOf()
+
     protected fun boolVar() =
         PropertyDelegateProvider<SubSpace, ReadOnlyProperty<SubSpace, BoolHandle>> { _, prop ->
             val handle = ctx.root.registerBool(ctx.qualify(prop.name), ctx.activeCondition)
@@ -35,6 +39,12 @@ abstract class SubSpace internal constructor() {
     protected fun intVar(min: Int, max: Int) =
         PropertyDelegateProvider<SubSpace, ReadOnlyProperty<SubSpace, IntHandle>> { _, prop ->
             val handle = ctx.root.registerInt(ctx.qualify(prop.name), min, max, ctx.activeCondition)
+            ReadOnlyProperty { _, _ -> handle }
+        }
+
+    protected fun floatVar(min: Double, max: Double, buckets: Int = 32) =
+        PropertyDelegateProvider<SubSpace, ReadOnlyProperty<SubSpace, FloatHandle>> { _, prop ->
+            val handle = ctx.root.registerFloat(ctx.qualify(prop.name), min, max, buckets, ctx.activeCondition)
             ReadOnlyProperty { _, _ -> handle }
         }
 
@@ -53,35 +63,48 @@ abstract class SubSpace internal constructor() {
         }
 
     /**
-     * Mount a typed sub-space as a property on this space. The factory runs with a
-     * derived context whose prefix is `"${currentPrefix}.${propertyName}"`, so every
-     * declaration inside the factory registers under the qualified namespace.
+     * Mount a typed nested decision space. The factory runs with a derived context
+     * whose prefix is `"${currentPrefix}.${propertyName}"`, so every declaration
+     * inside the factory registers under the qualified namespace.
      */
-    protected fun <T : SubSpace> subspace(factory: () -> T) =
-        PropertyDelegateProvider<SubSpace, ReadOnlyProperty<SubSpace, T>> { _, prop ->
+    protected fun <T : SubSpace> decisionSpace(factory: () -> T) =
+        PropertyDelegateProvider<SubSpace, ReadOnlyProperty<SubSpace, T>> { thisRef, prop ->
             val instance = SubSpaceContext.withContext(ctx.child(prop.name), factory)
+            thisRef.children += ChildSpace(prop.name, instance, gate = null)
             ReadOnlyProperty { _, _ -> instance }
         }
 
     /**
-     * Mount a typed sub-space *gated* by an auto-allocated bool variable. The gate's
-     * klause name is the property name itself; the sub-space body sits under that
-     * namespace. Every variable declared inside the factory is pinned to a default
-     * (false / domain minimum / first nominal label) when the gate is off, via a
-     * reified klause constraint added at compile time.
+     * Mount a typed nested decision space *gated* by an auto-allocated bool variable.
+     * Every variable declared inside the factory is pinned to its default (false /
+     * domain minimum / first nominal label) when the gate is off, via a reified klause
+     * constraint synthesised at compile time.
      *
-     * Nested optional sub-spaces compose activation conditions — a variable two levels
-     * deep is active only when both gates are on.
+     * Nested optional spaces compose: a variable two levels deep is active only when
+     * both gates are on.
      */
-    protected fun <T : SubSpace> optionalSubspace(factory: () -> T) =
-        PropertyDelegateProvider<SubSpace, ReadOnlyProperty<SubSpace, T>> { _, prop ->
+    protected fun <T : SubSpace> optionalDecisionSpace(factory: () -> T) =
+        PropertyDelegateProvider<SubSpace, ReadOnlyProperty<SubSpace, T>> { thisRef, prop ->
             val gateName = ctx.qualify(prop.name)
-            // Register the gate first, under the *parent's* activation. If we're
-            // already inside an optional, the gate itself becomes optional too — it
-            // gets pinned to false when the outer gate is off, which is correct.
             val gateHandle = ctx.root.registerBool(gateName, ctx.activeCondition)
             val instance = SubSpaceContext.withContext(ctx.gatedChild(prop.name, gateName), factory)
             ctx.root.recordGate(instance, gateHandle)
+            thisRef.children += ChildSpace(prop.name, instance, gate = gateHandle)
             ReadOnlyProperty { _, _ -> instance }
         }
+
+    @Deprecated("Renamed to decisionSpace", ReplaceWith("decisionSpace(factory)"))
+    protected fun <T : SubSpace> subspace(factory: () -> T) = decisionSpace(factory)
+
+    @Deprecated("Renamed to optionalDecisionSpace", ReplaceWith("optionalDecisionSpace(factory)"))
+    protected fun <T : SubSpace> optionalSubspace(factory: () -> T) = optionalDecisionSpace(factory)
+}
+
+/** Internal: parent's record of a nested decision space and (if optional) its gate. */
+internal class ChildSpace(
+    val name: String,
+    val space: SubSpace,
+    val gate: com.eignex.klause.schema.BoolHandle?,
+) {
+    val isOptional: Boolean get() = gate != null
 }

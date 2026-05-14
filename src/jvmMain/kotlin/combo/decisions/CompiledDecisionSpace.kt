@@ -132,11 +132,11 @@ internal fun InteractionHandle.toDef(): InteractionDef =
     InteractionDef(name = name, lhs = lhs.toScalarRef(), rhs = rhs.toScalarRef())
 
 private fun Any.toScalarRef(): ScalarRef = when (this) {
-    is BoolHandle -> ScalarRef(ScalarKind.BoolDecision, name)
-    is IntHandle -> ScalarRef(ScalarKind.IntDecision, name)
-    is NominalHandle -> ScalarRef(ScalarKind.NominalDecision, name, labels)
-    is BoolContextHandle -> ScalarRef(ScalarKind.BoolContext, name)
-    is IntContextHandle -> ScalarRef(ScalarKind.IntContext, name)
+    is BoolHandle -> ScalarRef(ScalarKind.BoolDecision, name.split("."))
+    is IntHandle -> ScalarRef(ScalarKind.IntDecision, name.split("."))
+    is NominalHandle -> ScalarRef(ScalarKind.NominalDecision, name.split("."), labels)
+    is BoolContextHandle -> ScalarRef(ScalarKind.BoolContext, listOf("context", name))
+    is IntContextHandle -> ScalarRef(ScalarKind.IntContext, listOf("context", name))
     else -> error("unsupported handle in interaction: $this")
 }
 

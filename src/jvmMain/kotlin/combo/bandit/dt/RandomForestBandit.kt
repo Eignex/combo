@@ -1,322 +1,344 @@
 package combo.bandit.dt
 
-import combo.bandit.ParallelPredictionBandit
+import com.eignex.klause.solver.Assumptions
+import com.eignex.klause.solver.LinearObjective
+import com.eignex.klause.solver.PropagationResult
+import com.eignex.klause.solver.PropagationSession
+import com.eignex.klause.solver.Sample
+import com.eignex.klause.solver.VarKind
+import com.eignex.kumulant.core.Result
+import com.eignex.kumulant.core.SeriesStat
+import combo.bandit.NoFeasibleSampleException
 import combo.bandit.PredictionBandit
-import combo.bandit.PredictionBanditBuilder
 import combo.bandit.univariate.BanditPolicy
-import combo.bandit.univariate.Greedy
-import combo.bandit.univariate.NormalPosterior
-import combo.bandit.univariate.ThompsonSampling
-import combo.math.*
-import combo.model.Model
-import combo.expressions.Root
-import combo.expressions.Variable
-import combo.sat.*
-import combo.sat.optimizers.DeltaLinearObjective
-import combo.sat.optimizers.LinearObjective
-import combo.sat.optimizers.LocalSearch
-import combo.sat.optimizers.Optimizer
-import combo.util.*
-import java.util.concurrent.atomic.AtomicLong
-import kotlin.math.*
+import combo.decisions.BanditSample
+import combo.decisions.CompiledDecisionSpace
+import combo.util.RandomSequence
+import kotlin.math.abs
+import kotlin.math.exp
 import kotlin.random.Random
 
-class RandomForestBandit(val parameters: TreeParameters,
-                         val trees: Array<DecisionTreeBandit>,
-                         val propagateDecisions: Boolean = true,
-                         val instanceSamplingMean: Float = 1f)
-    : PredictionBandit<ForestData>, ITreeParameters by parameters {
+/**
+ * Online random forest bandit using **greedy literal selection with cross-tree
+ * subtree merging** — the algorithm from the original combo. Each `choose` round:
+ *
+ *  1. Maintain a set of pinned bool decisions, starting empty.
+ *  2. For every tree, descend through splits whose direction is already pinned,
+ *     stopping at the deepest unfixed [SplitNode] (the *frontier*).
+ *  3. Group the frontier nodes by which klause variable they branch on — many
+ *     trees can have the same variable still unfixed.
+ *  4. For each candidate variable, **merge `pos.arm` and `neg.arm` across the
+ *     trees that branch on it**, score both directions via `policy.evaluate`
+ *     (one Thompson draw per direction when `policy` is `ThompsonSampling`), and
+ *     pick the best `(variable, direction)` overall.
+ *  5. Add that decision to the pinned set, repeat from step 2 until no frontier
+ *     splits remain.
+ *  6. Materialise: ask [proposeSample] for any feasible sample whose row routes
+ *     to the chosen leaves under the assumption set.
+ *
+ * Per-round diversity sources still in play:
+ *  - **Online bagging** (Oza & Russell 2001): per-tree Poisson(1) reweighting on
+ *    every train. Trees see different sub-streams of the data.
+ *  - **Per-leaf mtry**: each tree's audit leaves consider a random subset of
+ *    candidate splits, picked at leaf birth from the tree's own RNG.
+ *  - **Thompson per branching decision** at choose time, with the per-variable
+ *    score derived from the *merged* per-tree subtree stats.
+ *
+ * Training: every observation visits every tree (weighted by bagging). Prediction:
+ * averages per-tree leaf means at the queried sample. `optimalOrThrow`: same
+ * iterative descent but with `Greedy` scoring (deterministic argmax at each step).
+ *
+ * After each greedy decision the bandit pushes the pin onto a
+ * [com.eignex.klause.solver.PropagationSession]: implied literals are folded into the
+ * pin set (so future descents skip frontier splits on already-forced variables) and
+ * over-constraint is caught immediately. On [PropagationResult.Unsat] the conflict set
+ * identifies which prior decisions are jointly bad; the bandit pops the most-recent
+ * decision in the conflict and tries a different one — CDCL-style conflict-directed
+ * backjumping. The [LinearObjective] fallback is now a last resort, kicking in only
+ * when the descent terminates with a pin set the solver still can't materialise (a
+ * regime the propagator's sound-but-incomplete proof of feasibility can't always
+ * detect upfront).
+ *
+ * Slice limitations: only [BoolSplit] frontier splits are scored; other split types
+ * stop the descent on the tree carrying them. Adding [NominalSplit] / float-typed
+ * frontier scoring is a small future slice.
+ */
+class RandomForestBandit<R : Result>(
+    val space: CompiledDecisionSpace,
+    val policy: BanditPolicy<R>,
+    val proposeSample: (Random, Assumptions) -> Sample?,
+    val trees: List<Tree<R>>,
+    val retryBudget: Int = 32,
+    /**
+     * Recovery hook for over-constrained decision sets. When [proposeSample] returns
+     * null under the greedy-and-propagated pin set, the bandit builds a
+     * [LinearObjective] from per-decision scores (positive coefficient pulls the
+     * variable toward `false`, negative toward `true`; magnitude is the policy
+     * score) and asks this lambda to minimise it. The fallback runs with no hard
+     * assumptions — any feasible sample is acceptable, the objective just
+     * prefers ones that satisfy the bandit's collective vote. Null disables the
+     * fallback; the bandit then throws [NoFeasibleSampleException] on
+     * over-constraint.
+     */
+    val optimizeFallback: ((LinearObjective, Assumptions) -> Sample?)? = null,
+    /** Enable Oza-Russell online bagging: per-tree Poisson(1) reweighting on every
+     *  training observation. Defaults to true; turn off to make every tree see every
+     *  observation identically (only useful when trees diverge solely via mtry). */
+    val bagging: Boolean = true,
+    override val randomSeed: Int = System.currentTimeMillis().toInt(),
+    override val maximize: Boolean = true,
+    override val rewards: SeriesStat<*>? = null,
+    override val trainAbsError: SeriesStat<*>? = null,
+    override val testAbsError: SeriesStat<*>? = null,
+) : PredictionBandit<ForestData> {
+
+    init {
+        require(trees.isNotEmpty()) { "RandomForestBandit needs at least one tree" }
+    }
 
     private val randomSequence = RandomSequence(randomSeed)
-    private val step = AtomicLong(0L)
+    private val baggingRng = Random(randomSeed.toLong() xor 0x9e3779b97f4a7c15uL.toLong())
+    private val projection = TreeFeatureProjection(space)
+    private var step: Long = 0L
 
-    override fun predict(instance: Instance): Float {
-        var score = 0.0f
-        for (t in trees)
-            score += t.predict(instance)
-        return score / trees.size
-    }
+    override fun chooseOrThrow(): BanditSample = greedyDescent(thompson = true)
+    override fun optimalOrThrow(): BanditSample = greedyDescent(thompson = false)
 
-    override fun train(instance: Instance, result: Float, weight: Float) {
+    /**
+     * Iterative greedy literal-selection loop. When [thompson] is true, scores each
+     * candidate `(variable, direction)` via [policy] (which does fresh Thompson draws
+     * if it's `ThompsonSampling`); when false, scores by deterministic mean — the
+     * exploit-only counterpart used by `optimalOrThrow`.
+     */
+    private fun greedyDescent(thompson: Boolean): BanditSample {
         val rng = randomSequence.next()
-        for (t in trees) {
-            val n = rng.nextPoisson(instanceSamplingMean)
-            if (n > 0) t.train(instance, result, weight * n)
-        }
-    }
+        val t = if (thompson) step++ else step
+        val boolIdByName = space.compiled.boolVarIdByName
 
-    override fun optimalOrThrow(assumptions: IntCollection) = opt(true, assumptions)
-    override fun chooseOrThrow(assumptions: IntCollection) = opt(false, assumptions)
-
-    private tailrec fun Node.descendTo(decisions: IntCollection): Node {
-        if (this is LeafNode) return this
-        this as SplitNode
-        return when {
-            ix.toLiteral(true) in decisions -> pos.descendTo(decisions)
-            ix.toLiteral(false) in decisions -> neg.descendTo(decisions)
-            else -> this
-        }
-    }
-
-    private fun opt(optimal: Boolean, assumptions: IntCollection): Instance {
-        val allDecisions = IntHashSet(nullValue = 0)
-        val decisions = IntArrayList()
-        val scores = FloatArrayList()
-        allDecisions.addAll(assumptions)
-        var problem = if (!propagateDecisions) model.problem
-        else Problem(model.problem.nbrValues, model.problem.unitPropagation(allDecisions, true))
-
-        val remainingSplits = HashMap<Int, ArrayList<SplitNode>>(trees.size)
-        fun updateSplit(node: Node) {
-            val r = node.descendTo(allDecisions)
-            if (r is SplitNode)
-                remainingSplits.getOrPut(r.ix) { ArrayList() }.add(r)
+        // Stateful propagation: push pins as we decide, pop on Unsat. Seeding with
+        // Assumptions.None lets the session capture any literals forced by problem
+        // constraints alone before any greedy decision is made.
+        val session = PropagationSession(space.compiled.problem)
+        if (session.seed(Assumptions.None) is PropagationResult.Unsat) {
+            return runFallback(rng, emptyList(), emptyList(), emptyList())
         }
 
-        trees.forEach { updateSplit(it.root) }
+        // Tracks just the *greedy* decisions (not propagated consequences). Drives
+        // both conflict-directed backtracking and the [LinearObjective] fallback.
+        val decisionIds = mutableListOf<Int>()
+        val decisionDirs = mutableListOf<Boolean>()
+        val decisionScores = mutableListOf<Double>()
+        // (varId, direction) pairs we already attempted (or backtracked through) —
+        // never try the same direction at the same variable again this round.
+        val tried = mutableSetOf<Pair<Int, Boolean>>()
 
-        val t = if (optimal) step.get() else step.getAndIncrement()
-        while (remainingSplits.isNotEmpty()) {
-            val policy = if (optimal) Greedy else banditPolicy.blank()
-            var best = Float.NEGATIVE_INFINITY
-            var bestLit = 0
+        descent@ while (true) {
+            val pinned: Map<Int, Boolean> = session.currentAssumptions().bools
 
-            // 1) select split
-            for ((ix, nodes) in remainingSplits) {
-                val pos = nodes.asSequence().map { it.pos.data }.reduce { n1, n2 -> n1.combine(n2) }
-                pos.updateSampleSize(pos.nbrWeightedSamples / nodes.size)
-                val neg = nodes.asSequence().map { it.neg.data }.reduce { n1, n2 -> n1.combine(n2) }
-                neg.updateSampleSize(neg.nbrWeightedSamples / nodes.size)
-
-                policy.addArm(pos)
-                policy.addArm(neg)
-
-                val posValue = policy.evaluate(pos, t, maximize, Random(t.toInt() xor ix.toLiteral(true)))
-                val negValue = policy.evaluate(neg, t, maximize, Random(t.toInt() xor ix.toLiteral(false)))
-
-                if (posValue > best) {
-                    bestLit = ix.toLiteral(true)
-                    best = posValue
-                }
-                if (negValue > best) {
-                    bestLit = ix.toLiteral(false)
-                    best = negValue
-                }
+            // Group frontier SplitNodes by the klause bool var they branch on. Variables
+            // already pinned (whether by a decision or by implication) aren't on any
+            // tree's frontier — descendTo walked past them.
+            val byVar = mutableMapOf<Int, MutableList<SplitNode<R>>>()
+            for (tree in trees) {
+                val node = tree.descendTo(pinned, boolIdByName)
+                if (node !is SplitNode) continue
+                val split = node.split
+                if (split !is BoolSplit) continue
+                val id = boolIdByName[split.handle.name] ?: continue
+                byVar.getOrPut(id) { mutableListOf() }.add(node)
             }
-            allDecisions.add(bestLit)
+            if (byVar.isEmpty()) break
 
-            // 2) propagate split
-            val propagated: Boolean =
-                    if (propagateDecisions) {
-                        val s1 = allDecisions.size
-                        try {
-                            problem = Problem(problem.nbrValues, problem.unitPropagation(allDecisions, true))
-                            val s2 = allDecisions.size
-                            s1 != s2
-                        } catch (e: UnsatisfiableException) {
-                            break
-                        }
-                    } else false
+            // For each candidate variable, merge pos/neg arms across the trees whose
+            // frontier branches on it; score both directions, pick the best
+            // (id, direction) pair that hasn't already been tried.
+            var bestId = -1
+            var bestDirection = true
+            var bestScore = Double.NEGATIVE_INFINITY
+            for ((id, nodes) in byVar) {
+                val merger = trees[0]
+                val posSnap = merger.mergeArms(nodes.map { it.pos.arm })
+                val negSnap = merger.mergeArms(nodes.map { it.neg.arm })
+                val sPos = if (thompson) policy.evaluate(posSnap, t, maximize, rng)
+                           else signed(scalarMean(posSnap))
+                val sNeg = if (thompson) policy.evaluate(negSnap, t, maximize, rng)
+                           else signed(scalarMean(negSnap))
+                if (id to true !in tried && sPos > bestScore) { bestId = id; bestDirection = true; bestScore = sPos }
+                if (id to false !in tried && sNeg > bestScore) { bestId = id; bestDirection = false; bestScore = sNeg }
+            }
+            // Every frontier candidate exhausted by `tried` → terminate descent.
+            if (bestId < 0) break
 
-            decisions.add(bestLit)
-            scores.add(best)
+            when (val result = session.pinBool(bestId, bestDirection)) {
+                is PropagationResult.Implied -> {
+                    decisionIds += bestId
+                    decisionDirs += bestDirection
+                    decisionScores += bestScore
+                }
+                is PropagationResult.Unsat -> {
+                    // The failed pin stays in the session until we pop it.
+                    session.popLast()
+                    tried += bestId to bestDirection
 
-            // 3) update remainingSplits
-            if (propagated) {
-                for (ix in remainingSplits.keys.toList()) {
-                    if (ix.toLiteral(true) in allDecisions || ix.toLiteral(false) in allDecisions) {
-                        remainingSplits.remove(ix)!!.forEach { updateSplit(it) }
+                    // Conflict-directed backjump: find the most-recent OF OUR DECISIONS
+                    // that's in the conflict set; pop the session back past it and mark
+                    // its (id, dir) as tried so we'll pick a different direction or move
+                    // on. If no decision is in the conflict, the contradiction is rooted
+                    // in problem constraints alone — nothing to backtrack to.
+                    val conflictingIdx = decisionIds.indices.reversed()
+                        .firstOrNull { idx -> decisionIds[idx] in result.conflictBools }
+                    if (conflictingIdx != null) {
+                        val popVar = decisionIds[conflictingIdx]
+                        val popDir = decisionDirs[conflictingIdx]
+                        session.popUntilUnpinned(VarKind.Bool, popVar)
+                        tried += popVar to popDir
+                        val n = decisionIds.size
+                        decisionIds.subList(conflictingIdx, n).clear()
+                        decisionDirs.subList(conflictingIdx, n).clear()
+                        decisionScores.subList(conflictingIdx, n).clear()
                     }
                 }
-            } else {
-                remainingSplits.remove(bestLit.toIx())!!.forEach { updateSplit(it) }
             }
         }
 
-        val finalList = decisions.copy()
-        finalList.addAll(assumptions)
-        var instance = optimizer.witness(finalList)
+        // Happy path: pin set is satisfiable; klause finds a witness.
+        val raw = proposeSample(rng, session.currentAssumptions())
+        if (raw != null) return BanditSample.dithered(raw, space, rng)
 
-        if (instance == null && decisions.isNotEmpty()) {
-            // all decisions cannot be satisfied so maximize the number of applicable decisions
-            val s = scores.toArray()
-            val d = decisions.toArray()
-            for (i in d.indices) {
-                if (!d[i].toBoolean()) s[i] = -s[i]
-                d[i] = d[i].toIx()
-            }
-            val linearObjective = DeltaLinearObjective(maximize, vectors.sparseVector(problem.nbrValues, s, d))
-            @Suppress("UNCHECKED_CAST")
-            instance = (optimizer as Optimizer<LinearObjective>).optimizeOrThrow(linearObjective, assumptions)
-        }
-        return instance ?: optimizer.witnessOrThrow(allDecisions)
+        // Fallback path: soft-satisfy via LinearObjective.
+        return runFallback(rng, decisionIds, decisionDirs, decisionScores)
     }
 
-
-    override fun exportData(): ForestData {
-        return ForestData(List(trees.size) {
-            trees[it].exportData()
-        })
+    private fun runFallback(
+        rng: Random,
+        decisionIds: List<Int>,
+        decisionDirs: List<Boolean>,
+        decisionScores: List<Double>,
+    ): BanditSample {
+        val fallback = optimizeFallback ?: throw NoFeasibleSampleException(
+            "RandomForestBandit produced over-constrained decisions " +
+                "(${decisionIds.size} greedy pins) and no optimizeFallback was supplied.",
+        )
+        val objective = buildSoftObjective(decisionIds, decisionDirs, decisionScores)
+        val raw = fallback(objective, Assumptions.None)
+            ?: throw NoFeasibleSampleException(
+                "RandomForestBandit fallback could not find any feasible sample.",
+            )
+        return BanditSample.dithered(raw, space, rng)
     }
 
-    override fun importData(data: ForestData) {
-        for (i in 0 until min(data.trees.size, trees.size))
-            trees[i].importData(data.trees[i])
+    /**
+     * Build a [LinearObjective] whose minimum is the feasible sample that best matches
+     * the bandit's greedy decisions weighted by their scores. Klause minimises, so:
+     *   - decision (id, value=true) with score s → boolWeights[id] -= s (lower cost when true)
+     *   - decision (id, value=false) with score s → boolWeights[id] += s (lower cost when false)
+     * The sign of `s` already reflects the maximise/minimise direction from policy scoring.
+     */
+    private fun buildSoftObjective(
+        ids: List<Int>,
+        dirs: List<Boolean>,
+        scores: List<Double>,
+    ): LinearObjective {
+        val n = space.compiled.problem.numBoolVars
+        val weights = DoubleArray(n)
+        for (i in ids.indices) {
+            val id = ids[i]
+            val s = scores[i]
+            if (dirs[i]) weights[id] -= s else weights[id] += s
+        }
+        return LinearObjective(boolWeights = weights)
     }
 
-    class Builder(val model: Model, val banditPolicy: BanditPolicy = ThompsonSampling(NormalPosterior)) : PredictionBanditBuilder<ForestData> {
+    private fun signed(m: Double): Double = if (maximize) m else -m
 
-        private var trees: Int = 10
-        private var optimizer: Optimizer<LinearObjective>? = null
-        private var randomSeed: Int = System.currentTimeMillis().toInt()
-        private var maximize: Boolean = true
-        private var splitMetric: SplitMetric =
-                if (banditPolicy.prior is BinaryEstimator) GiniCoefficient
-                else VarianceReduction
-        private var delta: Float = 0.05f
-        private var deltaDecay: Float = 0.5f
-        private var tau: Float = 0.1f
-        private var maxNodes: Int = Int.MAX_VALUE
-        private var viewedValues: Int = Int.MAX_VALUE
-        private var viewedVariables: Int =
-                if (banditPolicy.baseData() is BinaryEstimator) ceil(sqrt(model.nbrVariables.toFloat())).roundToInt()
-                else max(1, ceil(model.nbrVariables / 3f).toInt())
-        private var splitPeriod: Int = 10
-        private var minSamplesSplit: Float = banditPolicy.baseData().nbrWeightedSamples * 2 + 10.0f
-        private var minSamplesLeaf: Float = banditPolicy.baseData().nbrWeightedSamples + 4.0f
-        private var maxDepth: Int = 50
-        private var rewards: DataSample = VoidSample
-        private var trainAbsError: DataSample = VoidSample
-        private var testAbsError: DataSample = VoidSample
-        private var propagateAssumptions: Boolean = true
-        private var splitters = HashMap<Variable<*, *>, ValueSplitter>()
-        private var filterMissingData: Boolean = true
-        private var importedData: ForestData? = null
-        private var instanceSamplingMean: Float = 1f
-        private var maxRestarts: Int = 10
-        private var propagateDecisions: Boolean = true
+    override fun predict(sample: BanditSample): Double {
+        val row = projection.encode(sample)
+        var sum = 0.0
+        for (tree in trees) sum += tree.predict(row)
+        return sum / trees.size
+    }
 
-        override fun randomSeed(randomSeed: Int) = apply { this.randomSeed = randomSeed }
-        override fun maximize(maximize: Boolean) = apply { this.maximize = maximize }
-        override fun rewards(rewards: DataSample) = apply { this.rewards = rewards }
+    override fun update(sample: BanditSample, reward: Double, weight: Double) {
+        rewards?.update(reward, 0L, weight)
+        if (testAbsError != null) testAbsError.update(abs(reward - predict(sample)), 0L, weight)
+        train(sample, reward, weight)
+        if (trainAbsError != null) trainAbsError.update(abs(reward - predict(sample)), 0L, weight)
+    }
 
-        /** How many trees are in the assembly. */
-        fun trees(trees: Int) = apply { this.trees = trees }
+    override fun train(sample: BanditSample, reward: Double, weight: Double) {
+        val row = projection.encode(sample)
+        if (!bagging) {
+            for (tree in trees) tree.update(row, reward, weight)
+            return
+        }
+        for (tree in trees) {
+            val k = poissonOne(baggingRng)
+            if (k > 0) tree.update(row, reward, weight * k)
+        }
+    }
 
-        /** Used to calculate max set coverage for votes. */
-        fun optimizer(optimizer: Optimizer<LinearObjective>) = apply { this.optimizer = optimizer }
+    /** Knuth's Poisson sampler at λ=1. Returns 0/1/2/... with mass e^-1 / k!. */
+    private fun poissonOne(rng: Random): Int {
+        val l = exp(-1.0)
+        var k = 0
+        var p = 1.0
+        do {
+            k++
+            p *= rng.nextDouble()
+        } while (p > l)
+        return k - 1
+    }
 
-        @Suppress("UNCHECKED_CAST")
-        override fun suggestOptimizer(optimizer: Optimizer<*>) = optimizer(optimizer as Optimizer<LinearObjective>)
+    // Slice 1: serialisable forest state is a follow-up.
+    override fun importData(data: ForestData) {}
+    override fun exportData(): ForestData = ForestData(trees.map { DecisionTreeData() })
 
-        /** Which split metric to use for deciding what variable to split on. */
-        fun splitMetric(splitMetric: SplitMetric) = apply { this.splitMetric = splitMetric }
-
-        /** P-value threshold that variable to split on must overcome relative to second best. Lower value requires more data. */
-        fun delta(delta: Float) = apply { this.delta = delta }
-
-        /** [delta] will be multiplied by this once for each split. Used to limit the growth of the tree. */
-        fun deltaDecay(deltaDecay: Float) = apply { this.deltaDecay = deltaDecay }
-
-        /** Threshold with which the algorithm splits even if it is not proven best (0 is never, 1 is always) */
-        fun tau(tau: Float) = apply { this.tau = tau }
-
-        /** Total number of nodes that are permitted to build. */
-        fun maxNodes(maxNodes: Int) = apply { this.maxNodes = maxNodes }
-
-        /** The number of randomly selected values in the variables that leaf nodes consider for splitting the tree further during update. */
-        fun viewedValues(viewedValues: Int) = apply { this.viewedValues = viewedValues }
-
-        /** The number of allowed variables per tree in the ensemble. */
-        fun viewedVariables(viewedVariables: Int) = apply { this.viewedVariables = viewedVariables }
-
-        /** How often we check whether a split can be performed during update. */
-        fun splitPeriod(splitPeriod: Int) = apply { this.splitPeriod = splitPeriod }
-
-        /** Minimum number of samples in total of both positive and negative values before a variable can be used for a split. */
-        fun minSamplesSplit(minSamplesSplit: Float) = apply { this.minSamplesSplit = minSamplesSplit }
-
-        /** Minimum number of samples of both positive and negative values before a variable can be used for a split. */
-        fun minSamplesLeaf(minSamplesLeaf: Float) = apply { this.minSamplesLeaf = minSamplesLeaf }
-
-        /** Maximum depth the tree can grow to. */
-        fun maxDepth(maxDepth: Int) = apply { this.maxDepth = maxDepth }
-
-        /**The total absolute error obtained on a prediction before update. */
-        override fun trainAbsError(trainAbsError: DataSample) = apply { this.trainAbsError = trainAbsError }
-
-        /** The total absolute error obtained on a prediction after update. */
-        override fun testAbsError(testAbsError: DataSample) = apply { this.testAbsError = testAbsError }
-
-        /** Whether unit propagation before search is performed when assumptions are used. */
-        fun propagateAssumptions(propagateAssumptions: Boolean) = apply { this.propagateAssumptions = propagateAssumptions }
-
-        /** Custom value splitters to use instead of default. */
-        fun addSplitter(variable: Variable<*, *>, splitter: ValueSplitter) = apply { this.splitters[variable] = splitter }
-
-        /** Whether data should be automatically filtered for update for variables that are undefined (otherwise counted as false). */
-        fun filterMissingData(filterMissingData: Boolean) = apply { this.filterMissingData = filterMissingData }
-
-        /** How many times each instance is given to each tree on average (passed to poisson distribution) */
-        fun instanceSamplingMean(instanceSamplingMean: Float) = apply { this.instanceSamplingMean = instanceSamplingMean }
-
-        /** Max restart attempts to [choose] (only relevant with assumptions). */
-        fun maxRestarts(maxRestarts: Int) = apply { this.maxRestarts = maxRestarts }
-
-        /** Whether decisions should be propagated. */
-        fun propagateDecisions(propagateDecisions: Boolean) = apply { this.propagateDecisions = propagateDecisions }
-
-        override fun importData(data: ForestData) = apply { this.importedData = data }
-
-        override fun parallel() = ParallelPredictionBandit.Builder(this)
-
-        private fun sampleVariables(rng: Random, observed: TreeData? = null): IntArray {
-            fun variableIndices(variable: Variable<*, *>): IntList {
-                var v = variable
-                val myList = IntArrayList()
-                while (v !is Root) {
-                    myList.add(model.index.indexOf(v))
-                    v = v.parent.canonicalVariable
-                }
-                return myList
+    companion object {
+        /**
+         * Convenience constructor: builds [nbrTrees] trees over the [space]'s default
+         * split-candidate pool, each with its own per-leaf mtry subspace (the
+         * Breiman default `⌈√p⌉` unless overridden). Seeded deterministically from
+         * [randomSeed] so the same call always produces the same forest.
+         */
+        fun <R : Result> build(
+            space: CompiledDecisionSpace,
+            policy: BanditPolicy<R>,
+            proposeSample: (Random, Assumptions) -> Sample?,
+            nbrTrees: Int = 10,
+            mtry: Int? = null,
+            config: TreeConfig = TreeConfig(),
+            retryBudget: Int = 32,
+            optimizeFallback: ((LinearObjective, Assumptions) -> Sample?)? = null,
+            randomSeed: Int = System.currentTimeMillis().toInt(),
+            maximize: Boolean = true,
+            rewards: SeriesStat<*>? = null,
+            trainAbsError: SeriesStat<*>? = null,
+            testAbsError: SeriesStat<*>? = null,
+        ): RandomForestBandit<R> {
+            val candidates = defaultSplitCandidates(space)
+            val k = (mtry ?: defaultMtry(candidates.size)).coerceAtMost(candidates.size)
+            val perTreeConfig = config.copy(mtry = k)
+            val seedRng = Random(randomSeed)
+            val trees = (0 until nbrTrees).map {
+                Tree(policy, candidates, perTreeConfig, randomSeed = seedRng.nextInt())
             }
-
-            val observedVariables = IntHashSet(nullValue = -1)
-            if (observed != null) {
-                val allSplitValues = IntHashSet(nullValue = -1)
-                observed.asSequence().flatMap { node -> node.literals.mapArray { it.toIx() }.asSequence() }.forEach { allSplitValues.add(it) }
-                allSplitValues.forEach {
-                    for (vi in variableIndices(model.index.variableWithValue(it)))
-                        observedVariables.add(vi)
-                }
-            }
-            val perm = permutation(model.nbrVariables, rng)
-            for (vi in perm) {
-                if (observedVariables.size >= viewedVariables) break
-                for (vj in variableIndices(model.index.variable(vi)))
-                    observedVariables.add(vj)
-            }
-            return observedVariables.toArray().apply { sort() }
+            return RandomForestBandit(
+                space = space,
+                policy = policy,
+                proposeSample = proposeSample,
+                trees = trees,
+                retryBudget = retryBudget,
+                optimizeFallback = optimizeFallback,
+                randomSeed = randomSeed,
+                maximize = maximize,
+                rewards = rewards,
+                trainAbsError = trainAbsError,
+                testAbsError = testAbsError,
+            )
         }
 
-        override fun build(): RandomForestBandit {
-            val treeParameters = TreeParameters(model, banditPolicy,
-                    optimizer ?: LocalSearch.Builder(model.problem).randomSeed(randomSeed).fallbackCached().build(),
-                    randomSeed, maximize, rewards, trainAbsError, testAbsError, splitMetric, delta, deltaDecay, tau,
-                    maxNodes, maxDepth, viewedValues, splitPeriod, minSamplesSplit, minSamplesLeaf,
-                    propagateAssumptions, splitters, filterMissingData, 0, maxRestarts)
-            val rng = Random(randomSeed)
-            val trees = if (importedData != null) {
-                Array(importedData!!.size) {
-                    val tree = importedData!![it]
-                    DecisionTreeBandit(treeParameters, tree.buildTree(banditPolicy.prior, 0, 0), sampleVariables(rng, tree), it)
-                }
-            } else {
-                Array(trees) {
-                    DecisionTreeBandit(treeParameters, null, sampleVariables(rng), it)
-                }
-            }
-            return RandomForestBandit(treeParameters, trees, propagateDecisions, instanceSamplingMean)
-        }
+        /** Classic RF heuristic: ⌈√p⌉ candidates per leaf, with floor 1. */
+        private fun defaultMtry(p: Int): Int =
+            if (p <= 0) 0 else kotlin.math.ceil(kotlin.math.sqrt(p.toDouble())).toInt().coerceAtLeast(1)
     }
 }

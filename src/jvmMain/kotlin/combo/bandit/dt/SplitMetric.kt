@@ -1,137 +1,69 @@
 package combo.bandit.dt
 
-import combo.math.VarianceEstimator
-import combo.math.chi2CdfDf1
-import combo.math.fCdfDf1
-import kotlin.math.log2
-import kotlin.math.sqrt
+import com.eignex.kumulant.stat.summary.WeightedVarianceResult
 
-
+/**
+ * Scores a candidate split against the leaf's pre-split distribution. Higher is better.
+ *
+ * The signature is intentionally narrow — total / pos / neg snapshots, plus the two
+ * sample-size guards. Subclasses cover variance reduction, t-test, chi-square, etc.
+ * Returned score must satisfy `value(total, total, empty) == 0` so that "no signal"
+ * is always last in the ranking.
+ *
+ * Slice 1 ships [VarianceReduction] only; the others from the legacy implementation
+ * will be ported in follow-ups as concrete callers ask for them.
+ */
 interface SplitMetric {
-
-    fun split(total: VarianceEstimator, pos: Array<VarianceEstimator>, neg: Array<VarianceEstimator>,
-              minSamplesSplit: Float, minSamplesLeaf: Float): SplitInfo {
-        var top1 = 0.0f
-        var top2 = 0.0f
-        var bestI = -1
-
-        val tv = totalValue(total)
-
-        for (i in pos.indices) {
-            val nPos = pos[i].nbrWeightedSamples
-            val nNeg = neg[i].nbrWeightedSamples
-            if (nPos < minSamplesLeaf || nNeg < minSamplesLeaf || nPos + nNeg < minSamplesSplit) continue
-            val v = tv - value(total, pos[i], neg[i])
-            if (v > top1) {
-                bestI = i
-                top2 = top1
-                top1 = v
-            } else if (v > top2)
-                top2 = v
-        }
-
-        return SplitInfo(top1, top2, bestI)
-    }
-
-    fun totalValue(total: VarianceEstimator): Float = 0.0f
-    fun value(total: VarianceEstimator, pos: VarianceEstimator, neg: VarianceEstimator): Float
+    fun score(
+        total: WeightedVarianceResult,
+        pos: WeightedVarianceResult,
+        neg: WeightedVarianceResult,
+    ): Double
 }
 
-data class SplitInfo(val top1: Float, val top2: Float, val i: Int)
-
+/** Mean variance reduction. The classic CART regression criterion. */
 object VarianceReduction : SplitMetric {
-    override fun totalValue(total: VarianceEstimator) = total.variance
-    override fun value(total: VarianceEstimator, pos: VarianceEstimator, neg: VarianceEstimator): Float {
-        val nPos = pos.nbrWeightedSamples
-        val nNeg = neg.nbrWeightedSamples
-        val n = nPos + nNeg
-        return (nNeg / n) * neg.variance + (nPos / n) * pos.variance
+    override fun score(
+        total: WeightedVarianceResult,
+        pos: WeightedVarianceResult,
+        neg: WeightedVarianceResult,
+    ): Double {
+        val wPos = pos.totalWeights
+        val wNeg = neg.totalWeights
+        val w = wPos + wNeg
+        if (w <= 0.0) return 0.0
+        val weighted = (wPos / w) * pos.variance + (wNeg / w) * neg.variance
+        return total.variance - weighted
     }
 }
 
-object TTest : SplitMetric {
-    override fun totalValue(total: VarianceEstimator) = 1.0f
-    override fun value(total: VarianceEstimator, pos: VarianceEstimator, neg: VarianceEstimator): Float {
-        val nPos = pos.nbrWeightedSamples
-        val nNeg = neg.nbrWeightedSamples
-        val n = nPos + nNeg
-        val diff = pos.mean - neg.mean
-        val t = diff / sqrt((pos.variance / nPos + neg.variance / nNeg))
-        val F = t * t
-        return 1 - fCdfDf1(F, n - 1)
+/** Result of evaluating all candidate splits at a leaf: best score, runner-up, best index. */
+data class SplitInfo(val top1: Double, val top2: Double, val bestIndex: Int)
+
+/**
+ * Score every candidate split and return the top-2 + index. Splits that don't meet
+ * [minSamplesLeaf] on both sides or [minSamplesSplit] in total are skipped.
+ */
+fun SplitMetric.rank(
+    total: WeightedVarianceResult,
+    pos: List<WeightedVarianceResult>,
+    neg: List<WeightedVarianceResult>,
+    minSamplesSplit: Double,
+    minSamplesLeaf: Double,
+): SplitInfo {
+    require(pos.size == neg.size) { "pos and neg lists must align: ${pos.size} vs ${neg.size}" }
+    var top1 = 0.0
+    var top2 = 0.0
+    var bestI = -1
+    for (i in pos.indices) {
+        val wPos = pos[i].totalWeights
+        val wNeg = neg[i].totalWeights
+        if (wPos < minSamplesLeaf || wNeg < minSamplesLeaf || wPos + wNeg < minSamplesSplit) continue
+        val v = score(total, pos[i], neg[i])
+        when {
+            v > top1 -> { top2 = top1; top1 = v; bestI = i }
+            v > top2 -> top2 = v
+        }
     }
+    return SplitInfo(top1, top2, bestI)
 }
-
-object EntropyReduction : SplitMetric {
-    override fun totalValue(total: VarianceEstimator): Float {
-        val n = total.nbrWeightedSamples
-        val pos = total.sum
-        val neg = n - total.sum
-        val rp = pos / n
-        val rn = neg / n
-        return -rp * log2(rp) - rn * log2(rn)
-    }
-
-    override fun value(total: VarianceEstimator, pos: VarianceEstimator, neg: VarianceEstimator): Float {
-        val nPos = pos.nbrWeightedSamples
-        val nNeg = neg.nbrWeightedSamples
-        val n = nPos + nNeg
-        val ePos = totalValue(pos)
-        val eNeg = totalValue(neg)
-        return ePos * nPos / n + eNeg * nNeg / n
-    }
-}
-
-object ChiSquareTest : SplitMetric {
-    override fun totalValue(total: VarianceEstimator) = 1.0f
-    override fun value(total: VarianceEstimator, pos: VarianceEstimator, neg: VarianceEstimator): Float {
-        val nPos = pos.nbrWeightedSamples
-        val nNeg = neg.nbrWeightedSamples
-        val n = nPos + nNeg
-        val actualPN = nPos - pos.sum
-        val actualPP = pos.sum
-        val actualNN = nNeg - neg.sum
-        val actualNP = neg.sum
-
-        val totalP = pos.sum + neg.sum
-        val totalN = n - totalP
-        val expectedPN = nPos * totalN / n
-        val expectedPP = nPos * totalP / n
-        val expectedNN = nNeg * totalN / n
-        val expectedNP = nNeg * totalP / n
-
-        val diffPN = actualPN - expectedPN
-        val diffPP = actualPP - expectedPP
-        val diffNN = actualNN - expectedNN
-        val diffNP = actualNP - expectedNP
-
-        val xPN = diffPN * diffPN / expectedPN
-        val xPP = diffPP * diffPP / expectedPP
-        val xNN = diffNN * diffNN / expectedNN
-        val xNP = diffNP * diffNP / expectedNP
-
-        val x = xPN + xPP + xNN + xNP
-        return 1 - chi2CdfDf1(x)
-    }
-}
-
-object GiniCoefficient : SplitMetric {
-    override fun totalValue(total: VarianceEstimator): Float {
-        val n = total.nbrWeightedSamples
-        val pos = total.sum
-        val neg = n - total.sum
-        val rp = pos / n
-        val rn = neg / n
-        return -rp * rp - rn * rn
-    }
-
-    override fun value(total: VarianceEstimator, pos: VarianceEstimator, neg: VarianceEstimator): Float {
-        val nPos = pos.nbrWeightedSamples
-        val nNeg = neg.nbrWeightedSamples
-        val n = nPos + nNeg
-        val gPos = totalValue(pos)
-        val gNeg = totalValue(neg)
-        return gPos * nPos / n + gNeg * nNeg / n
-    }
-}
-

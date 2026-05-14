@@ -1,96 +1,69 @@
 package combo.bandit.dt
 
-import combo.bandit.univariate.BanditPolicy
-import combo.math.VarianceEstimator
-import combo.sat.Instance
-import combo.sat.not
-import combo.sat.toBoolean
-import combo.sat.toIx
-import combo.util.IntCollection
-import combo.util.RandomListCache
-import combo.util.isEmpty
+import com.eignex.kumulant.core.Result
+import com.eignex.kumulant.core.SeriesStat
 
-sealed class Node(var data: VarianceEstimator) {
-    /**
-     * Find the exact node that matches the instance. This will always work unless there is an index out of bounds.
-     */
-    abstract fun findLeaf(instance: Instance): LeafNode
+/**
+ * Internal tree node. Every node — both internal splits and leaves — carries an
+ * arm tracking observations that flowed through it. This is the canonical
+ * "tree-partitions-arms" model: a [SplitNode]'s arm is the aggregate over its
+ * subtree, used by the bandit's choose-time walk-down to score branching
+ * decisions; a [LeafNode]'s arm is the per-arm sufficient statistic.
+ */
+sealed class Node<R : Result> {
+    /** Per-subtree arm. For leaves this is *the* arm; for split nodes it's the
+     *  aggregate stat over every observation routed through the node, used for
+     *  policy-driven walk-down at choose time. */
+    abstract val arm: SeriesStat<R>
 
-    /**
-     * Finds all leaves that match the given literals. This can possibly return all leaves if for example the
-     * literals are empty.
-     */
-    abstract fun findLeaves(setLiterals: IntArray): Sequence<LeafNode>
-
-    abstract fun update(instance: Instance, result: Float, weight: Float, banditPolicy: BanditPolicy): Node
-
+    /** Walk to the leaf this row resolves to. */
+    abstract fun findLeaf(row: TreeRow): LeafNode<R>
 }
 
-class SplitNode(val ix: Int, var pos: Node, var neg: Node, data: VarianceEstimator) : Node(data) {
+/**
+ * Routes by [split] to either [pos] (split-true) or [neg] (split-false). The
+ * aggregate [arm] is updated by the tree on every observation flowing through.
+ */
+class SplitNode<R : Result>(
+    val split: Split,
+    var pos: Node<R>,
+    var neg: Node<R>,
+    override val arm: SeriesStat<R>,
+) : Node<R>() {
+    override fun findLeaf(row: TreeRow): LeafNode<R> =
+        if (split.direction(row)) pos.findLeaf(row) else neg.findLeaf(row)
+}
 
-    override fun update(instance: Instance, result: Float, weight: Float, banditPolicy: BanditPolicy): Node {
-        banditPolicy.update(data, result, weight)
-        if (instance.isSet(ix)) pos = pos.update(instance, result, weight, banditPolicy)
-        else neg = neg.update(instance, result, weight, banditPolicy)
-        return this
-    }
+/**
+ * Holds the per-arm accumulator at a path. Two flavours:
+ *
+ *  - [AuditLeaf] — actively considers candidate splits each round and may convert to a
+ *    [SplitNode]. Tracks pos/neg arm stats per candidate.
+ *  - [TerminalLeaf] — frozen at max depth or when no candidates remain.
+ */
+sealed class LeafNode<R : Result> : Node<R>() {
+    final override fun findLeaf(row: TreeRow): LeafNode<R> = this
+}
 
-    override fun findLeaf(instance: Instance) =
-            if (instance.isSet(ix)) pos.findLeaf(instance)
-            else neg.findLeaf(instance)
+/** Frozen leaf — no further splits will be considered. */
+class TerminalLeaf<R : Result>(override val arm: SeriesStat<R>) : LeafNode<R>()
 
-    override fun findLeaves(setLiterals: IntArray): Sequence<LeafNode> {
-        for (l in setLiterals) {
-            if (l.toIx() == ix) {
-                return if (l.toBoolean()) pos.findLeaves(setLiterals)
-                else neg.findLeaves(setLiterals)
-            }
+/**
+ * Leaf that tracks per-candidate pos/neg stats. When a candidate clears the
+ * Hoeffding-bound test in the tree's update loop, this leaf is replaced by a
+ * [SplitNode]. The candidate subset is per-leaf — picked at leaf birth — so
+ * mtry-style random subspace selection lives at the leaf level.
+ */
+class AuditLeaf<R : Result>(
+    override val arm: SeriesStat<R>,
+    val candidates: List<Split>,
+    val pos: List<SeriesStat<R>>,
+    val neg: List<SeriesStat<R>>,
+) : LeafNode<R>() {
+    init {
+        require(candidates.size == pos.size && pos.size == neg.size) {
+            "candidates/pos/neg must align: ${candidates.size}/${pos.size}/${neg.size}"
         }
-        return pos.findLeaves(setLiterals) + neg.findLeaves(setLiterals)
     }
-}
-
-abstract class LeafNode(val literals: IntCollection, data: VarianceEstimator, val blocked: RandomListCache<IntCollection>?) : Node(data) {
-    override fun findLeaf(instance: Instance) = this
-    override fun findLeaves(setLiterals: IntArray) = sequenceOf(this)
-
-    /**
-     * Checks whether the assumptions can be satisfied by the conjunction formed by literals.
-     * Both arrays are assumed sorted.
-     */
-    fun matches(assumptions: IntCollection): Boolean {
-        if (assumptions.isEmpty()) return true
-        for (lit in literals)
-            if (!lit in assumptions) return false
-        return true
-    }
-
-    /**
-     * The block buffer is a set of failed assumptions that should not be immediately tried again. This is applied
-     * in the rare case when the assumptions matches the [literals] and the node is chosen and the solver then tries
-     * to generate an instance with the given assumption and fails. In that case the assumptions are added to the
-     * blocked buffer and a new node is chosen (this node will not be selected due to the assumptions are blocked).
-     */
-    fun blocks(assumptions: IntCollection): Boolean {
-        if (assumptions.isEmpty() || blocked == null) return false
-        return blocked.find {
-            if (it === assumptions) true
-            else {
-                var covers = true
-                for (lit in it) {
-                    if (lit !in assumptions) {
-                        covers = false
-                        break
-                    }
-                }
-                covers
-            }
-        } != null
-    }
-}
-
-class TerminalNode(literals: IntCollection, data: VarianceEstimator, blockQueueSize: Int, randomSeed: Int)
-    : LeafNode(literals, data, if (blockQueueSize > 0) RandomListCache(blockQueueSize, randomSeed) else null) {
-    override fun update(instance: Instance, result: Float, weight: Float, banditPolicy: BanditPolicy) =
-            this.apply { banditPolicy.update(data, result, weight) }
+    var observationsSinceLastCheck: Int = 0
 }
