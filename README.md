@@ -48,7 +48,7 @@ succeeded.
 
     "variables": {
       "model":       { "type": "nominal", "labels": ["haiku", "sonnet", "opus"] },
-      "temperature": { "type": "float",   "min": 0.0, "max": 1.0, "buckets": 16 },
+      "temperature": { "type": "float",   "min": 0.0, "max": 1.0 },
       "maxTokens":   { "type": "int",     "min": 256, "max": 8192 },
       "promptStyle": { "type": "nominal", "labels": ["terse", "detailed", "chainOfThought"] },
       "tools": {
