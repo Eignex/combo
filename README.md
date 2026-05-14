@@ -40,8 +40,8 @@ optimal configuration is learned over time from how each category performs:
     "name": "MediaPicker",
 
     "context": {
-      "displayWidth": { "$type": "int", "min": 640, "max": 1920 },
-      "customerType": { "$type": "nominal", "labels": ["Child", "Company", "Person"] }
+      "displayWidth": { "type": "int", "min": 640, "max": 1920 },
+      "customerType": { "type": "nominal", "labels": ["Child", "Company", "Person"] }
     },
 
     "multiples": {
@@ -66,7 +66,7 @@ optimal configuration is learned over time from how each category performs:
 }
 ```
 
-Variable specs are tagged with `$type` (klause / skema polymorphic JSON). Constraints
+Variable specs are tagged with `type` (klause / skema polymorphic JSON). Constraints
 are shown as DSL strings — that parser is on the roadmap; on the wire today
 constraints serialize as polymorphic AST trees.
 
