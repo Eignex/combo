@@ -70,7 +70,7 @@ class TreeFeatureProjectionTest {
         val space = model.compileSpace()
         val projection = TreeFeatureProjection(space)
         val solver = LocalSearchSolver(space.compiled.problem)
-        val split = NominalSplit(model.tier, leftLabels = setOf("free"))
+        val split = NominalSplit(model.tier, label = "free")
 
         repeat(20) { seed ->
             val s = solver.sample(LocalSearchParams(randomSeed = seed.toLong()))!!
@@ -89,14 +89,11 @@ class TreeFeatureProjectionTest {
     }
 
     @Test
-    fun `nominal split should reject empty or full label partitions`() {
+    fun `nominal split should reject labels outside the handle's domain`() {
         val model = ToyTree()
         model.compileSpace()
         assertFailsWith<IllegalArgumentException> {
-            NominalSplit(model.tier, leftLabels = emptySet())
-        }
-        assertFailsWith<IllegalArgumentException> {
-            NominalSplit(model.tier, leftLabels = setOf("free", "pro", "enterprise"))
+            NominalSplit(model.tier, label = "unknown")
         }
     }
 

@@ -164,6 +164,31 @@ class Tree<R : Result>(
         return combined.read()
     }
 
+    /**
+     * Render the tree as nested `if (split) { ... } else { ... }` text using each
+     * split's readable form (`BoolExpr.pretty()` underneath). Leaves show the arm's
+     * scalar mean. Debug / inspection helper; not for serialisation.
+     */
+    fun prettyPrint(indent: String = ""): String = buildString {
+        prettyPrintTo(this, root, indent)
+    }
+
+    private fun prettyPrintTo(sb: StringBuilder, node: Node<R>, indent: String) {
+        when (node) {
+            is SplitNode -> {
+                sb.append(indent).append("if (").append(node.split.toString()).append(") {\n")
+                prettyPrintTo(sb, node.pos, "$indent  ")
+                sb.append(indent).append("} else {\n")
+                prettyPrintTo(sb, node.neg, "$indent  ")
+                sb.append(indent).append("}\n")
+            }
+            is LeafNode -> {
+                val mean = scalarMean(node.arm.read())
+                sb.append(indent).append("leaf mean=").append("%.3f".format(mean)).append('\n')
+            }
+        }
+    }
+
     private fun newLeaf(depth: Int): LeafNode<R> {
         if (depth >= config.maxDepth || nbrNodes + 1 > config.maxNodes || !canGrow) {
             return TerminalLeaf(policy.createArm())

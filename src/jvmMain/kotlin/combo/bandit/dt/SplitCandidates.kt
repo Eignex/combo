@@ -56,7 +56,7 @@ fun defaultSplitCandidates(space: CompiledDecisionSpace, numericThresholds: Int 
         if (labels.size < 2) continue
         val handle = NominalHandle(name, labels)
         for (label in labels) {
-            out += NominalSplit(handle, leftLabels = setOf(label))
+            out += NominalSplit(handle, label = label)
         }
     }
 

@@ -125,7 +125,10 @@ class CompiledDecisionSpace internal constructor(
     fun isActive(handle: NominalHandle, sample: Sample): Boolean =
         activeConditions[handle.name]?.let { evaluate(it, sample) } ?: true
 
-    private fun evaluate(expr: BoolExpr, sample: Sample): Boolean = evaluateBool(expr, sample, compiled)
+    /** Evaluate an arbitrary klause [BoolExpr] against [sample]. Same machinery the
+     *  active-condition checks use; exposed so tree-side split predicates can share
+     *  one evaluator with user-facing constraints. */
+    fun evaluate(expr: BoolExpr, sample: Sample): Boolean = evaluateBool(expr, sample, compiled)
 }
 
 internal fun InteractionHandle.toDef(): InteractionDef =
