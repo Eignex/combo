@@ -37,9 +37,11 @@ optimal configuration is learned over time from how each category performs:
 ```json
 {
   "decisionSpace": {
+    "name": "MediaPicker",
+
     "context": {
-      "displayWidth": { "type": "int", "min": 640, "max": 1920 },
-      "customerType": { "type": "nominal", "labels": ["Child", "Company", "Person"] }
+      "displayWidth": { "$type": "int", "min": 640, "max": 1920 },
+      "customerType": { "$type": "nominal", "labels": ["Child", "Company", "Person"] }
     },
 
     "multiples": {
@@ -51,18 +53,22 @@ optimal configuration is learned over time from how each category performs:
         "multiples": {
           "genre": ["Slasher", "Thriller", "MartialArts", "Crime", "Supernatural", "SuperHeroes", "Fantasy"]
         },
-        "constraints": [
-          "customerType == \"Child\" implies !movies.genre.contains(\"Slasher\")"
-        ]
+        "constraints": {
+          "noSlasherForKids": "customerType == \"Child\" implies !movies.genre.contains(\"Slasher\")"
+        }
       }
     },
 
-    "constraints": [
-      "|games| + |movies.genre| in [2, 5]"
-    ]
+    "constraints": {
+      "betweenTwoAndFive": "|games| + |movies.genre| in [2, 5]"
+    }
   }
 }
 ```
+
+Variable specs are tagged with `$type` (klause / skema polymorphic JSON). Constraints
+are shown as DSL strings — that parser is on the roadmap; on the wire today
+constraints serialize as polymorphic AST trees.
 
 A `multiple` is a set-valued variable: it expands at compile time to one boolean
 indicator per label (`games.Shooter`, `games.Platform`, …). Inside `constraint { … }`
