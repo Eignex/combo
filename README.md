@@ -20,7 +20,7 @@ and a univariate multi-armed bandit for the no-context case.
 Combo sits on top of two sibling libraries:
 [klause](https://github.com/Eignex/klause) handles the constraint solving and
 sampling, and [kumulant](https://github.com/Eignex/kumulant) provides the streaming
-statistics and posterior distributions.
+statistics that drive each leaf's posterior update.
 
 Using it requires three steps:
 
