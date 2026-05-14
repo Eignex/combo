@@ -49,18 +49,16 @@ optimal configuration is learned over time from how each category performs:
     "spaces": {
       "movies": {
         "multiples": {
-          "horror": ["Slasher", "Splatter", "Zombie"],
-          "action": ["Thriller", "MartialArts", "Crime"],
-          "sciFi":  ["Supernatural", "SuperHeroes", "Fantasy"]
+          "genre": ["Slasher", "Thriller", "MartialArts", "Crime", "Supernatural", "SuperHeroes", "Fantasy"]
         },
         "constraints": [
-          "customerType == \"Child\" implies |horror| == 0"
+          "customerType == \"Child\" implies !movies.genre.contains(\"Slasher\")"
         ]
       }
     },
 
     "constraints": [
-      "|games| + |movies.horror| + |movies.action| + |movies.sciFi| in [2, 5]"
+      "|games| + |movies.genre| in [2, 5]"
     ]
   }
 }
