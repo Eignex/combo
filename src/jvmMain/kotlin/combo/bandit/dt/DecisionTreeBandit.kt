@@ -5,7 +5,7 @@ import com.eignex.klause.solver.Sample
 import com.eignex.kumulant.core.Result
 import com.eignex.kumulant.core.SeriesStat
 import combo.bandit.NoFeasibleSampleException
-import combo.bandit.PredictionBandit
+import combo.bandit.PredictionLearner
 import combo.bandit.univariate.BanditPolicy
 import combo.decisions.BanditSample
 import combo.decisions.CompiledDecisionSpace
@@ -42,7 +42,7 @@ class DecisionTreeBandit<R : Result>(
     override val rewards: SeriesStat<*>? = null,
     override val trainAbsError: SeriesStat<*>? = null,
     override val testAbsError: SeriesStat<*>? = null,
-) : PredictionBandit<DecisionTreeData> {
+) : PredictionLearner<DecisionTreeData> {
 
     private val randomSequence = RandomSequence(randomSeed)
     private val projection = TreeFeatureProjection(space)

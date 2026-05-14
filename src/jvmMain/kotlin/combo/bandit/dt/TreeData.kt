@@ -1,6 +1,6 @@
 package combo.bandit.dt
 
-import combo.bandit.BanditData
+import combo.bandit.LearnerData
 import combo.bandit.SlotRemap
 
 /**
@@ -12,11 +12,11 @@ import combo.bandit.SlotRemap
  * Concrete bandits still implement `importData` / `exportData` against this type so
  * future state-transfer support drops in without an interface change.
  */
-class DecisionTreeData internal constructor() : BanditData {
-    override fun remap(slots: SlotRemap): BanditData = this
+class DecisionTreeData internal constructor() : LearnerData {
+    override fun remap(slots: SlotRemap): LearnerData = this
 }
 
 /** Placeholder for the eventual forest data. Same caveats as [DecisionTreeData]. */
-class ForestData internal constructor(val trees: List<DecisionTreeData>) : BanditData {
-    override fun remap(slots: SlotRemap): BanditData = this
+class ForestData internal constructor(val trees: List<DecisionTreeData>) : LearnerData {
+    override fun remap(slots: SlotRemap): LearnerData = this
 }

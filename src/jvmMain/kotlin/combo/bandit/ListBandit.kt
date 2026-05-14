@@ -32,7 +32,7 @@ class ListBandit<R : Result>(
     override val randomSeed: Int = System.currentTimeMillis().toInt(),
     override val maximize: Boolean = true,
     override val rewards: SeriesStat<*>? = null,
-) : Bandit<ListBanditData> {
+) : Learner<ListBanditData> {
 
     init {
         require(samples.isNotEmpty()) { "ListBandit needs at least one sample arm" }
@@ -95,7 +95,7 @@ class ListBandit<R : Result>(
         (rewards as? SeriesStat<Any>)?.update(reward, 0L, weight)
     }
 
-    // Bandit<D> interface — contextless overloads default to empty context.
+    // Learner<D> interface — contextless overloads default to empty context.
     override fun chooseOrThrow(): BanditSample = chooseOrThrow(Context.Empty)
     override fun optimalOrThrow(): BanditSample = optimalOrThrow(Context.Empty)
     override fun update(sample: BanditSample, reward: Double, weight: Double) =
@@ -109,6 +109,6 @@ class ListBandit<R : Result>(
 }
 
 @Serializable
-data object ListBanditData : BanditData {
-    override fun remap(slots: SlotRemap): BanditData = this
+data object ListBanditData : LearnerData {
+    override fun remap(slots: SlotRemap): LearnerData = this
 }

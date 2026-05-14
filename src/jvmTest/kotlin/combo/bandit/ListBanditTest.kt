@@ -34,7 +34,7 @@ class ListBanditSuiteTest : BanditTestSuite<ListBanditData>() {
         randomSeed: Int,
         maximize: Boolean,
         rewards: MeanStat?,
-    ): Bandit<ListBanditData> = ListBandit<BernoulliSumResult>(
+    ): Learner<ListBanditData> = ListBandit<BernoulliSumResult>(
         samples = samples,
         policy = ThompsonSampling(BinomialPosterior()),
         space = space,

@@ -26,7 +26,7 @@ import org.junit.rules.Timeout
  * Each subclass typically picks a [combo.bandit.univariate.BanditPolicy] / linear model
  * / etc. inside [build] and wires it.
  */
-abstract class BanditTestSuite<D : BanditData> {
+abstract class BanditTestSuite<D : LearnerData> {
 
     /** Per-test ceiling. Bandit loops that genuinely hang should fail fast, not stall CI. */
     @get:Rule
@@ -39,7 +39,7 @@ abstract class BanditTestSuite<D : BanditData> {
         randomSeed: Int,
         maximize: Boolean,
         rewards: MeanStat? = null,
-    ): Bandit<D>
+    ): Learner<D>
 
     /**
      * Whether the bandit is expected to converge to the best arm with Bernoulli rewards
@@ -168,10 +168,10 @@ abstract class BanditTestSuite<D : BanditData> {
 }
 
 /**
- * Adds [PredictionBandit]-specific tests on top of [BanditTestSuite]: predict returns a
+ * Adds [PredictionLearner]-specific tests on top of [BanditTestSuite]: predict returns a
  * scalar, train accepts samples, train-then-predict reflects the trained reward.
  */
-abstract class PredictionBanditTestSuite<D : BanditData> : BanditTestSuite<D>() {
+abstract class PredictionBanditTestSuite<D : LearnerData> : BanditTestSuite<D>() {
 
     abstract fun buildPrediction(
         space: CompiledDecisionSpace,
@@ -179,7 +179,7 @@ abstract class PredictionBanditTestSuite<D : BanditData> : BanditTestSuite<D>() 
         randomSeed: Int,
         maximize: Boolean,
         rewards: MeanStat? = null,
-    ): PredictionBandit<D>
+    ): PredictionLearner<D>
 
     final override fun build(
         space: CompiledDecisionSpace,
@@ -187,7 +187,7 @@ abstract class PredictionBanditTestSuite<D : BanditData> : BanditTestSuite<D>() 
         randomSeed: Int,
         maximize: Boolean,
         rewards: MeanStat?,
-    ): Bandit<D> = buildPrediction(space, samples, randomSeed, maximize, rewards)
+    ): Learner<D> = buildPrediction(space, samples, randomSeed, maximize, rewards)
 
     @Test
     fun `predict should produce a finite scalar`() {

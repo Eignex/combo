@@ -21,7 +21,7 @@ two regimes from one decision-space definition:
 - **Bayesian optimization** for offline, low-volume settings: expensive evaluations
   like simulator runs, hyperparameter sweeps, or system-flag tuning where only the
   final recommended configuration matters and you have a budget of tens to hundreds
-  of trials total. Decision latency can be seconds. This is the path the BoBandit
+  of trials total. Decision latency can be seconds. This is the path the BayesLearner
   and GP surrogate target.
 
 Both share the same constraint solver and decision-space schema, so the cost of
@@ -133,7 +133,7 @@ models, and context-conditioned arms live under src/jvmTest/kotlin/combo/bandit.
   ([Sprangers et al., 2021](https://arxiv.org/abs/2106.01682)): boosted trees with
   predictive distributions, slotting in next to the random forest as a stronger
   Thompson-sampling surrogate.
-- **BoBandit**: Bayesian optimization with pluggable surrogates (linear, forest, GP)
+- **BayesLearner**: Bayesian optimization with pluggable surrogates (linear, forest, GP)
   and acquisition functions (Thompson, UCB, EI), running over the same constrained
   decision space.
 - **GP surrogate**: Gaussian-process surrogate for problems with a strong continuous

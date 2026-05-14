@@ -14,19 +14,19 @@ import kotlinx.serialization.Serializable
 class NoFeasibleSampleException(message: String) : RuntimeException(message)
 
 /**
- * Per-bandit state that survives import/export. Concrete subtypes are `@Serializable`
+ * Per-learner state that survives import/export. Concrete subtypes are `@Serializable`
  * data classes registered with a kotlinx-serialization `SerializersModule` when
  * polymorphic round-trips are needed; the interface itself is intentionally open so
- * downstream bandits can ship their own data without cross-package sealed-hierarchy
+ * downstream learners can ship their own data without cross-package sealed-hierarchy
  * pain.
  *
- * Subtypes typically wrap kumulant `Result` snapshots: a [BanditData] is the union of
- * "what stats does this bandit hold" plus "which klause slot each one keys on", and
- * [remap] rewrites the latter when the schema changes.
+ * Subtypes typically wrap kumulant `Result` snapshots: a [LearnerData] is the union
+ * of "what stats does this learner hold" plus "which klause slot each one keys on",
+ * and [remap] rewrites the latter when the schema changes.
  */
-interface BanditData {
+interface LearnerData {
     /** Rewrite this data against a new schema. Stats whose slot is dropped should be discarded. */
-    fun remap(slots: SlotRemap): BanditData
+    fun remap(slots: SlotRemap): LearnerData
 }
 
 /**
@@ -42,21 +42,25 @@ interface SlotRemap {
 }
 
 /**
- * A bandit optimises an online decision problem over a combinatorial domain. Each round
- * the user calls [choose] to get a feasible [BanditSample], plays it externally, then
- * reports the observed reward through [update]. The bandit owns the search strategy;
- * klause owns feasibility (samples come from a klause [Sampler] or
+ * Online configuration learner over a combinatorial decision space. Covers both bandit
+ * algorithms (cumulative-regret minimisation under streaming feedback) and Bayesian
+ * optimisation algorithms (simple-regret minimisation under expensive evaluations);
+ * the interface is the same because the choose / play / update loop is the same.
+ *
+ * Each round the caller invokes [choose] to get a feasible [BanditSample], plays it
+ * externally, then reports the observed reward through [update]. The learner owns the
+ * search strategy; klause owns feasibility (samples come from a klause [Sampler] or
  * [com.eignex.klause.solver.Optimizer]).
  *
- * Float variables are bucketed in klause but the bandit emits continuous values: every
- * [BanditSample] returned by `choose`/`optimal` carries per-float dither drawn uniformly
- * within the chosen bucket. Models trained via [update] see those dithered values and
- * thus learn the continuous reward signal directly.
+ * Float variables are bucketed in klause but the learner emits continuous values:
+ * every [BanditSample] returned by `choose`/`optimal` carries per-float dither drawn
+ * uniformly within the chosen bucket. Models trained via [update] see those dithered
+ * values and learn the continuous reward signal directly.
  *
- * Reward bookkeeping is delegated to an optional kumulant [SeriesStat] sink — if [rewards]
- * is non-null, every observed reward is folded in.
+ * Reward bookkeeping is delegated to an optional kumulant [SeriesStat] sink: if
+ * [rewards] is non-null, every observed reward is folded in.
  */
-interface Bandit<D : BanditData> {
+interface Learner<D : LearnerData> {
     fun chooseOrThrow(): BanditSample
     fun choose(): BanditSample? = try { chooseOrThrow() } catch (_: NoFeasibleSampleException) { null }
 
@@ -80,10 +84,10 @@ interface Bandit<D : BanditData> {
 }
 
 /**
- * A [Bandit] backed by a learned predictive model. Adds [predict] (no side-effects) and
- * [train] (off-policy update without bumping reward bookkeeping).
+ * A [Learner] backed by a learned predictive model. Adds [predict] (no side-effects)
+ * and [train] (off-policy update without bumping reward bookkeeping).
  */
-interface PredictionBandit<D : BanditData> : Bandit<D> {
+interface PredictionLearner<D : LearnerData> : Learner<D> {
     val trainAbsError: SeriesStat<*>?
     val testAbsError: SeriesStat<*>?
 
@@ -107,7 +111,7 @@ class RandomBandit<P : SolverParams>(
     val params: P,
     override val randomSeed: Int = 0,
     override val rewards: SeriesStat<*>? = null,
-) : Bandit<RandomBanditData> {
+) : Learner<RandomLearnerData> {
     override val maximize: Boolean get() = true
 
     private val randomSequence = RandomSequence(randomSeed)
@@ -125,11 +129,11 @@ class RandomBandit<P : SolverParams>(
         (rewards as? SeriesStat<Any>)?.update(reward, 0L, weight)
     }
 
-    override fun importData(data: RandomBanditData) {}
-    override fun exportData(): RandomBanditData = RandomBanditData
+    override fun importData(data: RandomLearnerData) {}
+    override fun exportData(): RandomLearnerData = RandomLearnerData
 }
 
 @Serializable
-data object RandomBanditData : BanditData {
-    override fun remap(slots: SlotRemap): BanditData = this
+data object RandomLearnerData : LearnerData {
+    override fun remap(slots: SlotRemap): LearnerData = this
 }

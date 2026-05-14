@@ -7,7 +7,7 @@ import com.eignex.klause.solver.localsearch.LocalSearchSolver
 import com.eignex.klause.solver.Sample
 import com.eignex.klause.solver.SolveResult
 import com.eignex.kumulant.stat.summary.MeanStat
-import combo.bandit.PredictionBandit
+import combo.bandit.PredictionLearner
 import combo.bandit.PredictionBanditTestSuite
 import combo.bandit.univariate.Greedy
 import combo.decisions.CompiledDecisionSpace
@@ -34,7 +34,7 @@ class RandomForestBanditTest : PredictionBanditTestSuite<ForestData>() {
         randomSeed: Int,
         maximize: Boolean,
         rewards: MeanStat?,
-    ): PredictionBandit<ForestData> {
+    ): PredictionLearner<ForestData> {
         val solver = LocalSearchSolver(space.compiled.problem)
         val session = com.eignex.klause.solver.localsearch.LocalSearchSession(solver)
         val backtrack = BacktrackSolver(space.compiled.problem)

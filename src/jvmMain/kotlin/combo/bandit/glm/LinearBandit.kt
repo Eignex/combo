@@ -5,7 +5,7 @@ import com.eignex.klause.solver.LinearObjective
 import com.eignex.klause.solver.Sample
 import com.eignex.kumulant.core.SeriesStat
 import combo.bandit.NoFeasibleSampleException
-import combo.bandit.PredictionBandit
+import combo.bandit.PredictionLearner
 import combo.decisions.BanditSample
 import combo.decisions.Context
 import combo.util.RandomSequence
@@ -28,7 +28,7 @@ class LinearBandit(
     override val rewards: SeriesStat<*>? = null,
     override val trainAbsError: SeriesStat<*>? = null,
     override val testAbsError: SeriesStat<*>? = null,
-) : PredictionBandit<LinearData> {
+) : PredictionLearner<LinearData> {
 
     val space get() = projection.space
 
@@ -94,7 +94,7 @@ class LinearBandit(
         null
     }
 
-    // PredictionBandit interface — contextless overloads default to empty context.
+    // PredictionLearner interface — contextless overloads default to empty context.
     override fun predict(sample: BanditSample): Double = predict(sample, Context.Empty)
     override fun train(sample: BanditSample, reward: Double, weight: Double) = train(sample, Context.Empty, reward, weight)
     override fun update(sample: BanditSample, reward: Double, weight: Double) = update(sample, Context.Empty, reward, weight)

@@ -4,9 +4,8 @@ import com.eignex.klause.solver.localsearch.LocalSearchParams
 import com.eignex.klause.solver.localsearch.LocalSearchSolver
 import com.eignex.klause.solver.Sample
 import com.eignex.kumulant.stat.summary.MeanStat
-import combo.bandit.Bandit
 import combo.bandit.BanditTestSuite
-import combo.bandit.PredictionBandit
+import combo.bandit.PredictionLearner
 import combo.bandit.PredictionBanditTestSuite
 import combo.decisions.CompiledDecisionSpace
 
@@ -28,7 +27,7 @@ class LinearBanditSuiteTest : PredictionBanditTestSuite<LinearData>() {
         randomSeed: Int,
         maximize: Boolean,
         rewards: MeanStat?,
-    ): PredictionBandit<LinearData> {
+    ): PredictionLearner<LinearData> {
         val projection = LinearFeatureProjection(space)
         val solver = LocalSearchSolver(space.compiled.problem)
         val model = DiagonalizedLinearModel.Builder(projection.featureSize)
