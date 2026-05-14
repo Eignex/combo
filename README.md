@@ -44,14 +44,20 @@ optimal configuration is learned over time from how each category performs:
       "customerType": { "type": "nominal", "labels": ["Child", "Company", "Person"] }
     },
 
-    "multiples": {
-      "games": ["Shooter", "Platform", "Sports", "Action", "Adventure", "Strategy"]
+    "variables": {
+      "games": {
+        "type": "multiple",
+        "labels": ["Shooter", "Platform", "Sports", "Action", "Adventure", "Strategy"]
+      }
     },
 
     "spaces": {
       "movies": {
-        "multiples": {
-          "genre": ["Slasher", "Thriller", "MartialArts", "Crime", "Supernatural", "SuperHeroes", "Fantasy"]
+        "variables": {
+          "genre": {
+            "type": "multiple",
+            "labels": ["Slasher", "Thriller", "MartialArts", "Crime", "Supernatural", "SuperHeroes", "Fantasy"]
+          }
         },
         "constraints": {
           "noSlasherForKids": "customerType == \"Child\" implies !movies.genre.contains(\"Slasher\")"
@@ -66,9 +72,10 @@ optimal configuration is learned over time from how each category performs:
 }
 ```
 
-Variable specs are tagged with `type` (klause / skema polymorphic JSON). Constraints
-are shown as DSL strings — that parser is on the roadmap; on the wire today
-constraints serialize as polymorphic AST trees.
+Each variable carries its own `type` tag (`bool`, `int`, `nominal`, `float`,
+`multiple`). Constraints are written as DSL strings — the parser is on the roadmap;
+the structural pieces of the config (variables, contexts, sub-spaces) round-trip
+through `DecisionSpaceDef` today.
 
 A `multiple` is a set-valued variable: it expands at compile time to one boolean
 indicator per label (`games.Shooter`, `games.Platform`, …). Inside `constraint { … }`
