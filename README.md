@@ -26,7 +26,7 @@ Using it requires three steps:
 
 1. Declare the decision space — variables, sub-spaces, and constraints.
 2. Pick a bandit algorithm and wire it to the compiled space.
-3. Loop `choose()` → serve the configuration → `update()` with the observed reward.
+3. Loop choose → serve the configuration → update with the observed reward.
 
 ## Decision space
 
@@ -71,27 +71,23 @@ float, nominal (pick one), or multiple (pick any subset).
 
 ## Bandit
 
-The flagship algorithm is **`RandomForestBandit`** — an online, constraint-aware
-contextual bandit built on Hoeffding-bound decision trees (VFDT-style growth) that
-each carry a *posterior distribution* at every leaf. At decision time the forest does
-a guided descent against klause: each tree's split decisions are pinned as klause
-assumptions, the local-search sampler proposes a feasible candidate consistent with
-the pins, and if propagation reports the path infeasible the bandit backjumps to the
-deepest conflicting decision rather than restarting. A complete `BacktrackSolver`
-cascades behind the local search so a null sample means *definitive UNSAT*, not "the
-sampler gave up under its budget" — the bandit's training data never carries
-silently-biased exploration misses.
+The flagship is the random forest bandit — an online, constraint-aware contextual
+bandit built on Hoeffding-bound decision trees, each carrying a Bayesian posterior at
+every leaf. At decision time the forest pins its split decisions as constraints and
+asks the solver for a feasible sample; when a path proves infeasible the bandit
+backjumps to the deepest conflicting decision rather than restarting, and a complete
+backtracking solver cascades behind the local search so a null answer means
+definitive UNSAT instead of a silent budget miss.
 
 Exploration is per-leaf Thompson sampling on a Bayesian posterior over the leaf
-reward, Oza–Russell online bagging diversifies the trees as updates stream in, and
-Breiman-style mtry restricts each tree's split candidates to a random subspace. None
-of this assumes a binary decision space: bools, integers, nominals, multi-selects, and
-bucketed floats all carry their own typed split kinds, and constraints over them are
-honored at every choose call by construction — there's no rejection-sample fallback
-that quietly violates the model.
+reward, with online bagging diversifying the trees as updates stream in and mtry
+restricting each tree's split candidates to a random subspace. Bools, integers,
+nominals, multi-selects, and bucketed floats all carry their own typed split kinds,
+and every constraint is honored at every choose call by construction — no
+rejection-sample fallback that might quietly violate the model.
 
-The bandit takes a compiled decision space plus a klause sampler that produces
-feasible candidates:
+Wiring it up takes a compiled decision space and a sampler that produces feasible
+candidates:
 
 ```kotlin
 val space = MyDecisionSpace().compileSpace()
@@ -107,7 +103,7 @@ val bandit = RandomForestBandit.build(
 )
 ```
 
-Then it's a `choose` → serve → `update` loop:
+Then it's a choose → serve → update loop:
 
 ```kotlin
 val arm = bandit.choose() ?: return     // null only when no feasible sample exists
@@ -116,13 +112,12 @@ val reward = observe()                  // measure clicks, sales, latency, …
 bandit.update(arm, reward)
 ```
 
-Context (per-call features supplied by the caller — `customerType`, `displayWidth` in
-the example above) is passed through `Context { set(handle, value) }` and steers the
-bandit's policy without entering the decision space itself.
+Context (per-call features supplied by the caller, like task type and user tier in
+the example above) is passed through a small builder and steers the bandit's policy
+without entering the decision space itself.
 
-See `src/jvmTest/kotlin/combo/bandit` for end-to-end examples — `RandomForestBanditTest`
-and `LinearBanditTest` show the cascade-with-backtrack pattern, Thompson sampling on
-linear models, and context-conditioned arms.
+End-to-end examples — cascade-with-backtrack, Thompson sampling on linear models, and
+context-conditioned arms — live under src/jvmTest/kotlin/combo/bandit.
 
 ## Roadmap
 
