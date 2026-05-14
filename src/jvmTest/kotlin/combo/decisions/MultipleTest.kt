@@ -1,8 +1,8 @@
 package combo.decisions
 
 import com.eignex.klause.ast.BoolSpec
-import com.eignex.klause.solver.LocalSearchParams
-import com.eignex.klause.solver.LocalSearchSolver
+import com.eignex.klause.solver.localsearch.LocalSearchParams
+import com.eignex.klause.solver.localsearch.LocalSearchSolver
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

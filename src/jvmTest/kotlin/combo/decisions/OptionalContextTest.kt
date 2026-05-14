@@ -3,8 +3,8 @@ package combo.decisions
 import com.eignex.klause.ast.implies
 import com.eignex.klause.ast.le
 import com.eignex.klause.ast.not
-import com.eignex.klause.solver.LocalSearchParams
-import com.eignex.klause.solver.LocalSearchSolver
+import com.eignex.klause.solver.localsearch.LocalSearchParams
+import com.eignex.klause.solver.localsearch.LocalSearchSolver
 import combo.bandit.glm.ConstantRate
 import combo.bandit.glm.DiagonalizedLinearModel
 import combo.bandit.glm.LinearBandit

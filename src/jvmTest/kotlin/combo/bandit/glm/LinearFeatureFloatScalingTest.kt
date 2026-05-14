@@ -1,7 +1,7 @@
 package combo.bandit.glm
 
-import com.eignex.klause.solver.LocalSearchParams
-import com.eignex.klause.solver.LocalSearchSolver
+import com.eignex.klause.solver.localsearch.LocalSearchParams
+import com.eignex.klause.solver.localsearch.LocalSearchSolver
 import combo.decisions.Context
 import combo.decisions.DecisionSpace
 import kotlin.test.Test

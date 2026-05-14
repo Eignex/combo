@@ -4,8 +4,8 @@ import com.eignex.klause.ast.and
 import com.eignex.klause.ast.gt
 import com.eignex.klause.ast.not
 import com.eignex.klause.ast.or
-import com.eignex.klause.solver.LocalSearchParams
-import com.eignex.klause.solver.LocalSearchSolver
+import com.eignex.klause.solver.localsearch.LocalSearchParams
+import com.eignex.klause.solver.localsearch.LocalSearchSolver
 import combo.decisions.BanditSample
 import combo.decisions.DecisionSpace
 import kotlin.test.Test

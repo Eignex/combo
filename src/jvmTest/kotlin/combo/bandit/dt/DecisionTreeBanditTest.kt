@@ -1,9 +1,9 @@
 package combo.bandit.dt
 
-import com.eignex.klause.solver.BacktrackParams
-import com.eignex.klause.solver.BacktrackSolver
-import com.eignex.klause.solver.LocalSearchParams
-import com.eignex.klause.solver.LocalSearchSolver
+import com.eignex.klause.solver.backtrack.BacktrackParams
+import com.eignex.klause.solver.backtrack.BacktrackSolver
+import com.eignex.klause.solver.localsearch.LocalSearchParams
+import com.eignex.klause.solver.localsearch.LocalSearchSolver
 import com.eignex.klause.solver.Sample
 import com.eignex.klause.solver.SolveResult
 import com.eignex.kumulant.stat.summary.MeanStat
@@ -27,7 +27,7 @@ class DecisionTreeBanditTest : PredictionBanditTestSuite<DecisionTreeData>() {
         rewards: MeanStat?,
     ): PredictionBandit<DecisionTreeData> {
         val solver = LocalSearchSolver(space.compiled.problem)
-        val session = com.eignex.klause.solver.LocalSearchSession(solver)
+        val session = com.eignex.klause.solver.localsearch.LocalSearchSession(solver)
         val backtrack = BacktrackSolver(space.compiled.problem)
         // TinySpace has 4 feasible samples and 600 rounds — keep splitting cheap.
         val config = TreeConfig(

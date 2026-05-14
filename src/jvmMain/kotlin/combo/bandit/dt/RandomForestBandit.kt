@@ -2,8 +2,8 @@ package combo.bandit.dt
 
 import com.eignex.klause.solver.Assumptions
 import com.eignex.klause.solver.LinearObjective
-import com.eignex.klause.solver.PropagationResult
-import com.eignex.klause.solver.PropagationSession
+import com.eignex.klause.solver.propagation.PropagationResult
+import com.eignex.klause.solver.propagation.PropagationSession
 import com.eignex.klause.solver.Sample
 import com.eignex.kumulant.core.Result
 import com.eignex.kumulant.core.SeriesStat
@@ -48,7 +48,7 @@ import kotlin.random.Random
  * iterative descent but with `Greedy` scoring (deterministic argmax at each step).
  *
  * After each greedy decision the bandit pushes the pin onto a
- * [com.eignex.klause.solver.PropagationSession]: implied literals are folded into the
+ * [com.eignex.klause.solver.propagation.PropagationSession]: implied literals are folded into the
  * pin set (so future descents skip frontier splits on already-forced variables) and
  * over-constraint is caught immediately. On [PropagationResult.Unsat] the result's
  * [PropagationResult.Unsat.conflictLevels] names every decision level involved in the
