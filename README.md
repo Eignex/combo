@@ -26,7 +26,7 @@ Using it requires three steps:
 
 1. Declare the decision space — variables, sub-spaces, and constraints.
 2. Pick a bandit algorithm and wire it to the compiled space.
-3. Loop `chooseOrThrow()` → serve the configuration → `update()` with the observed reward.
+3. Loop `choose()` → serve the configuration → `update()` with the observed reward.
 
 ## Decision space
 
@@ -96,7 +96,7 @@ val bandit = RandomForestBandit.build(
 Then it's a `choose` → serve → `update` loop:
 
 ```kotlin
-val arm = bandit.chooseOrThrow()        // BanditSample drawn from the posterior
+val arm = bandit.choose() ?: return     // null only when no feasible sample exists
 serve(arm)                              // hand the configuration to the user
 val reward = observe()                  // measure clicks, sales, latency, …
 bandit.update(arm, reward)
