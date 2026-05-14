@@ -65,6 +65,9 @@ data class DecisionSpaceDef(
     /** Single-variable optionals: each gets an auto-allocated bool gate named
      *  `isKnown_<localName>` and a pin to its default value when the gate is off. */
     val optionalVariables: Map<String, VarSpec> = emptyMap(),
+    /** Multi-select variables (`multiple("a", "b", "c")` in the DSL). Each entry
+     *  expands at compile time to N bool indicators named `<key>.<label>`. */
+    val multiples: Map<String, List<String>> = emptyMap(),
     val constraints: Map<String, BoolExpr> = emptyMap(),
     val spaces: Map<String, DecisionSpaceDef> = emptyMap(),
     val optionalSpaces: Map<String, DecisionSpaceDef> = emptyMap(),
@@ -92,6 +95,10 @@ data class DecisionSpaceDef(
     private fun emit(out: MutableMap<String, SchemaEntry>, prefix: String) {
         for ((localName, spec) in variables) {
             out[prefix + localName] = spec
+        }
+        for ((localName, labels) in multiples) {
+            val qualified = prefix + localName
+            for (label in labels) out["$qualified.$label"] = BoolSpec
         }
         for ((localName, spec) in optionalVariables) {
             val qualified = prefix + localName

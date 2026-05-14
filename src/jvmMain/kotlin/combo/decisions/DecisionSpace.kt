@@ -168,6 +168,19 @@ abstract class DecisionSpace : SubSpace() {
     ): DecisionSpaceDef {
         val childPrefixes = node.children.map { "$prefix${it.name}." }.toSet()
         val gateNames = node.children.mapNotNull { if (it.isOptional) "$prefix${it.name}" else null }.toSet()
+        // Multiples declared at this level: their qualified names sit directly under
+        // [prefix] (no further dots in the local name). The constituent bools live at
+        // `"<prefix><local>.<label>"` and must not be re-emitted as plain variables.
+        val ownMultiples = LinkedHashMap<String, List<String>>()
+        val multiplePrefixes = mutableSetOf<String>()
+        for ((mName, labels) in ctx.root.multiples) {
+            if (!mName.startsWith(prefix)) continue
+            val rest = mName.removePrefix(prefix)
+            if (rest.contains('.')) continue
+            if (childPrefixes.any { mName.startsWith(it) }) continue
+            ownMultiples[rest] = labels
+            multiplePrefixes += "$mName."
+        }
         val ownVariables = LinkedHashMap<String, VarSpec>()
         val ownOptionalVariables = LinkedHashMap<String, VarSpec>()
         val ownConstraints = LinkedHashMap<String, BoolExpr>()
@@ -177,6 +190,9 @@ abstract class DecisionSpace : SubSpace() {
             val rest = entryName.removePrefix(prefix)
             // Skip entries that belong to a nested child.
             if (childPrefixes.any { entryName.startsWith(it) }) continue
+            // Skip the constituent bools of a multiple declared at this level — they
+            // round-trip through [DecisionSpaceDef.multiples] instead of `variables`.
+            if (multiplePrefixes.any { entryName.startsWith(it) }) continue
             // Skip auto-allocated gate variables — they're regenerated from structure.
             if (entryName in gateNames) continue
             if (entryName in excludeNames) continue
@@ -215,6 +231,7 @@ abstract class DecisionSpace : SubSpace() {
         return DecisionSpaceDef(
             variables = ownVariables,
             optionalVariables = ownOptionalVariables,
+            multiples = ownMultiples,
             constraints = ownConstraints,
             spaces = nested,
             optionalSpaces = optionalNested,

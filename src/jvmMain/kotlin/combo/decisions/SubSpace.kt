@@ -54,6 +54,18 @@ abstract class SubSpace internal constructor() {
             ReadOnlyProperty { _, _ -> handle }
         }
 
+    /**
+     * Multi-select variable backed by N independent bool indicators (one per label).
+     * Mirrors the [nominal] surface but allows 0..N labels to be true simultaneously.
+     * Use [MultipleHandle.contains] / [MultipleHandle.containsAny] / etc. inside
+     * `constraint { … }`.
+     */
+    protected fun multiple(vararg labels: String) =
+        PropertyDelegateProvider<SubSpace, ReadOnlyProperty<SubSpace, MultipleHandle>> { _, prop ->
+            val handle = ctx.root.registerMultiple(ctx.qualify(prop.name), labels.toList(), ctx.activeCondition)
+            ReadOnlyProperty { _, _ -> handle }
+        }
+
     protected fun constraint(build: () -> BoolExpr) =
         PropertyDelegateProvider<SubSpace, ReadOnlyProperty<SubSpace, NamedConstraint>> { _, prop ->
             val name = ctx.qualify(prop.name)

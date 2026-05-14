@@ -99,6 +99,11 @@ internal class RootKlauseSchema : VariableSchema() {
         _gates[sub] = handle
     }
 
+    /** Multi-select variables, keyed by fully-qualified name. Each value is the ordered
+     *  label list; the constituent bool variables are registered as `<name>.<label>`. */
+    private val _multiples = LinkedHashMap<String, List<String>>()
+    val multiples: Map<String, List<String>> get() = _multiples
+
     fun registerBool(name: String, activeCondition: BoolExpr?): BoolHandle {
         add(name, BoolSpec)
         if (activeCondition != null) {
@@ -156,6 +161,15 @@ internal class RootKlauseSchema : VariableSchema() {
             )
         }
         return NominalHandle(name, labels)
+    }
+
+    fun registerMultiple(name: String, labels: List<String>, activeCondition: BoolExpr?): MultipleHandle {
+        require(labels.isNotEmpty()) { "Multiple '$name' must have at least one label" }
+        require(labels.distinct().size == labels.size) { "Multiple '$name' has duplicate labels: $labels" }
+        _multiples[name] = labels.toList()
+        val perLabel = LinkedHashMap<String, BoolHandle>()
+        for (label in labels) perLabel[label] = registerBool("$name.$label", activeCondition)
+        return MultipleHandle(name, labels.toList(), perLabel)
     }
 
     fun registerConstraint(name: String, expr: BoolExpr) {

@@ -23,43 +23,44 @@ Using it requires three steps:
 
 A model describes the variables in the optimization problem in a tree structure. Lets start of with a simple example, which is intended to be used to display a top-list of the most important media categories on a web site. Here, the optimal configuration will be automatically calculated over time as users are using it, based on how well each category performs in terms of eg sales or click data.
 
-```kotlin
-fun main() {
+```json
+{
+  "decisionSpace": {
+    "context": {
+      "displayWidth": { "type": "int", "min": 640, "max": 1920 },
+      "customerType": { "type": "nominal", "labels": ["Child", "Company", "Person"] }
+    },
 
-    val myModel = model {
+    "multiples": {
+      "games": ["Shooter", "Platform", "Sports", "Action", "Adventure", "Strategy"]
+    },
 
-        // Context variables
-        int("DisplayWidth", min = 640, max = 1920)
-        val customerType = nominal("CustomerType", "Child", "Company", "Person")
+    "spaces": {
+      "movies": {
+        "multiples": {
+          "horror": ["Slasher", "Splatter", "Zombie"],
+          "action": ["Thriller", "MartialArts", "Crime"],
+          "sciFi":  ["Supernatural", "SuperHeroes", "Fantasy"]
+        },
+        "constraints": [
+          "customerType == \"Child\" implies |horror| == 0"
+        ]
+      }
+    },
 
-        // The category tree is encoded directly
-
-        //Games can be absent
-        val games = optionalMultiple("Games", "Shooter", "Platform", "Sports", "Action", "Adventure", "Strategy")
-
-        // Movies is a sub-category with multiple sub-options
-        val movies = model("Movies") {
-            val horror = optionalMultiple("Horror", "Slasher", "Splatter", "Zombie")
-            optionalMultiple("Action", "Thriller", "Martial arts", "Crime")
-            optionalMultiple("Sci-fi", "Supernatural", "Super heroes", "Fantasy")
-
-            // This adds a constraint that ensures that whenever CustomerType is Child then any of the 
-            // horror categories are hidden.
-            val child = customerType.option("Child")
-            impose { child equivalent !horror }
-        }
-
-        // ... add more categories as needed
-
-        // Add a hard constraint that the number of categories must be between 2 and 5.
-        // This could have been a dynamic parameter with the number of movie genres instead.
-        val categoryVariables = games.values + movies.scope.variables.asSequence()
-                .flatMap { (it as Multiple<*>).values }.toList().toTypedArray()
-        impose { atLeast(2, *categoryVariables) }
-        impose { atMost(5, *categoryVariables) }
-    }
+    "constraints": [
+      "|games| + |movies.horror| + |movies.action| + |movies.sciFi| in [2, 5]"
+    ]
+  }
 }
 ```
+
+A `multiple` is a set-valued variable: it expands at compile time to one boolean
+indicator per label (`games.Shooter`, `games.Platform`, …). Inside `constraint { … }`
+the matching Kotlin DSL reads `games.contains("Shooter")`, `games.containsAny(...)`,
+`games.containsAll(...)`, `games.sizeLe(5)`, `games.sizeBetween(2, 5)`. Same
+declaration surface as `nominal`, the only difference is "pick one" vs. "pick any
+subset".
 
 ## Optimizer
 
