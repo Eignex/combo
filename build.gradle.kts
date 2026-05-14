@@ -40,13 +40,3 @@ kotlin {
     }
 }
 
-// Files awaiting rewire onto the new bandit harness (klause Sample + kumulant Result).
-// Each entry will be lifted out as its subsystem is migrated.
-val pendingRewire = listOf<String>(
-    // DT slice 1 rewire complete. RandomForestBandit and serialisable TreeData
-    // round-trip land in follow-up slices; their files were deleted rather than
-    // excluded so the package compiles cleanly without dead code.
-)
-val pendingRewireTests = listOf<String>()
-if (pendingRewire.isNotEmpty()) kotlin.sourceSets["jvmMain"].kotlin.exclude(pendingRewire)
-if (pendingRewireTests.isNotEmpty()) kotlin.sourceSets["jvmTest"].kotlin.exclude(pendingRewireTests)

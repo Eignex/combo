@@ -1,6 +1,5 @@
 package combo.bandit.util
 
-import kotlin.math.exp
 import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.pow
@@ -21,13 +20,6 @@ fun Random.nextNormal(mean: Double = 0.0, std: Double = 1.0): Double {
     } while (s >= 1.0 || s == 0.0)
     val mul = sqrt(-2.0 * ln(s) / s)
     return mean + std * u * mul
-}
-
-fun Random.nextLogNormal(mean: Double, variance: Double): Double {
-    val phi = sqrt(variance + mean * mean)
-    val mu = ln(mean * mean / phi)
-    val sigma = sqrt(ln(phi * phi / (mean * mean)))
-    return exp(nextNormal(mu, sigma))
 }
 
 private fun Random.nextDoublePos(): Double {
