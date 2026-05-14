@@ -30,12 +30,12 @@ class CompiledDecisionSpace internal constructor(
     /** For each conditionally-present klause variable, the boolean expression that
      *  must hold for the variable to be active. */
     val activeConditions: Map<String, BoolExpr>,
-    /** For each sub-space mounted via `optionalSubspace`, the auto-allocated gate
+    /** For each sub-space mounted via `optionalDecisionSpace`, the auto-allocated gate
      *  variable that controls its activation. */
     val gates: Map<SubSpace, BoolHandle>,
 ) {
     /** Convenience: the auto-allocated gate for an optional sub-space. Null when the
-     *  sub-space was mounted via plain `subspace { … }` (unconditional). */
+     *  sub-space was mounted via plain `decisionSpace { … }` (unconditional). */
     fun gateOf(sub: SubSpace): BoolHandle? = gates[sub]
 
     /** Decode a context bool's value from a sample. */

@@ -39,7 +39,7 @@ internal class SubSpaceContext private constructor(
 ) {
     fun qualify(name: String): String = if (prefix.isEmpty()) name else "$prefix.$name"
 
-    /** Always-active child context, used by plain `subspace { ... }`. */
+    /** Always-active child context, used by plain `decisionSpace { ... }`. */
     fun child(propertyName: String): SubSpaceContext =
         SubSpaceContext(root, qualify(propertyName), activeCondition)
 

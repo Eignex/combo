@@ -35,6 +35,15 @@ import com.eignex.skema.SchemaDef
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+/** Prefix used for auto-allocated `isKnown_<name>` bool gates of optional variables and
+ *  optional contexts. Single source of truth — refactors that change the gating shape
+ *  must update this and the [DecisionSpaceDef.emit] / [buildLevel] code that pattern-
+ *  matches on it. */
+internal const val OPTIONAL_GATE_PREFIX: String = "isKnown_"
+
+/** Build the gate name for an optional variable / context named [qualified]. */
+internal fun gateNameFor(qualified: String): String = "$OPTIONAL_GATE_PREFIX$qualified"
+
 /**
  * Cloud-native config shape for a complete decision space. Hierarchical: every level
  * carries its own variables, constraints, and nested spaces, mirroring how the author
@@ -100,23 +109,11 @@ data class DecisionSpaceDef(
             val qualified = prefix + localName
             for (label in labels) out["$qualified.$label"] = BoolSpec
         }
-        for ((localName, spec) in optionalVariables) {
-            val qualified = prefix + localName
-            val gateName = "isKnown_$qualified"
-            out[gateName] = BoolSpec
-            out[qualified] = spec
-            out["__pin_$qualified"] = NamedConstraint(synthesizePin(qualified, spec, gateName))
-        }
+        for ((localName, spec) in optionalVariables) emitOptional(out, prefix + localName, spec)
         for ((localName, spec) in context) {
             out[prefix + localName] = spec
         }
-        for ((localName, spec) in optionalContext) {
-            val qualified = prefix + localName
-            val gateName = "isKnown_$qualified"
-            out[gateName] = BoolSpec
-            out[qualified] = spec
-            out["__pin_$qualified"] = NamedConstraint(synthesizePin(qualified, spec, gateName))
-        }
+        for ((localName, spec) in optionalContext) emitOptional(out, prefix + localName, spec)
         for ((localName, expr) in constraints) {
             out[prefix + localName] = NamedConstraint(qualify(expr, prefix))
         }
@@ -127,14 +124,24 @@ data class DecisionSpaceDef(
             val gateName = prefix + localName
             out[gateName] = BoolSpec
             val childPrefix = "$prefix$localName."
-            val sizeBefore = out.size
-            child.emit(out, prefix = childPrefix)
-            for ((entryName, entry) in out.toList().drop(sizeBefore)) {
-                if (entry is VarSpec && entryName.startsWith(childPrefix) && !entryName.startsWith("isKnown_")) {
+            // Emit the child into a scratch map so we can scan exactly the entries it
+            // produced — no slicing of the (potentially huge) parent map.
+            val childOut = LinkedHashMap<String, SchemaEntry>()
+            child.emit(childOut, prefix = childPrefix)
+            for ((entryName, entry) in childOut) {
+                out[entryName] = entry
+                if (entry is VarSpec && !entryName.startsWith(OPTIONAL_GATE_PREFIX)) {
                     out["__pin_$entryName"] = NamedConstraint(synthesizePin(entryName, entry, gateName))
                 }
             }
         }
+    }
+
+    private fun emitOptional(out: MutableMap<String, SchemaEntry>, qualified: String, spec: VarSpec) {
+        val gateName = gateNameFor(qualified)
+        out[gateName] = BoolSpec
+        out[qualified] = spec
+        out["__pin_$qualified"] = NamedConstraint(synthesizePin(qualified, spec, gateName))
     }
 }
 

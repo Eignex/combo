@@ -12,7 +12,7 @@ import kotlin.properties.ReadOnlyProperty
 /**
  * Base class for typed, reusable sub-schemas mounted under a [DecisionSpace] (or under
  * another sub-space, transitively). Subclass it, declare variables and constraints with
- * the inherited declarators, then mount instances via [subspace] on a parent.
+ * the inherited declarators, then mount instances via [decisionSpace] on a parent.
  *
  * Construction relies on a thread-local "current context" installed by the root
  * [DecisionSpace] — every `boolVar()` etc. registers with the *same* root klause schema,
@@ -105,11 +105,6 @@ abstract class SubSpace internal constructor() {
             ReadOnlyProperty { _, _ -> instance }
         }
 
-    @Deprecated("Renamed to decisionSpace", ReplaceWith("decisionSpace(factory)"))
-    protected fun <T : SubSpace> subspace(factory: () -> T) = decisionSpace(factory)
-
-    @Deprecated("Renamed to optionalDecisionSpace", ReplaceWith("optionalDecisionSpace(factory)"))
-    protected fun <T : SubSpace> optionalSubspace(factory: () -> T) = optionalDecisionSpace(factory)
 }
 
 /** Internal: parent's record of a nested decision space and (if optional) its gate. */

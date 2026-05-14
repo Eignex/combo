@@ -19,7 +19,7 @@ private fun directGateOf(expr: BoolExpr): String = when (expr) {
 
 /**
  * Top-level schema for a bandit. Inherits decision declarators (`boolVar`, `intVar`,
- * `nominal`, `constraint { … }`, `subspace { … }`, `optionalSubspace { … }`) from
+ * `nominal`, `constraint { … }`, `decisionSpace { … }`, `optionalDecisionSpace { … }`) from
  * [SubSpace], and adds declarators for *context* variables and *interactions*.
  *
  * Two ways to consume:
@@ -68,7 +68,7 @@ abstract class DecisionSpace : SubSpace() {
     protected fun optionalContextBool() =
         PropertyDelegateProvider<DecisionSpace, ReadOnlyProperty<DecisionSpace, BoolContextHandle>> { _, prop ->
             val valueName = ctx.qualify(prop.name)
-            val gateName = "isKnown_$valueName"
+            val gateName = gateNameFor(valueName)
             val gateHandle = ctx.root.registerBool(gateName, ctx.activeCondition)
             val valueHandle = ctx.root.registerBool(
                 valueName,
@@ -86,7 +86,7 @@ abstract class DecisionSpace : SubSpace() {
     protected fun optionalContextInt(min: Int, max: Int) =
         PropertyDelegateProvider<DecisionSpace, ReadOnlyProperty<DecisionSpace, IntContextHandle>> { _, prop ->
             val valueName = ctx.qualify(prop.name)
-            val gateName = "isKnown_$valueName"
+            val gateName = gateNameFor(valueName)
             val gateHandle = ctx.root.registerBool(gateName, ctx.activeCondition)
             val valueHandle = ctx.root.registerInt(
                 valueName, min, max,
@@ -117,7 +117,12 @@ abstract class DecisionSpace : SubSpace() {
      * thread-local so a fresh space can be built afterwards. [compileSpace] does the
      * same; they're mutually exclusive entry points.
      */
-    fun definition(): DecisionSpaceDef {
+    fun definition(): DecisionSpaceDef = buildAndClear()
+
+    /** Single entry point that materialises [DecisionSpaceDef] and tears down the
+     *  construction context. Used by both [definition] (which only needs the def) and
+     *  [compileSpace] (which also runs the klause compiler against the same schema). */
+    private fun buildAndClear(): DecisionSpaceDef {
         val def = buildDef()
         SubSpaceContext.clear()
         return def
@@ -198,7 +203,7 @@ abstract class DecisionSpace : SubSpace() {
             if (entryName in excludeNames) continue
             // Skip the `isKnown_*` gates of optional variables — we recover them from
             // the optional-variable slot instead.
-            if (rest.startsWith("isKnown_")) continue
+            if (rest.startsWith(OPTIONAL_GATE_PREFIX)) continue
             val localName = rest
             when (entry) {
                 is VarSpec -> {
@@ -207,7 +212,7 @@ abstract class DecisionSpace : SubSpace() {
                     val extra = gates - ancestorGates.toSet()
                     when {
                         extra.isEmpty() -> ownVariables[localName] = entry
-                        extra.size == 1 && extra.single() == "isKnown_$entryName" ->
+                        extra.size == 1 && extra.single() == gateNameFor(entryName) ->
                             ownOptionalVariables[localName] = entry
                         // else: orphaned — fall through silently. Shouldn't happen with
                         // current declarators.
@@ -255,8 +260,7 @@ abstract class DecisionSpace : SubSpace() {
     fun compileSpace(): CompiledDecisionSpace {
         val schema = ctx.root
         val compiled = schema.compile()
-        val def = buildDef()
-        SubSpaceContext.clear()
+        val def = buildAndClear()
         return CompiledDecisionSpace(
             compiled = compiled,
             contextBools = _contextBools.toList(),
