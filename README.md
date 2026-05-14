@@ -30,10 +30,9 @@ Using it requires three steps:
 
 ## Decision space
 
-The decision space describes the variables the optimizer can choose between. Below is
-an LLM-agent configurator: at every request the bandit decides which model, sampling
-temperature, prompt strategy, and tool set to dispatch — conditioned on what kind of
-task the user submitted and which tier they're on — and learns from whether the run
+The decision space describes what the optimizer can vary. In the example below the
+bandit picks an LLM agent setup — model, temperature, prompt style, and tools — per
+request, conditioned on the task type and user tier, and learns from whether the run
 succeeded.
 
 ```json
@@ -67,16 +66,8 @@ succeeded.
 }
 ```
 
-Every choose call returns a feasible configuration honoring all constraints — there
-is no rejection-sample fallback that might quietly serve an `opus` model to a free-tier
-user. Each variable carries its own `type` tag (`bool`, `int`, `nominal`, `float`,
-`multiple`).
-
-A `multiple` is a set-valued variable — `tools` here picks any subset of the four
-labels. In the Kotlin DSL it reads `tools.contains("web_search")`,
-`tools.containsAll("code_exec", "bash")`, `tools.sizeLe(2)`, `tools.sizeBetween(1, 3)`
-— same declaration surface as `nominal`, the difference is "pick one" vs. "pick any
-subset".
+Every choose call returns a feasible configuration. Variables are typed: bool, int,
+float, nominal (pick one), or multiple (pick any subset).
 
 ## Bandit
 
