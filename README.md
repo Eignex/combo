@@ -8,20 +8,31 @@
   </a>
 </p>
 
-This project is currently under transformation into a cloud-native self hosted tool.
-
 # COMBO
-Combo is a library for Constraint Oriented Multi-variate Bandit Optimization (COMBO) applied to software parameters. It is used to optimize software with user data in a production environment. It supports multiple methods with a combination of machine learning, combinatorial optimization, and Thompson sampling. Some of the supported ML algorithms are: generalized linear model (GLM), random forest, deep learning, and genetic algorithms. Using COMBO, each user recieve their own configuration with potentially thousands of variables in milliseconds. As the results of each users experience with their configuration is recorded the resulting configurations will be better and better. Depending on the method employed this can require some statistical modeling.
 
-Using it requires three steps: 
+Combo is a library for **Constraint-Oriented Multi-variate Bandit Optimization** of
+software parameters: each user gets their own configuration drawn from a constrained
+decision space, and the reward signal (clicks, sales, latency, …) shapes future
+configurations in real time. Supported algorithms are random forest (Thompson sampling
+on a per-leaf posterior), GLM (linear Thompson sampling with a Bayesian linear model),
+and a univariate multi-armed bandit for the no-context case.
 
-1. Create a model of the variables and constraints in the search space.
-2. Map the model to actual code behavior.
-3. Create a multi-variate multi-armed bandit algorithm optimizer.
+Combo sits on top of two sibling libraries:
+[klause](https://github.com/Eignex/klause) handles the constraint solving and
+sampling, and [kumulant](https://github.com/Eignex/kumulant) provides the streaming
+statistics and posterior distributions.
 
-## Model of the search space
+Using it requires three steps:
 
-A model describes the variables in the optimization problem in a tree structure. Lets start of with a simple example, which is intended to be used to display a top-list of the most important media categories on a web site. Here, the optimal configuration will be automatically calculated over time as users are using it, based on how well each category performs in terms of eg sales or click data.
+1. Declare the decision space — variables, sub-spaces, and constraints.
+2. Pick a bandit algorithm and wire it to the compiled space.
+3. Loop `chooseOrThrow()` → serve the configuration → `update()` with the observed reward.
+
+## Decision space
+
+The decision space describes the variables in the optimization problem in a tree
+structure. Below is a simple top-list of media categories on a website where the
+optimal configuration is learned over time from how each category performs:
 
 ```json
 {
@@ -62,32 +73,39 @@ the matching Kotlin DSL reads `games.contains("Shooter")`, `games.containsAny(..
 declaration surface as `nominal`, the only difference is "pick one" vs. "pick any
 subset".
 
-## Optimizer
+## Bandit
 
-Creating an optimizer is straightforward. There are several hyper-parameters that can be tuned for better performance. The random forest algorithm is recommended to start with because it is quite robust to bad tuning.
-
-```kotlin
-// Using the feature model "myModel" from above
-// This optimizer will maximize binomial data (success/failures).
-val optimizer = RandomForestBandit.Builder(myModel)
-```
-
-Using the optimizer then is as simple as this:
+Random forest is a good default — robust to bad tuning, copes with both discrete and
+mixed search spaces. The bandit takes a compiled decision space plus a klause sampler
+that produces feasible candidates:
 
 ```kotlin
-val assignment1 = optimizer.chooseOrThrow()
-// The values can be queried like so:
-assignment1.getBoolean("Horror")
-// It can be used as an ordinary map from String to value as such (but then the structure is lost).
-val map = assignment1.toMap()
+val space = MyDecisionSpace().compileSpace()
+val solver = LocalSearchSolver(space.compiled.problem)
 
-// Update with the result of an assignment
-optimizer.update(assignment1, 1f)
+val bandit = RandomForestBandit.build(
+    space = space,
+    policy = ThompsonSampling(),
+    proposeSample = { rng, assumptions ->
+        solver.sample(LocalSearchParams(randomSeed = rng.nextLong(), assumptions = assumptions))
+    },
+    nbrTrees = 25,
+)
 ```
 
-To get a "personalized" assignment do this:
+Then it's a `choose` → serve → `update` loop:
 
 ```kotlin
-val assignment2 = optimizer.chooseOrThrow(myModel["DisplayWidth", 1920], myModel["CustomerType", "Child"])
-optimizer.update(assignment2, 0f)
+val arm = bandit.chooseOrThrow()        // BanditSample drawn from the posterior
+serve(arm)                              // hand the configuration to the user
+val reward = observe()                  // measure clicks, sales, latency, …
+bandit.update(arm, reward)
 ```
+
+Context (per-call features supplied by the caller — `customerType`, `displayWidth` in
+the example above) is passed through `Context { set(handle, value) }` and steers the
+bandit's policy without entering the decision space itself.
+
+See `src/jvmTest/kotlin/combo/bandit` for end-to-end examples — `RandomForestBanditTest`
+and `LinearBanditTest` show the cascade-with-backtrack pattern, Thompson sampling on
+linear models, and context-conditioned arms.
