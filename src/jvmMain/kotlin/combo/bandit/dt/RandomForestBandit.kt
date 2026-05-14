@@ -5,7 +5,6 @@ import com.eignex.klause.solver.LinearObjective
 import com.eignex.klause.solver.PropagationResult
 import com.eignex.klause.solver.PropagationSession
 import com.eignex.klause.solver.Sample
-import com.eignex.klause.solver.VarKind
 import com.eignex.kumulant.core.Result
 import com.eignex.kumulant.core.SeriesStat
 import combo.bandit.NoFeasibleSampleException
@@ -51,13 +50,14 @@ import kotlin.random.Random
  * After each greedy decision the bandit pushes the pin onto a
  * [com.eignex.klause.solver.PropagationSession]: implied literals are folded into the
  * pin set (so future descents skip frontier splits on already-forced variables) and
- * over-constraint is caught immediately. On [PropagationResult.Unsat] the conflict set
- * identifies which prior decisions are jointly bad; the bandit pops the most-recent
- * decision in the conflict and tries a different one — CDCL-style conflict-directed
- * backjumping. The [LinearObjective] fallback is now a last resort, kicking in only
- * when the descent terminates with a pin set the solver still can't materialise (a
- * regime the propagator's sound-but-incomplete proof of feasibility can't always
- * detect upfront).
+ * over-constraint is caught immediately. On [PropagationResult.Unsat] the result's
+ * [PropagationResult.Unsat.conflictLevels] names every decision level involved in the
+ * conflict; the bandit calls [PropagationSession.popToLevel] with the deepest
+ * conflicting level minus one — CDCL-style conflict-directed backjumping that skips
+ * over any intermediate decisions not part of the conflict. The [LinearObjective]
+ * fallback is now a last resort, kicking in only when the descent terminates with a
+ * pin set the solver still can't materialise (a regime the propagator's
+ * sound-but-incomplete proof of feasibility can't always detect upfront).
  *
  * Slice limitations: only [BoolSplit] frontier splits are scored; other split types
  * stop the descent on the tree carrying them. Adding [NominalSplit] / float-typed
@@ -115,21 +115,25 @@ class RandomForestBandit<R : Result>(
         val t = if (thompson) step++ else step
         val boolIdByName = space.compiled.boolVarIdByName
 
-        // Stateful propagation: push pins as we decide, pop on Unsat. Seeding with
-        // Assumptions.None lets the session capture any literals forced by problem
-        // constraints alone before any greedy decision is made.
+        // Stateful propagation: push pins as we decide; the session's incremental
+        // engine handles fixpoint reuse across pushes and snapshot-restore on pop.
+        // Seeding with Assumptions.None still triggers constraint-only propagation,
+        // so any literal forced by the problem alone joins the pin set before any
+        // greedy decision is made.
         val session = PropagationSession(space.compiled.problem)
         if (session.seed(Assumptions.None) is PropagationResult.Unsat) {
-            return runFallback(rng, emptyList(), emptyList(), emptyList())
+            return runFallback(rng, session, emptyList(), emptyList())
         }
 
-        // Tracks just the *greedy* decisions (not propagated consequences). Drives
-        // both conflict-directed backtracking and the [LinearObjective] fallback.
-        val decisionIds = mutableListOf<Int>()
+        // Per-decision-level scores and directions. The variable id at level `L` is
+        // recoverable from `session.decisionAt(L)`; the session is the source of truth
+        // for the trail. These two parallel lists carry only what klause can't tell
+        // us — the bandit's chosen direction and the policy score that drove it.
+        // Both lists are indexed by `level - 1`.
         val decisionDirs = mutableListOf<Boolean>()
         val decisionScores = mutableListOf<Double>()
-        // (varId, direction) pairs we already attempted (or backtracked through) —
-        // never try the same direction at the same variable again this round.
+        // (varId, direction) pairs we've already attempted (or backtracked through) —
+        // never reattempt the same direction at the same variable in this round.
         val tried = mutableSetOf<Pair<Int, Boolean>>()
 
         descent@ while (true) {
@@ -171,31 +175,31 @@ class RandomForestBandit<R : Result>(
 
             when (val result = session.pinBool(bestId, bestDirection)) {
                 is PropagationResult.Implied -> {
-                    decisionIds += bestId
                     decisionDirs += bestDirection
                     decisionScores += bestScore
                 }
                 is PropagationResult.Unsat -> {
-                    // The failed pin stays in the session until we pop it.
-                    session.popLast()
+                    // Session auto-restored to pre-push state on Unsat — no popLast needed.
                     tried += bestId to bestDirection
 
-                    // Conflict-directed backjump: find the most-recent OF OUR DECISIONS
-                    // that's in the conflict set; pop the session back past it and mark
-                    // its (id, dir) as tried so we'll pick a different direction or move
-                    // on. If no decision is in the conflict, the contradiction is rooted
-                    // in problem constraints alone — nothing to backtrack to.
-                    val conflictingIdx = decisionIds.indices.reversed()
-                        .firstOrNull { idx -> decisionIds[idx] in result.conflictBools }
-                    if (conflictingIdx != null) {
-                        val popVar = decisionIds[conflictingIdx]
-                        val popDir = decisionDirs[conflictingIdx]
-                        session.popUntilUnpinned(VarKind.Bool, popVar)
+                    // Conflict-directed backjump: pop past the deepest conflicting
+                    // decision. `conflictLevels` may contain levels that aren't the
+                    // most recent; popping to `max - 1` skips over irrelevant in-between
+                    // decisions in one move (proper CDCL backjump). When the conflict
+                    // is rooted in problem constraints alone — no decision involved —
+                    // there's nothing to backjump to and the loop just picks a different
+                    // candidate next iteration.
+                    val deepest = result.conflictLevels.maxOrNull()?.takeIf { it >= 1 }
+                    if (deepest != null) {
+                        val (_, popVar) = session.decisionAt(deepest)
+                            ?: continue@descent
+                        val popDir = decisionDirs[deepest - 1]
+                        session.popToLevel(deepest - 1)
                         tried += popVar to popDir
-                        val n = decisionIds.size
-                        decisionIds.subList(conflictingIdx, n).clear()
-                        decisionDirs.subList(conflictingIdx, n).clear()
-                        decisionScores.subList(conflictingIdx, n).clear()
+                        while (decisionDirs.size > deepest - 1) {
+                            decisionDirs.removeAt(decisionDirs.size - 1)
+                            decisionScores.removeAt(decisionScores.size - 1)
+                        }
                     }
                 }
             }
@@ -206,20 +210,26 @@ class RandomForestBandit<R : Result>(
         if (raw != null) return BanditSample.dithered(raw, space, rng)
 
         // Fallback path: soft-satisfy via LinearObjective.
-        return runFallback(rng, decisionIds, decisionDirs, decisionScores)
+        return runFallback(rng, session, decisionDirs, decisionScores)
     }
 
     private fun runFallback(
         rng: Random,
-        decisionIds: List<Int>,
+        session: PropagationSession,
         decisionDirs: List<Boolean>,
         decisionScores: List<Double>,
     ): BanditSample {
         val fallback = optimizeFallback ?: throw NoFeasibleSampleException(
             "RandomForestBandit produced over-constrained decisions " +
-                "(${decisionIds.size} greedy pins) and no optimizeFallback was supplied.",
+                "(${decisionDirs.size} greedy pins) and no optimizeFallback was supplied.",
         )
-        val objective = buildSoftObjective(decisionIds, decisionDirs, decisionScores)
+        // Reconstruct the per-decision variable ids from the session trail (decisions
+        // are at levels 1..decisionDirs.size, each a Bool decision in combo's setup).
+        val ids = IntArray(decisionDirs.size) { i ->
+            session.decisionAt(i + 1)?.second
+                ?: error("session decision at level ${i + 1} missing during fallback build")
+        }
+        val objective = buildSoftObjective(ids.toList(), decisionDirs, decisionScores)
         val raw = fallback(objective, Assumptions.None)
             ?: throw NoFeasibleSampleException(
                 "RandomForestBandit fallback could not find any feasible sample.",
