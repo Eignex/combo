@@ -21,8 +21,8 @@ two regimes from one decision-space definition:
 - **Bayesian optimization** for offline, low-volume settings: expensive evaluations
   like simulator runs, hyperparameter sweeps, or system-flag tuning where only the
   final recommended configuration matters and you have a budget of tens to hundreds
-  of trials total. Decision latency can be seconds. This is the path the upcoming
-  BoBandit and GP surrogate target.
+  of trials total. Decision latency can be seconds. This is the path the BoBandit
+  and GP surrogate target.
 
 Both share the same constraint solver and decision-space schema, so the cost of
 switching regimes is a different bandit class, not a different model. Combo sits on
