@@ -2,7 +2,7 @@ package combo.bandit
 
 import com.eignex.klause.compile.CompiledProblem
 import com.eignex.klause.solver.Sample
-import com.eignex.klause.solver.Sampler
+import com.eignex.klause.solver.Solver
 import com.eignex.klause.solver.SolverParams
 import com.eignex.kumulant.core.SeriesStat
 import combo.decisions.BanditSample
@@ -98,12 +98,12 @@ interface PredictionBandit<D : BanditData> : Bandit<D> {
 }
 
 /**
- * Baseline bandit that delegates sampling to a klause [Sampler] and ignores rewards.
+ * Baseline bandit that delegates sampling to a klause [Solver] and ignores rewards.
  * Useful as an A/B control or for warm-starting more expensive bandits.
  */
 class RandomBandit<P : SolverParams>(
     val space: CompiledDecisionSpace,
-    val sampler: Sampler<P>,
+    val sampler: Solver<P>,
     val params: P,
     override val randomSeed: Int = 0,
     override val rewards: SeriesStat<*>? = null,

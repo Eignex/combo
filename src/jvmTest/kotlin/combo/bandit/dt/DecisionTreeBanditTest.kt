@@ -1,8 +1,11 @@
 package combo.bandit.dt
 
+import com.eignex.klause.solver.BacktrackParams
+import com.eignex.klause.solver.BacktrackSolver
 import com.eignex.klause.solver.LocalSearchParams
 import com.eignex.klause.solver.LocalSearchSolver
 import com.eignex.klause.solver.Sample
+import com.eignex.klause.solver.SolveResult
 import com.eignex.kumulant.stat.summary.MeanStat
 import combo.bandit.PredictionBandit
 import combo.bandit.PredictionBanditTestSuite
@@ -25,6 +28,7 @@ class DecisionTreeBanditTest : PredictionBanditTestSuite<DecisionTreeData>() {
     ): PredictionBandit<DecisionTreeData> {
         val solver = LocalSearchSolver(space.compiled.problem)
         val session = com.eignex.klause.solver.LocalSearchSession(solver)
+        val backtrack = BacktrackSolver(space.compiled.problem)
         // TinySpace has 4 feasible samples and 600 rounds — keep splitting cheap.
         val config = TreeConfig(
             splitPeriod = 5,
@@ -35,8 +39,16 @@ class DecisionTreeBanditTest : PredictionBanditTestSuite<DecisionTreeData>() {
         return DecisionTreeBandit(
             space = space,
             policy = Greedy(),
+            // LS→BacktrackSolver cascade: definitive UNSAT or a witness LS missed.
             proposeSample = { rng, assumptions ->
                 session.sample(LocalSearchParams(randomSeed = rng.nextLong(), assumptions = assumptions))
+                    ?: when (val r = backtrack.solve(BacktrackParams(
+                        randomSeed = rng.nextLong(),
+                        assumptions = assumptions,
+                    ))) {
+                        is SolveResult.Sat -> r.assignment
+                        else -> null
+                    }
             },
             tree = Tree(Greedy(), defaultSplitCandidates(space), config),
             retryBudget = 32,

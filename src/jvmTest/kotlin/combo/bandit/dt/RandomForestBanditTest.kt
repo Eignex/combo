@@ -1,8 +1,11 @@
 package combo.bandit.dt
 
+import com.eignex.klause.solver.BacktrackParams
+import com.eignex.klause.solver.BacktrackSolver
 import com.eignex.klause.solver.LocalSearchParams
 import com.eignex.klause.solver.LocalSearchSolver
 import com.eignex.klause.solver.Sample
+import com.eignex.klause.solver.SolveResult
 import com.eignex.kumulant.stat.summary.MeanStat
 import combo.bandit.PredictionBandit
 import combo.bandit.PredictionBanditTestSuite
@@ -34,14 +37,21 @@ class RandomForestBanditTest : PredictionBanditTestSuite<ForestData>() {
     ): PredictionBandit<ForestData> {
         val solver = LocalSearchSolver(space.compiled.problem)
         val session = com.eignex.klause.solver.LocalSearchSession(solver)
+        val backtrack = BacktrackSolver(space.compiled.problem)
         return RandomForestBandit.build(
             space = space,
             policy = Greedy(),
+            // Cascade: LS first (fast common case); on null escalate to BacktrackSolver
+            // (complete) so null from proposeSample means *definitive* UNSAT rather than
+            // "LS gave up". Without the cascade, an LS budget miss silently routes the
+            // bandit through the LinearObjective fallback and biases its training data.
             proposeSample = { rng, assumptions ->
                 session.sample(LocalSearchParams(randomSeed = rng.nextLong(), assumptions = assumptions))
+                    ?: backtrackSat(backtrack, rng, assumptions)
             },
             optimizeFallback = { objective, assumptions ->
                 session.minimize(objective, LocalSearchParams(randomSeed = 0L, assumptions = assumptions))
+                    ?: backtrack.minimize(objective, BacktrackParams(assumptions = assumptions))
             },
             nbrTrees = 6,
             mtry = null,
@@ -130,12 +140,13 @@ class RandomForestBanditTest : PredictionBanditTestSuite<ForestData>() {
         val space = schema.compileSpace()
         val solver = LocalSearchSolver(space.compiled.problem)
         val session = com.eignex.klause.solver.LocalSearchSession(solver)
+        val backtrack = BacktrackSolver(space.compiled.problem)
         val sampler: (Random, com.eignex.klause.solver.Assumptions) -> Sample? = { rng, asmps ->
             session.sample(LocalSearchParams(
                 randomSeed = rng.nextLong(),
                 maxFlips = 4_000L,
                 assumptions = asmps,
-            ))
+            )) ?: backtrackSat(backtrack, rng, asmps)
         }
         val bandit = RandomForestBandit.build(
             space = space,
@@ -143,6 +154,7 @@ class RandomForestBanditTest : PredictionBanditTestSuite<ForestData>() {
             proposeSample = sampler,
             optimizeFallback = { obj, asmps ->
                 session.minimize(obj, LocalSearchParams(randomSeed = 0L, maxFlips = 4_000L, assumptions = asmps))
+                    ?: backtrack.minimize(obj, BacktrackParams(assumptions = asmps))
             },
             nbrTrees = 4,
             mtry = null,
@@ -178,4 +190,19 @@ private class ConstrainedToggles : DecisionSpace() {
     val a by boolVar()
     val b by boolVar()
     val notBoth by constraint { !(a and b) }
+}
+
+/**
+ * Definitive SAT/UNSAT arbiter via the complete [BacktrackSolver]. Returns the witness
+ * on [SolveResult.Sat] (LS was wrong to give up); null otherwise (problem is genuinely
+ * UNSAT under [assumptions] or the backtrack budget itself was exhausted, both of which
+ * the bandit treats as "go to LinearObjective fallback").
+ */
+private fun backtrackSat(
+    backtrack: BacktrackSolver,
+    rng: Random,
+    assumptions: com.eignex.klause.solver.Assumptions,
+): Sample? = when (val r = backtrack.solve(BacktrackParams(randomSeed = rng.nextLong(), assumptions = assumptions))) {
+    is SolveResult.Sat -> r.assignment
+    else -> null
 }
