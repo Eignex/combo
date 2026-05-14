@@ -112,57 +112,13 @@ linear models, and context-conditioned arms.
 
 ## Roadmap
 
-Three algorithm slices are planned next, each reusing the existing decision-space /
-sampler / projection infrastructure rather than introducing a parallel stack.
-
-### PGBM — Probabilistic Gradient Boosting Machines
-
-[PGBM (Sprangers et al., 2021)](https://arxiv.org/abs/2106.01682) layers boosted trees
-that emit a *predictive distribution* per leaf (mean and variance, propagated through
-the boosting sum) instead of point estimates. That gives Thompson sampling on the
-output natively, so the surrounding bandit machinery is identical to
-`RandomForestBandit`: same `Tree<R>` structure, same `defaultSplitCandidates`, same
-`LeafMaterialization` pinning. The only new piece is the boosting update rule —
-gradient/Hessian per leaf, additive contributions across trees — and a distribution-
-sample policy in place of bagged-tree averaging. Lands as
-`combo.bandit.pgbm.PgbmBandit` next to the random forest, sharing the `combo.bandit.dt`
-tree primitives.
-
-### BoBandit — Bayesian optimization with pluggable surrogates
-
-A constrained-BO loop where klause provides the *feasibility* and a swappable
-**surrogate** provides the *posterior*. Sketch:
-
-```kotlin
-BoBandit<S : Surrogate>(
-    space: CompiledDecisionSpace,
-    surrogate: S,                       // LinearSurrogate | ForestSurrogate | GpSurrogate
-    acquisition: Acquisition,           // Thompson | UCB(β) | ExpectedImprovement
-    inner: InnerSolver,                 // LinearMinimize(z3) | SampleAndScore(localSearch, k)
-    rng: Random,
-)
-```
-
-Two inner-optimizer modes, chosen by acquisition shape:
-
-1. **Linear closed form** — Thompson on a linear surrogate. Draw a weight vector from
-   the posterior, build a klause `LinearObjective`, hand to `BacktrackSolver.minimize`
-   (or `Z3Sampler.minimize` for hard combinatorial cases). One exact call per round.
-2. **Sample-and-score** — UCB / EI / nonlinear surrogate. Draw `k` feasible candidates
-   via `Sampler.samples(...)` with `minHammingDistance` for diversity, score each
-   through the surrogate's posterior, pick argmax. SMAC-style when paired with a forest
-   surrogate; matches the textbook BO recipe when paired with a linear or GP one.
-
-`LinearSurrogate` falls out of the existing `CovarianceLinearModel`; `ForestSurrogate`
-wraps the random forest's per-leaf posterior. Both should land before the GP work.
-
-### GP surrogate over mixed spaces
-
-A `GpSurrogate` on top of `BoBandit` for problems with a strong continuous component.
-The hard part is the kernel: combo's variables are mixed bool/int/nominal/bucketed-float,
-and general-purpose GP kernels for that combination are research-grade (categorical
-kernels, ARD over heterogeneous types, marginal-likelihood tuning under constraints).
-The plan is to start with a bucketed-float-only GP — Cholesky already lives in
-`combo.bandit.util` for the linear-Bayes posterior, so the lift is just kernel +
-hyperparameter optimization — and add categorical / hierarchical kernels as concrete
-use cases appear.
+- **PGBM** — Probabilistic Gradient Boosting Machines
+  ([Sprangers et al., 2021](https://arxiv.org/abs/2106.01682)): boosted trees with
+  predictive distributions, slotting in next to the random forest as a stronger
+  Thompson-sampling surrogate.
+- **BoBandit** — Bayesian optimization with pluggable surrogates (linear, forest, GP)
+  and acquisition functions (Thompson, UCB, EI), running over the same constrained
+  decision space.
+- **GP surrogate** — Gaussian-process surrogate for problems with a strong continuous
+  component, starting with bucketed-float spaces and growing toward mixed-type kernels
+  as use cases appear.
