@@ -30,49 +30,52 @@ Using it requires three steps:
 
 ## Decision space
 
-The decision space describes the variables in the optimization problem in a tree
-structure. Below is a simple top-list of media categories on a website where the
-optimal configuration is learned over time from how each category performs:
+The decision space describes the variables the optimizer can choose between. Below is
+an LLM-agent configurator: at every request the bandit decides which model, sampling
+temperature, prompt strategy, and tool set to dispatch — conditioned on what kind of
+task the user submitted and which tier they're on — and learns from whether the run
+succeeded.
 
 ```json
 {
   "decisionSpace": {
-    "name": "MediaPicker",
+    "name": "AgentPolicy",
 
     "context": {
-      "displayWidth": { "type": "int", "min": 640, "max": 1920 },
-      "customerType": { "type": "nominal", "labels": ["Child", "Company", "Person"] }
+      "taskType": { "type": "nominal", "labels": ["coding", "writing", "research", "casual"] },
+      "userTier": { "type": "nominal", "labels": ["free", "pro", "enterprise"] }
     },
 
     "variables": {
-      "games": {
+      "model":       { "type": "nominal", "labels": ["haiku", "sonnet", "opus"] },
+      "temperature": { "type": "float",   "min": 0.0, "max": 1.0, "buckets": 16 },
+      "maxTokens":   { "type": "int",     "min": 256, "max": 8192 },
+      "promptStyle": { "type": "nominal", "labels": ["terse", "detailed", "chainOfThought"] },
+      "tools": {
         "type": "multiple",
-        "labels": ["Shooter", "Platform", "Sports", "Action", "Adventure", "Strategy"]
-      },
-      "movies": {
-        "type": "multiple",
-        "labels": ["Slasher", "Thriller", "MartialArts", "Crime", "Supernatural", "SuperHeroes", "Fantasy"]
+        "labels": ["web_search", "code_exec", "file_read", "bash"]
       }
     },
 
     "constraints": {
-      "noSlasherForKids": "customerType == \"Child\" implies !movies.contains(\"Slasher\")",
-      "betweenTwoAndFive": "|games| + |movies| in [2, 5]"
+      "freeTierCantUseOpus":  "userTier == \"free\" implies model != \"opus\"",
+      "codeExecNeedsBash":    "tools.contains(\"code_exec\") implies tools.contains(\"bash\")",
+      "codingTasksNeedTools": "taskType == \"coding\" implies (tools.contains(\"code_exec\") or tools.contains(\"file_read\"))",
+      "casualKeepsItCheap":   "taskType == \"casual\" implies (maxTokens <= 1024 and model != \"opus\")"
     }
   }
 }
 ```
 
-Each variable carries its own `type` tag (`bool`, `int`, `nominal`, `float`,
-`multiple`). Constraints are written as DSL strings — the parser is on the roadmap;
-the structural pieces of the config (variables, contexts, sub-spaces) round-trip
-through `DecisionSpaceDef` today.
+Every choose call returns a feasible configuration honoring all constraints — there
+is no rejection-sample fallback that might quietly serve an `opus` model to a free-tier
+user. Each variable carries its own `type` tag (`bool`, `int`, `nominal`, `float`,
+`multiple`).
 
-A `multiple` is a set-valued variable: it expands at compile time to one boolean
-indicator per label (`games.Shooter`, `games.Platform`, …). Inside `constraint { … }`
-the matching Kotlin DSL reads `games.contains("Shooter")`, `games.containsAny(...)`,
-`games.containsAll(...)`, `games.sizeLe(5)`, `games.sizeBetween(2, 5)`. Same
-declaration surface as `nominal`, the only difference is "pick one" vs. "pick any
+A `multiple` is a set-valued variable — `tools` here picks any subset of the four
+labels. In the Kotlin DSL it reads `tools.contains("web_search")`,
+`tools.containsAll("code_exec", "bash")`, `tools.sizeLe(2)`, `tools.sizeBetween(1, 3)`
+— same declaration surface as `nominal`, the difference is "pick one" vs. "pick any
 subset".
 
 ## Bandit
