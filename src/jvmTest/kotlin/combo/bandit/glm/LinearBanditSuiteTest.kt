@@ -3,7 +3,7 @@ package combo.bandit.glm
 import com.eignex.klause.solver.localsearch.LocalSearchParams
 import com.eignex.klause.solver.localsearch.LocalSearchSolver
 import com.eignex.klause.solver.Sample
-import com.eignex.kumulant.bandit.FactorisedGaussian
+import com.eignex.kumulant.stat.regression.FactorisedGaussian
 import com.eignex.kumulant.stat.regression.ConstantRate
 import com.eignex.kumulant.stat.regression.DiagonalRegression
 import com.eignex.kumulant.stat.summary.MeanStat

@@ -3,7 +3,7 @@ package combo.bandit.glm
 import com.eignex.klause.solver.Assumptions
 import com.eignex.klause.solver.LinearObjective
 import com.eignex.klause.solver.Sample
-import com.eignex.kumulant.bandit.LinearPosterior
+import com.eignex.kumulant.stat.regression.LinearPosterior
 import com.eignex.kumulant.core.RegressionStat
 import com.eignex.kumulant.core.SeriesStat
 import com.eignex.kumulant.stat.regression.LinearRegressionResult
@@ -24,9 +24,9 @@ import kotlin.math.abs
  * `(Sample, Context) → feature` projection.
  *
  * Pair a [regression] flavour with a matching [posterior]:
- *  - [com.eignex.kumulant.stat.regression.SGDLinearRegression] + [com.eignex.kumulant.bandit.PointPosterior]
- *  - [com.eignex.kumulant.stat.regression.DiagonalRegression] + [com.eignex.kumulant.bandit.FactorisedGaussian]
- *  - [com.eignex.kumulant.stat.regression.BayesianLinearRegression] + [com.eignex.kumulant.bandit.MultivariateGaussian]
+ *  - [com.eignex.kumulant.stat.regression.SGDLinearRegression] + [com.eignex.kumulant.stat.regression.PointPosterior]
+ *  - [com.eignex.kumulant.stat.regression.DiagonalRegression] + [com.eignex.kumulant.stat.regression.FactorisedGaussian]
+ *  - [com.eignex.kumulant.stat.regression.BayesianLinearRegression] + [com.eignex.kumulant.stat.regression.MultivariateGaussian]
  */
 class LinearBandit<R : LinearRegressionResult>(
     val projection: LinearFeatureProjection,

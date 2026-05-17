@@ -5,7 +5,7 @@ import com.eignex.klause.ast.le
 import com.eignex.klause.ast.not
 import com.eignex.klause.solver.localsearch.LocalSearchParams
 import com.eignex.klause.solver.localsearch.LocalSearchSolver
-import com.eignex.kumulant.bandit.FactorisedGaussian
+import com.eignex.kumulant.stat.regression.FactorisedGaussian
 import com.eignex.kumulant.stat.regression.ConstantRate
 import com.eignex.kumulant.stat.regression.DiagonalRegression
 import combo.bandit.glm.LinearBandit
