@@ -3,8 +3,10 @@ package combo.bandit.glm
 import com.eignex.klause.solver.localsearch.LocalSearchParams
 import com.eignex.klause.solver.localsearch.LocalSearchSolver
 import com.eignex.klause.solver.Sample
+import com.eignex.kumulant.bandit.FactorisedGaussian
+import com.eignex.kumulant.stat.regression.ConstantRate
+import com.eignex.kumulant.stat.regression.DiagonalRegression
 import com.eignex.kumulant.stat.summary.MeanStat
-import combo.bandit.BanditTestSuite
 import combo.bandit.PredictionLearner
 import combo.bandit.PredictionBanditTestSuite
 import combo.decisions.CompiledDecisionSpace
@@ -17,7 +19,7 @@ import combo.decisions.CompiledDecisionSpace
  * than tracking sufficient stats per arm. Disable the strict win-rate assertion via
  * [converges]=false; the rest of the contract still applies.
  */
-class LinearBanditSuiteTest : PredictionBanditTestSuite<LinearData>() {
+class LinearBanditSuiteTest : PredictionBanditTestSuite<LinearLearnerData>() {
 
     override val converges: Boolean = false
 
@@ -27,18 +29,19 @@ class LinearBanditSuiteTest : PredictionBanditTestSuite<LinearData>() {
         randomSeed: Int,
         maximize: Boolean,
         rewards: MeanStat?,
-    ): PredictionLearner<LinearData> {
+    ): PredictionLearner<LinearLearnerData> {
         val projection = LinearFeatureProjection(space)
         val solver = LocalSearchSolver(space.compiled.problem)
-        val model = DiagonalizedLinearModel.Builder(projection.featureSize)
-            .family(NormalVariance)
-            .learningRate(ConstantRate(1f))
-            .priorPrecision(0.01f)
-            .exploration(0.2f)
-            .build()
+        val regression = DiagonalRegression(
+            featureSize = projection.featureSize,
+            priorPrecision = 0.01,
+            learningRate = ConstantRate(1.0),
+        )
         return LinearBandit(
             projection = projection,
-            linearModel = model,
+            regression = regression,
+            posterior = FactorisedGaussian,
+            exploration = 0.2,
             innerOptimizer = { obj, asm ->
                 solver.minimize(obj, LocalSearchParams(maxFlips = 200L, randomSeed = randomSeed.toLong(), assumptions = asm))
             },

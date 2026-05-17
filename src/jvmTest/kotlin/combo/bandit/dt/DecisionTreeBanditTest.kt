@@ -9,7 +9,7 @@ import com.eignex.klause.solver.SolveResult
 import com.eignex.kumulant.stat.summary.MeanStat
 import combo.bandit.PredictionLearner
 import combo.bandit.PredictionBanditTestSuite
-import combo.bandit.univariate.Greedy
+import com.eignex.kumulant.bandit.Greedy
 import combo.decisions.CompiledDecisionSpace
 
 /**

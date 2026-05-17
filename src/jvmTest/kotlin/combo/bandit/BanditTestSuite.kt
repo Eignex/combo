@@ -23,7 +23,7 @@ import org.junit.rules.Timeout
  * The pool is provided so list-style bandits can use it directly; bandits that don't
  * consume the pool (e.g. linear bandits sampling via klause every round) can ignore it.
  *
- * Each subclass typically picks a [combo.bandit.univariate.BanditPolicy] / linear model
+ * Each subclass typically picks a [com.eignex.kumulant.bandit.BanditPolicy] / linear model
  * / etc. inside [build] and wires it.
  */
 abstract class BanditTestSuite<D : LearnerData> {

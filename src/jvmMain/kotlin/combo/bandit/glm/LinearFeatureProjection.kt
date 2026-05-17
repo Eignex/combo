@@ -13,9 +13,8 @@ import combo.decisions.Context
 import combo.decisions.FeatureEncoder
 import combo.decisions.IntContextHandle
 import combo.decisions.InteractionHandle
-import combo.math.Vector
-import combo.math.VectorView
-import combo.math.vectors
+import com.eignex.kumulant.math.DenseVector
+import com.eignex.kumulant.math.VectorView
 
 /**
  * Linear bandit's view of a [CompiledDecisionSpace]: projects a [Sample] into a dense
@@ -61,11 +60,11 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
         for ((name, id) in space.compiled.intVarIdByName) arr[id] = name
     }
 
-    override fun encode(sample: BanditSample, context: Context): Vector {
-        val out = vectors.zeroVector(layout.featureSize)
+    override fun encode(sample: BanditSample, context: Context): VectorView {
+        val out = DoubleArray(layout.featureSize)
         for (b in 0 until layout.numBoolVars) {
             if (boolActive(b, sample.sample)) {
-                out[layout.boolStart + b] = if (sample.bools[b]) 1f else 0f
+                out[layout.boolStart + b] = if (sample.bools[b]) 1.0 else 0.0
             }
         }
         for (i in 0 until layout.numIntVars) {
@@ -76,13 +75,13 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
                 val scaling = layout.floatScaling[i]
                 val v = if (scaling != null) floatFeatureFor(i, sample)
                         else layout.realValue(i, sample.ints[i])
-                out[layout.intStart + i] = v.toFloat()
+                out[layout.intStart + i] = v
             }
         }
         for (interaction in layout.interactions) {
             encodeInteractionInto(interaction, sample, out)
         }
-        return out
+        return DenseVector.of(out)
     }
 
     /** Resolve the continuous float value at int slot [intVarId] from the bandit
@@ -95,12 +94,11 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
         return sample.float(handle, space)
     }
 
-    private fun encodeInteractionInto(it: InteractionHandle, sample: BanditSample, out: Vector) {
+    private fun encodeInteractionInto(it: InteractionHandle, sample: BanditSample, out: DoubleArray) {
         val start = layout.interactionStart.getValue(it)
         val nominal = it.nominalSide()
         if (nominal == null) {
-            val v = scalarFor(it.lhs, sample) * scalarFor(it.rhs, sample)
-            out[start] = v.toFloat()
+            out[start] = scalarFor(it.lhs, sample) * scalarFor(it.rhs, sample)
             return
         }
         val ctxSide = if (it.lhs === nominal) it.rhs else it.lhs
@@ -110,7 +108,7 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
         for ((idx, label) in nominal.labels.withIndex()) {
             val indicatorId = indicators[label]
                 ?: error("nominal '${nominal.name}' missing label '$label'")
-            if (sample.bools[indicatorId]) out[start + idx] = scalar.toFloat()
+            if (sample.bools[indicatorId]) out[start + idx] = scalar
         }
     }
 
@@ -142,21 +140,21 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
      * `maximize = true` flips signs so klause's minimiser searches for the bandit's
      * argmax.
      */
-    fun toObjective(weights: VectorView, bias: Float, context: Context, maximize: Boolean): LinearObjective {
+    fun toObjective(weights: VectorView, bias: Double, context: Context, maximize: Boolean): LinearObjective {
         require(weights.size == layout.featureSize) {
             "weights size ${weights.size} must match feature layout ${layout.featureSize}"
         }
         val sign = if (maximize) -1.0 else 1.0
-        val boolWeights = DoubleArray(layout.numBoolVars) { weights[layout.boolStart + it].toDouble() }
+        val boolWeights = DoubleArray(layout.numBoolVars) { weights[layout.boolStart + it] }
         // Per-int weights enter klause as bucket-coefficients. For bucketed-float slots
         // that means scaling the model weight by the bucket→real scale; the leftover
         // offset (weight · min) rolls into the objective's constant so the round-trip
         // model_weight · real_value = bucket_coefficient · bucket + constant_contribution
         // is exact.
         val intCoefficients = DoubleArray(layout.numIntVars)
-        var constant = bias.toDouble()
+        var constant = bias
         for (i in 0 until layout.numIntVars) {
-            val w = weights[layout.intStart + i].toDouble()
+            val w = weights[layout.intStart + i]
             val (bucketCoeff, constantContribution) = layout.coefficientForInt(i, w)
             intCoefficients[i] = bucketCoeff
             constant += constantContribution
@@ -200,14 +198,14 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
             val indicators = space.compiled.nominalIndicators[nominal.name]
                 ?: error("interaction references unknown nominal '${nominal.name}'")
             for ((idx, label) in nominal.labels.withIndex()) {
-                val w = allWeights[start + idx].toDouble()
+                val w = allWeights[start + idx]
                 val indicatorId = indicators[label]
                     ?: error("nominal '${nominal.name}' missing label '$label'")
                 boolWeights[indicatorId] += w * ctxScalar
             }
             return
         }
-        val w = allWeights[start].toDouble()
+        val w = allWeights[start]
         val lhsIsDecision = isDecisionScalar(it.lhs)
         val rhsIsDecision = isDecisionScalar(it.rhs)
         when {

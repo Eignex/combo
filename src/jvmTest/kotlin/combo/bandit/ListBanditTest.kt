@@ -5,8 +5,7 @@ import com.eignex.klause.solver.localsearch.LocalSearchSolver
 import com.eignex.klause.solver.Sample
 import com.eignex.kumulant.stat.summary.BernoulliSumResult
 import com.eignex.kumulant.stat.summary.MeanStat
-import combo.bandit.univariate.BinomialPosterior
-import combo.bandit.univariate.ThompsonSampling
+import com.eignex.kumulant.bandit.BetaBernoulliTS
 import combo.decisions.CompiledDecisionSpace
 import combo.decisions.DecisionSpace
 import combo.decisions.context
@@ -26,7 +25,7 @@ private class WithContext : DecisionSpace() {
     val premium by contextBool()
 }
 
-/** Suite contract: ListBandit over a klause-enumerated sample pool with Thompson + BinomialPosterior. */
+/** Suite contract: ListBandit over a klause-enumerated sample pool with [BetaBernoulliTS]. */
 class ListBanditSuiteTest : BanditTestSuite<ListBanditData>() {
     override fun build(
         space: CompiledDecisionSpace,
@@ -36,7 +35,7 @@ class ListBanditSuiteTest : BanditTestSuite<ListBanditData>() {
         rewards: MeanStat?,
     ): Learner<ListBanditData> = ListBandit<BernoulliSumResult>(
         samples = samples,
-        policy = ThompsonSampling(BinomialPosterior()),
+        policy = BetaBernoulliTS(),
         space = space,
         randomSeed = randomSeed,
         maximize = maximize,
@@ -59,7 +58,7 @@ class ListBanditTest {
 
         val bandit = ListBandit(
             samples = samples,
-            policy = ThompsonSampling(BinomialPosterior()),
+            policy = BetaBernoulliTS(),
             space = space,
             randomSeed = 7,
         )
@@ -86,7 +85,7 @@ class ListBanditTest {
 
         val bandit = ListBandit(
             samples = samples,
-            policy = ThompsonSampling(BinomialPosterior()),
+            policy = BetaBernoulliTS(),
             space = space,
             randomSeed = 11,
         )
@@ -112,7 +111,7 @@ class ListBanditTest {
             .first { !it.bools[premiumId] }
         val bandit = ListBandit(
             samples = listOf(onlyPremiumFalse),
-            policy = ThompsonSampling(BinomialPosterior()),
+            policy = BetaBernoulliTS(),
             space = space,
             randomSeed = 0,
         )

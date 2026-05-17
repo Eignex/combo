@@ -8,3 +8,4 @@ pluginManagement {
 }
 
 includeBuild("../klause")
+includeBuild("../kumulant")

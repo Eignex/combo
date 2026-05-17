@@ -1,5 +1,12 @@
 package combo.bandit.univariate
 
+import com.eignex.kumulant.bandit.BanditPolicy
+import com.eignex.kumulant.bandit.BetaBernoulliTS
+import com.eignex.kumulant.bandit.EpsilonGreedy
+import com.eignex.kumulant.bandit.Greedy
+import com.eignex.kumulant.bandit.MultiArmedBandit
+import com.eignex.kumulant.bandit.NormalTS
+import com.eignex.kumulant.bandit.UCB1
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -29,7 +36,7 @@ class MultiArmedBanditTest {
 
     @Test
     fun `thompson sampling should converge to best bernoulli arm`() {
-        val best = runBernoulli(ThompsonSampling(BinomialPosterior()), rounds = 2000)
+        val best = runBernoulli(BetaBernoulliTS(), rounds = 2000)
         assertEquals(2, best, "Thompson should favor arm 2 (p=0.8)")
     }
 
@@ -42,7 +49,7 @@ class MultiArmedBanditTest {
     @Test
     fun `normal posterior should track means`() {
         val means = doubleArrayOf(-1.0, 0.0, 2.0)
-        val policy = ThompsonSampling(NormalPosterior())
+        val policy = NormalTS()
         val bandit = MultiArmedBandit(means.size, policy, randomSeed = 1)
         val rng = Random(1)
         repeat(3000) {
@@ -88,7 +95,7 @@ class MultiArmedBanditTest {
     @Test
     fun `bandit with maximize false should favor lowest mean`() {
         val arms = doubleArrayOf(0.2, 0.5, 0.8)
-        val bandit = MultiArmedBandit(arms.size, ThompsonSampling(BinomialPosterior()), randomSeed = 3, maximize = false)
+        val bandit = MultiArmedBandit(arms.size, BetaBernoulliTS(), randomSeed = 3, maximize = false)
         val rng = Random(3)
         repeat(1500) {
             val i = bandit.choose()

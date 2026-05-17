@@ -98,9 +98,9 @@ class LinearFeatureFloatScalingTest {
 
         val tempReal = projection.layout.realValue(tempId, sample.ints[tempId])
         val pressureReal = projection.layout.realValue(pressureId, sample.ints[pressureId])
-        assertEquals(tempReal.toFloat(), features[projection.layout.intStart + tempId])
-        assertEquals(pressureReal.toFloat(), features[projection.layout.intStart + pressureId])
-        assertEquals(sample.ints[countId].toFloat(), features[projection.layout.intStart + countId])
+        assertEquals(tempReal, features[projection.layout.intStart + tempId])
+        assertEquals(pressureReal, features[projection.layout.intStart + pressureId])
+        assertEquals(sample.ints[countId].toDouble(), features[projection.layout.intStart + countId])
 
         assertTrue(tempReal in 0.0..100.0)
         assertTrue(pressureReal in -5.0..5.0)

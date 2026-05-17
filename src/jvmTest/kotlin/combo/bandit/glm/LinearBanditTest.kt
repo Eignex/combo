@@ -3,10 +3,12 @@ package combo.bandit.glm
 import com.eignex.klause.solver.localsearch.LocalSearchParams
 import com.eignex.klause.solver.localsearch.LocalSearchSolver
 import com.eignex.klause.solver.Sample
+import com.eignex.kumulant.bandit.FactorisedGaussian
+import com.eignex.kumulant.stat.regression.ConstantRate
+import com.eignex.kumulant.stat.regression.DiagonalRegression
 import combo.decisions.DecisionSpace
 import combo.decisions.SubSpace
 import combo.decisions.context
-import kotlin.math.abs
 import kotlin.math.ln
 import kotlin.math.sqrt
 import kotlin.random.Random
@@ -57,6 +59,30 @@ private class ContextConditionedSchema : DecisionSpace() {
     val segment_x_c2 by interact(segment, choice2)
 }
 
+/** Construct the canonical bandit used by these tests: diagonal-precision regression
+ *  + factorised Gaussian sampler. Hyperparameters match what the legacy
+ *  `DiagonalizedLinearModel.Builder` used to default to. */
+private fun diagonalBandit(
+    projection: LinearFeatureProjection,
+    solver: LocalSearchSolver,
+    params: LocalSearchParams,
+    exploration: Double,
+    priorPrecision: Double = 0.01,
+    learningRateEta: Double = 1.0,
+    randomSeed: Int,
+) = LinearBandit(
+    projection = projection,
+    regression = DiagonalRegression(
+        featureSize = projection.featureSize,
+        priorPrecision = priorPrecision,
+        learningRate = ConstantRate(learningRateEta),
+    ),
+    posterior = FactorisedGaussian,
+    exploration = exploration,
+    innerOptimizer = { obj, asm -> solver.minimize(obj, params.copy(assumptions = asm)) },
+    randomSeed = randomSeed,
+)
+
 class LinearBanditTest {
 
     @Test
@@ -65,19 +91,7 @@ class LinearBanditTest {
         val projection = LinearFeatureProjection(space)
         val solver = LocalSearchSolver(space.compiled.problem)
         val params = LocalSearchParams(maxFlips = 1_000L, randomSeed = 11L)
-
-        val model = DiagonalizedLinearModel.Builder(projection.featureSize)
-            .family(NormalVariance)
-            .learningRate(ConstantRate(1f))
-            .priorPrecision(0.01f)
-            .exploration(0.3f)
-            .build()
-        val bandit = LinearBandit(
-            projection = projection,
-            linearModel = model,
-            innerOptimizer = { obj, asm -> solver.minimize(obj, params.copy(assumptions = asm)) },
-            randomSeed = 31,
-        )
+        val bandit = diagonalBandit(projection, solver, params, exploration = 0.3, randomSeed = 31)
 
         // Reward = Σ w_i * bool_i (raw 0/1 features). Best arms: a, c, e set; b, d unset.
         val trueWeights = doubleArrayOf(+1.0, -1.0, +1.0, -1.0, +1.0)
@@ -99,12 +113,9 @@ class LinearBanditTest {
             if (i < rounds / 3) earlyRegret += r else if (i >= rounds * 2 / 3) lateRegret += r
             bandit.update(sample, reward)
         }
-        // Bandit should improve: late regret per round well below early regret per round.
         val earlyAvg = earlyRegret / (rounds / 3)
         val lateAvg = lateRegret / (rounds / 3)
-        assertTrue(lateAvg < earlyAvg,
-            "Bandit should improve: early=$earlyAvg, late=$lateAvg")
-        // optimalOrThrow under the converged model gives at most slightly suboptimal config.
+        assertTrue(lateAvg < earlyAvg, "Bandit should improve: early=$earlyAvg, late=$lateAvg")
         val bestReward = groundTruth(bandit.optimalOrThrow())
         assertTrue(bestReward >= optimalReward - 1.0,
             "optimal sample reward $bestReward should be within 1.0 of $optimalReward")
@@ -117,23 +128,8 @@ class LinearBanditTest {
         val projection = LinearFeatureProjection(space)
         val solver = LocalSearchSolver(space.compiled.problem)
         val params = LocalSearchParams(maxFlips = 1_000L, randomSeed = 17L)
+        val bandit = diagonalBandit(projection, solver, params, exploration = 0.0, randomSeed = 17)
 
-        val model = DiagonalizedLinearModel.Builder(projection.featureSize)
-            .family(NormalVariance)
-            .learningRate(ConstantRate(1f))
-            .priorPrecision(0.01f)
-            .exploration(0f)
-            .build()
-        val bandit = LinearBandit(
-            projection = projection,
-            linearModel = model,
-            innerOptimizer = { obj, asm -> solver.minimize(obj, params.copy(assumptions = asm)) },
-            randomSeed = 17,
-        )
-
-        // Reward = +choice1 + choice2 (always prefers both on). With a fixed context
-        // and a model that has additive context features, the bandit should learn the
-        // optimal decision under that fixed context.
         val ctx = context {
             set(schema.premium, true)
             set(schema.segment, 1)
@@ -164,20 +160,8 @@ class LinearBanditTest {
         // Layout: 3 nominal indicators + 1 context bool + 3 interaction slots (per label).
         assertEquals(7, projection.featureSize)
 
-        val model = DiagonalizedLinearModel.Builder(projection.featureSize)
-            .family(NormalVariance)
-            .learningRate(ConstantRate(1f))
-            .priorPrecision(0.01f)
-            .exploration(0f)
-            .build()
-        val bandit = LinearBandit(
-            projection = projection,
-            linearModel = model,
-            innerOptimizer = { obj, asm -> solver.minimize(obj, params.copy(assumptions = asm)) },
-            randomSeed = 9,
-        )
+        val bandit = diagonalBandit(projection, solver, params, exploration = 0.0, randomSeed = 9)
 
-        // Reward shape: premium=true favours type=b, premium=false favours type=c.
         fun groundTruth(type: String, premium: Boolean): Double = when {
             premium && type == "b" -> 1.0
             !premium && type == "c" -> 1.0
@@ -207,26 +191,13 @@ class LinearBanditTest {
         val solver = LocalSearchSolver(space.compiled.problem)
         val params = LocalSearchParams(maxFlips = 1_000L, randomSeed = 123L)
 
-        // klause expands the 3-label nominal into 3 indicator bools — one feature per label.
         assertEquals(3, space.compiled.problem.numBoolVars)
         assertEquals(3, projection.featureSize)
         val indicators = space.compiled.nominalIndicators[schema.type.name]!!
         assertEquals(setOf("a", "b", "c"), indicators.keys)
 
-        // Linear bandit learns label-specific weights. Reward favours label "b".
         val labelReward = mapOf("a" to 0.0, "b" to 1.0, "c" to 0.2)
-        val model = DiagonalizedLinearModel.Builder(projection.featureSize)
-            .family(NormalVariance)
-            .learningRate(ConstantRate(1f))
-            .priorPrecision(0.01f)
-            .exploration(0.1f)
-            .build()
-        val bandit = LinearBandit(
-            projection = projection,
-            linearModel = model,
-            innerOptimizer = { obj, asm -> solver.minimize(obj, params.copy(assumptions = asm)) },
-            randomSeed = 123,
-        )
+        val bandit = diagonalBandit(projection, solver, params, exploration = 0.1, randomSeed = 123)
         val rng = Random(123)
         repeat(800) {
             val sample = bandit.chooseOrThrow()
@@ -245,23 +216,8 @@ class LinearBanditTest {
         val projection = LinearFeatureProjection(space)
         val solver = LocalSearchSolver(space.compiled.problem)
         val params = LocalSearchParams(maxFlips = 1_000L, randomSeed = 4L)
+        val bandit = diagonalBandit(projection, solver, params, exploration = 0.0, randomSeed = 4)
 
-        val model = DiagonalizedLinearModel.Builder(projection.featureSize)
-            .family(NormalVariance)
-            .learningRate(ConstantRate(1f))
-            .priorPrecision(0.01f)
-            .exploration(0f)
-            .build()
-        val bandit = LinearBandit(
-            projection = projection,
-            linearModel = model,
-            innerOptimizer = { obj, asm -> solver.minimize(obj, params.copy(assumptions = asm)) },
-            randomSeed = 4,
-        )
-
-        // Reward depends on context × decision: positive premium + segment flip
-        // the best decision for each choice.
-        //   reward = (premium ? +1 : -1) * choice1 + (segment > 0 ? +1 : -1) * choice2
         fun groundTruth(s: combo.decisions.BanditSample, premium: Boolean, segment: Int): Double {
             val c1 = if (s.bools[0]) 1.0 else 0.0
             val c2 = if (s.bools[1]) 1.0 else 0.0
@@ -269,7 +225,6 @@ class LinearBanditTest {
         }
 
         val rng = Random(4)
-        // Train across all four context combinations.
         val contexts = listOf(
             Triple(true, 1, context { set(schema.premium, true); set(schema.segment, 1) }),
             Triple(true, -1, context { set(schema.premium, true); set(schema.segment, -1) }),
@@ -278,16 +233,11 @@ class LinearBanditTest {
         )
         repeat(2000) {
             val (premium, segment, ctx) = contexts.random(rng)
-            // Sample with the same assumptions the bandit will use at choose-time, so
-            // the sample's context-slot values match the context being trained against.
             val asm = projection.assumptionsFor(ctx)
             val s = combo.decisions.BanditSample.undithered(solver.sample(params.copy(randomSeed = rng.nextLong(), assumptions = asm))!!)
             bandit.train(s, ctx, groundTruth(s, premium, segment))
         }
 
-        // Bandit should learn context-conditioned choices: across the 4 contexts, the
-        // majority of (choice1, choice2) decisions should agree with the per-context
-        // optimum. Strict per-context exactness is sensitive to convergence speed.
         var matches = 0
         for ((premium, segment, ctx) in contexts) {
             val best = bandit.optimalOrThrow(ctx)
@@ -305,8 +255,6 @@ class LinearBanditTest {
         val solver = LocalSearchSolver(space.compiled.problem)
         val params = LocalSearchParams(maxFlips = 1_000L, randomSeed = 21L)
 
-        // Find a sample with the audio gate OFF (the auto-allocated bool named "audio"
-        // is at id 1, since baseline is at id 0). Pinning forces audio.mute = false.
         val rng = Random(21)
         var inactiveSample: Sample? = null
         var activeSample: Sample? = null
@@ -319,16 +267,13 @@ class LinearBanditTest {
         assertTrue(inactiveSample != null && activeSample != null,
             "solver should produce both gate-off and gate-on samples")
 
-        // Inactive: the audio.mute slot must be 0 in the feature vector regardless of
-        // its (pinned-to-false) klause value.
         val inactiveFeatures = projection.encode(combo.decisions.BanditSample.undithered(inactiveSample!!))
         val muteSlot = projection.layout.boolStart +
             space.compiled.boolVarIdByName["audio.mute"]!!
-        assertEquals(0f, inactiveFeatures[muteSlot])
+        assertEquals(0.0, inactiveFeatures[muteSlot])
 
-        // Active: the audio.mute slot reflects the actual sampled value.
         val activeFeatures = projection.encode(combo.decisions.BanditSample.undithered(activeSample!!))
-        val expected = if (activeSample!!.bools[space.compiled.boolVarIdByName["audio.mute"]!!]) 1f else 0f
+        val expected = if (activeSample!!.bools[space.compiled.boolVarIdByName["audio.mute"]!!]) 1.0 else 0.0
         assertEquals(expected, activeFeatures[muteSlot])
     }
 
@@ -338,12 +283,11 @@ class LinearBanditTest {
         val space = schema.compileSpace()
         val projection = LinearFeatureProjection(space)
         val solver = LocalSearchSolver(space.compiled.problem)
-
-        val model = DiagonalizedLinearModel.Builder(projection.featureSize).build()
-        val bandit = LinearBandit(
-            projection = projection,
-            linearModel = model,
-            innerOptimizer = { obj, asm -> solver.minimize(obj, LocalSearchParams(randomSeed = 1L, assumptions = asm)) },
+        val bandit = diagonalBandit(
+            projection, solver,
+            LocalSearchParams(randomSeed = 1L),
+            exploration = 1.0,
+            priorPrecision = 1.0,
             randomSeed = 1,
         )
 

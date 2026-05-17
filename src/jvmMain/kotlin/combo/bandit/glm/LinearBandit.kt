@@ -3,7 +3,10 @@ package combo.bandit.glm
 import com.eignex.klause.solver.Assumptions
 import com.eignex.klause.solver.LinearObjective
 import com.eignex.klause.solver.Sample
+import com.eignex.kumulant.bandit.LinearPosterior
+import com.eignex.kumulant.core.RegressionStat
 import com.eignex.kumulant.core.SeriesStat
+import com.eignex.kumulant.stat.regression.LinearRegressionResult
 import combo.bandit.NoFeasibleSampleException
 import combo.bandit.PredictionLearner
 import combo.decisions.BanditSample
@@ -12,39 +15,49 @@ import combo.util.RandomSequence
 import kotlin.math.abs
 
 /**
- * Generalised linear model bandit with Thompson sampling over the model weights.
+ * Linear-model bandit with posterior sampling over the weights.
  *
- * Each `choose` draws a weight vector from [linearModel]'s posterior, asks the
- * [innerOptimizer] for the best-scoring feasible [Sample] under those weights *given
- * the current [Context]*, and yields it. Reward observations [train] the underlying
- * linear model using the same `(Sample, Context) → feature` projection.
+ * Each `choose` draws a weight vector from [posterior] given the current snapshot
+ * of [regression], asks the [innerOptimizer] for the best-scoring feasible [Sample]
+ * under those weights *given the current [Context]*, and yields it. Reward
+ * observations [train] the underlying regression stat using the same
+ * `(Sample, Context) → feature` projection.
+ *
+ * Pair a [regression] flavour with a matching [posterior]:
+ *  - [com.eignex.kumulant.stat.regression.SGDLinearRegression] + [com.eignex.kumulant.bandit.PointPosterior]
+ *  - [com.eignex.kumulant.stat.regression.DiagonalRegression] + [com.eignex.kumulant.bandit.FactorisedGaussian]
+ *  - [com.eignex.kumulant.stat.regression.BayesianLinearRegression] + [com.eignex.kumulant.bandit.MultivariateGaussian]
  */
-class LinearBandit(
+class LinearBandit<R : LinearRegressionResult>(
     val projection: LinearFeatureProjection,
-    val linearModel: LinearModel,
+    val regression: RegressionStat<R>,
+    val posterior: LinearPosterior<R>,
+    val exploration: Double = 1.0,
     val innerOptimizer: (LinearObjective, Assumptions) -> Sample?,
     override val randomSeed: Int = System.currentTimeMillis().toInt(),
     override val maximize: Boolean = true,
     override val rewards: SeriesStat<*>? = null,
     override val trainAbsError: SeriesStat<*>? = null,
     override val testAbsError: SeriesStat<*>? = null,
-) : PredictionLearner<LinearData> {
+) : PredictionLearner<LinearLearnerData> {
 
     val space get() = projection.space
 
     init {
-        require(linearModel.weights.size == projection.featureSize) {
-            "Linear model has ${linearModel.weights.size} weights, projection has ${projection.featureSize} features."
+        require(regression.featureSize == projection.featureSize) {
+            "regression has ${regression.featureSize} features, projection has ${projection.featureSize}."
         }
     }
 
     private val randomSequence = RandomSequence(randomSeed)
 
-    fun predict(sample: BanditSample, context: Context): Double =
-        linearModel.predict(projection.encode(sample, context)).toDouble()
+    fun predict(sample: BanditSample, context: Context): Double {
+        val snapshot = regression.read()
+        return snapshot.predict(projection.encode(sample, context))
+    }
 
     fun train(sample: BanditSample, context: Context, reward: Double, weight: Double = 1.0) {
-        linearModel.train(projection.encode(sample, context), reward.toFloat(), weight.toFloat())
+        regression.update(projection.encode(sample, context), reward, weight)
     }
 
     fun update(sample: BanditSample, context: Context, reward: Double, weight: Double = 1.0) {
@@ -65,8 +78,9 @@ class LinearBandit(
 
     fun chooseOrThrow(context: Context): BanditSample {
         val rng = randomSequence.next()
-        val sampledWeights = linearModel.sample(rng)
-        val objective = projection.toObjective(sampledWeights, linearModel.bias, context, maximize)
+        val snapshot = regression.read()
+        val sampledWeights = posterior.sample(snapshot, rng, exploration)
+        val objective = projection.toObjective(sampledWeights, snapshot.bias, context, maximize)
         val assumptions = projection.assumptionsFor(context)
         val raw = innerOptimizer(objective, assumptions)
             ?: throw NoFeasibleSampleException("inner optimizer returned no feasible sample")
@@ -81,7 +95,8 @@ class LinearBandit(
 
     fun optimalOrThrow(context: Context): BanditSample {
         val rng = randomSequence.next()
-        val objective = projection.toObjective(linearModel.weights, linearModel.bias, context, maximize)
+        val snapshot = regression.read()
+        val objective = projection.toObjective(snapshot.weights, snapshot.bias, context, maximize)
         val assumptions = projection.assumptionsFor(context)
         val raw = innerOptimizer(objective, assumptions)
             ?: throw NoFeasibleSampleException("inner optimizer returned no feasible sample")
@@ -101,11 +116,10 @@ class LinearBandit(
     override fun chooseOrThrow(): BanditSample = chooseOrThrow(Context.Empty)
     override fun optimalOrThrow(): BanditSample = optimalOrThrow(Context.Empty)
 
-    override fun importData(data: LinearData) {
-        val ratio = if (data.step <= 0L) 1f
-        else data.step.toFloat() / (linearModel.step + data.step).toFloat()
-        linearModel.importData(data, ratio, ratio)
+    override fun importData(data: LinearLearnerData) {
+        @Suppress("UNCHECKED_CAST")
+        (regression as RegressionStat<LinearRegressionResult>).merge(data.state)
     }
 
-    override fun exportData(): LinearData = linearModel.exportData()
+    override fun exportData(): LinearLearnerData = LinearLearnerData(regression.read())
 }

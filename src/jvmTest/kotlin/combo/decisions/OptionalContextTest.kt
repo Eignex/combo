@@ -5,12 +5,12 @@ import com.eignex.klause.ast.le
 import com.eignex.klause.ast.not
 import com.eignex.klause.solver.localsearch.LocalSearchParams
 import com.eignex.klause.solver.localsearch.LocalSearchSolver
-import combo.bandit.glm.ConstantRate
-import combo.bandit.glm.DiagonalizedLinearModel
+import com.eignex.kumulant.bandit.FactorisedGaussian
+import com.eignex.kumulant.stat.regression.ConstantRate
+import com.eignex.kumulant.stat.regression.DiagonalRegression
 import combo.bandit.glm.LinearBandit
 import combo.decisions.BanditSample
 import combo.bandit.glm.LinearFeatureProjection
-import combo.bandit.glm.NormalVariance
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -101,15 +101,15 @@ class OptionalContextTest {
         val interactionSlot = projection.layout.interactionStart.getValue(
             space.interactions.single { it.name == "ageXchoice" }
         )
-        assertEquals(0f, fAbsent[interactionSlot],
+        assertEquals(0.0, fAbsent[interactionSlot],
             "interaction with absent context should be zero")
 
         // Present, age=30: interaction = 30 * choice_value.
         val ctxPresent = context { set(model.age, 30) }
         val sPresent = solver.sample(params.copy(assumptions = projection.assumptionsFor(ctxPresent)))!!
         val fPresent = projection.encode(BanditSample.undithered(sPresent), ctxPresent)
-        val choiceVal = if (space.compiled.decode(model.choice, sPresent)) 1f else 0f
-        assertEquals(30f * choiceVal, fPresent[interactionSlot])
+        val choiceVal = if (space.compiled.decode(model.choice, sPresent)) 1.0 else 0.0
+        assertEquals(30.0 * choiceVal, fPresent[interactionSlot])
     }
 
     @Test
@@ -120,15 +120,16 @@ class OptionalContextTest {
         val solver = LocalSearchSolver(space.compiled.problem)
         val params = LocalSearchParams(maxFlips = 1_000, randomSeed = 7L)
 
-        val linModel = DiagonalizedLinearModel.Builder(projection.featureSize)
-            .family(NormalVariance)
-            .learningRate(ConstantRate(1f))
-            .priorPrecision(0.01f)
-            .exploration(0f)
-            .build()
+        val regression = DiagonalRegression(
+            featureSize = projection.featureSize,
+            priorPrecision = 0.01,
+            learningRate = ConstantRate(1.0),
+        )
         val bandit = LinearBandit(
             projection = projection,
-            linearModel = linModel,
+            regression = regression,
+            posterior = FactorisedGaussian,
+            exploration = 0.0,
             innerOptimizer = { obj, asm -> solver.minimize(obj, params.copy(assumptions = asm)) },
             randomSeed = 7,
         )

@@ -3,7 +3,7 @@ package combo.bandit.dt
 import com.eignex.kumulant.core.Result
 import com.eignex.kumulant.core.SeriesStat
 import com.eignex.kumulant.stat.summary.WeightedVarianceResult
-import combo.bandit.univariate.BanditPolicy
+import com.eignex.kumulant.bandit.BanditPolicy
 import kotlin.math.ln
 import kotlin.math.pow
 import kotlin.math.sqrt
