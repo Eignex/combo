@@ -27,6 +27,7 @@ import com.eignex.klause.schema.BoolHandle
 import com.eignex.klause.schema.FloatHandle
 import com.eignex.klause.schema.IntHandle
 import com.eignex.klause.schema.NominalHandle
+import com.eignex.kumulant.stat.regression.tree.Split as RowSplit
 
 /**
  * Binary predicate routing a [TreeRow] to "left" (true) or "right" (false). Every
@@ -40,14 +41,16 @@ import com.eignex.klause.schema.NominalHandle
  * [ExprSplit] is the escape hatch for arbitrary expressions — `tier eq "pro" and budget gt 100`
  * is a valid split.
  */
-sealed interface Split {
+sealed interface Split : RowSplit<TreeRow> {
     /** The klause expression that defines this split's routing predicate. */
     val expr: BoolExpr
 
     /** Evaluate the predicate against [row]. Default uses the shared
      *  [combo.decisions.CompiledDecisionSpace.evaluate]; concrete cases may override
-     *  with a tighter implementation when it's cheaper. */
-    fun direction(row: TreeRow): Boolean = row.space.evaluate(expr, row.sample.sample)
+     *  with a tighter implementation when it's cheaper. Implements kumulant's
+     *  [RowSplit] growth-time routing SPI, so combo's klause-coupled splits plug
+     *  directly into kumulant's generic tree engine over a [TreeRow]. */
+    override fun direction(row: TreeRow): Boolean = row.space.evaluate(expr, row.sample.sample)
 
     override fun toString(): String
 }

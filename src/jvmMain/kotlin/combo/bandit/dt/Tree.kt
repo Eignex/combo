@@ -3,6 +3,9 @@ package combo.bandit.dt
 import com.eignex.kumulant.core.Result
 import com.eignex.kumulant.core.SeriesStat
 import com.eignex.kumulant.stat.summary.WeightedVarianceResult
+import com.eignex.kumulant.stat.regression.tree.SplitMetric
+import com.eignex.kumulant.stat.regression.tree.VarianceReduction
+import com.eignex.kumulant.stat.regression.tree.rank
 import com.eignex.kumulant.bandit.univariate.BanditPolicy
 import kotlin.math.ln
 import kotlin.math.pow
