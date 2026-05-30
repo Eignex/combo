@@ -2,6 +2,7 @@ package combo.bandit
 
 import com.eignex.klause.compile.CompiledProblem
 import com.eignex.klause.solver.Sample
+import com.eignex.klause.solver.SampleResult
 import com.eignex.klause.solver.Solver
 import com.eignex.klause.solver.SolverParams
 import com.eignex.kumulant.core.SeriesStat
@@ -117,7 +118,7 @@ class RandomBandit<P : SolverParams>(
     private val randomSequence = RandomSequence(randomSeed)
 
     override fun chooseOrThrow(): BanditSample {
-        val s = sampler.sample(params)
+        val s = (sampler.sample(params) as? SampleResult.Found)?.sample
             ?: throw NoFeasibleSampleException("klause sampler returned no feasible assignment")
         return BanditSample.dithered(s, space, randomSequence.next())
     }

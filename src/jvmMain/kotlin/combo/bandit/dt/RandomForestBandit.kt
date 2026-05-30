@@ -9,7 +9,7 @@ import com.eignex.kumulant.core.Result
 import com.eignex.kumulant.core.SeriesStat
 import combo.bandit.NoFeasibleSampleException
 import combo.bandit.PredictionLearner
-import com.eignex.kumulant.bandit.BanditPolicy
+import com.eignex.kumulant.bandit.univariate.BanditPolicy
 import combo.decisions.BanditSample
 import combo.decisions.CompiledDecisionSpace
 import combo.util.RandomSequence
@@ -163,9 +163,9 @@ class RandomForestBandit<R : Result>(
                 val merger = trees[0]
                 val posSnap = merger.mergeArms(nodes.map { it.pos.arm })
                 val negSnap = merger.mergeArms(nodes.map { it.neg.arm })
-                val sPos = if (thompson) policy.evaluate(posSnap, t, maximize, rng)
+                val sPos = if (thompson) signed(policy.evaluate(posSnap, t, rng))
                            else signed(scalarMean(posSnap))
-                val sNeg = if (thompson) policy.evaluate(negSnap, t, maximize, rng)
+                val sNeg = if (thompson) signed(policy.evaluate(negSnap, t, rng))
                            else signed(scalarMean(negSnap))
                 if (id to true !in tried && sPos > bestScore) { bestId = id; bestDirection = true; bestScore = sPos }
                 if (id to false !in tried && sNeg > bestScore) { bestId = id; bestDirection = false; bestScore = sNeg }

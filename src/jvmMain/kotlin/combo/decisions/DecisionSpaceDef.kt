@@ -203,6 +203,14 @@ internal fun synthesizePin(qualifiedName: String, spec: VarSpec, gateName: Strin
             // Pin the underlying bucket-int to 0 → real value is `min` (the float's lower bound),
             // mirroring the int convention.
             Implies(notGate, IntCompare(IntRef(qualifiedName), IntCmpOp.EQ, IntLit(0)))
+        is com.eignex.klause.ast.SetSpec, is com.eignex.klause.ast.MultipleSpec ->
+            // Set/multiple variables are not exposed as optional gated variables by combo
+            // yet (multi-selects flow through the dedicated `multiples` map, not VarSpec).
+            // When that migration lands the gated-off default is "empty set" — assert no
+            // indicator is selected. Guarded explicitly so the omission is loud, not silent.
+            throw UnsupportedOperationException(
+                "optional set/multiple variable '$qualifiedName' is not supported yet",
+            )
     }
 }
 

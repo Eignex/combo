@@ -56,7 +56,7 @@ class MultipleTest {
         val actionBit = space.compiled.boolVarIdByName.getValue("genres.Action")
         // Any feasible sample must have genres.Action == true under the constraint.
         repeat(8) { seed ->
-            val s = solver.sample(LocalSearchParams(randomSeed = seed.toLong()))!!
+            val s = solver.sample(LocalSearchParams(randomSeed = seed.toLong())).assignment!!
             assertTrue(s.bools[actionBit], "sample $seed violated genres.contains(\"Action\")")
         }
     }
@@ -68,7 +68,7 @@ class MultipleTest {
         val ids = listOf("Action", "Drama", "Horror")
             .map { space.compiled.boolVarIdByName.getValue("genres.$it") }
         repeat(8) { seed ->
-            val s = solver.sample(LocalSearchParams(randomSeed = seed.toLong()))!!
+            val s = solver.sample(LocalSearchParams(randomSeed = seed.toLong())).assignment!!
             val selected = ids.count { s.bools[it] }
             assertTrue(selected <= 2, "selected=$selected exceeded sizeLe(2)")
         }

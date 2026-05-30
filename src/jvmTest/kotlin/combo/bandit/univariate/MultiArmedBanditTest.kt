@@ -1,12 +1,12 @@
 package combo.bandit.univariate
 
-import com.eignex.kumulant.bandit.BanditPolicy
-import com.eignex.kumulant.bandit.BetaBernoulliTS
-import com.eignex.kumulant.bandit.EpsilonGreedy
-import com.eignex.kumulant.bandit.Greedy
-import com.eignex.kumulant.bandit.MultiArmedBandit
-import com.eignex.kumulant.bandit.NormalTS
-import com.eignex.kumulant.bandit.UCB1
+import com.eignex.kumulant.bandit.univariate.BanditPolicy
+import com.eignex.kumulant.bandit.univariate.BetaBernoulliTS
+import com.eignex.kumulant.bandit.univariate.EpsilonGreedy
+import com.eignex.kumulant.bandit.univariate.Greedy
+import com.eignex.kumulant.bandit.univariate.MultiArmedBandit
+import com.eignex.kumulant.bandit.univariate.NormalTS
+import com.eignex.kumulant.bandit.univariate.UCB1
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -20,7 +20,7 @@ class MultiArmedBanditTest {
         seed: Int = 42,
     ): Int {
         val arms = doubleArrayOf(0.2, 0.5, 0.8)
-        val bandit = MultiArmedBandit(arms.size, policy, randomSeed = seed)
+        val bandit = MultiArmedBandit(arms.size, policy, Random(seed.toLong()))
         val rng = Random(seed.toLong())
         repeat(rounds) {
             val i = bandit.choose()
@@ -50,7 +50,7 @@ class MultiArmedBanditTest {
     fun `normal posterior should track means`() {
         val means = doubleArrayOf(-1.0, 0.0, 2.0)
         val policy = NormalTS()
-        val bandit = MultiArmedBandit(means.size, policy, randomSeed = 1)
+        val bandit = MultiArmedBandit(means.size, policy, Random(1))
         val rng = Random(1)
         repeat(3000) {
             val i = bandit.choose()
@@ -67,7 +67,7 @@ class MultiArmedBanditTest {
     @Test
     fun `epsilon greedy should converge`() {
         val arms = doubleArrayOf(0.1, 0.9)
-        val bandit = MultiArmedBandit(arms.size, EpsilonGreedy(epsilon = 0.1), randomSeed = 7)
+        val bandit = MultiArmedBandit(arms.size, EpsilonGreedy(epsilon = 0.1), Random(7))
         val rng = Random(7)
         repeat(500) {
             val i = bandit.choose()
@@ -81,7 +81,7 @@ class MultiArmedBanditTest {
         // Greedy famously locks into the first apparent winner. We don't assert convergence —
         // just that the bandit runs and produces a well-formed snapshot.
         val arms = doubleArrayOf(0.1, 0.9)
-        val bandit = MultiArmedBandit(arms.size, Greedy(), randomSeed = 7)
+        val bandit = MultiArmedBandit(arms.size, Greedy(), Random(7))
         val rng = Random(7)
         repeat(200) {
             val i = bandit.choose()
@@ -93,15 +93,19 @@ class MultiArmedBanditTest {
     }
 
     @Test
-    fun `bandit with maximize false should favor lowest mean`() {
+    fun `reward inversion should favor lowest mean`() {
+        // kumulant's MultiArmedBandit no longer carries a `maximize` flag — it always
+        // maximizes. Minimization is expressed by inverting the reward at the call site
+        // (the same convention combo's own bandits apply via `signed`). Here we reward a
+        // Bernoulli *failure*, so the lowest-p arm earns the most "successes" and wins.
         val arms = doubleArrayOf(0.2, 0.5, 0.8)
-        val bandit = MultiArmedBandit(arms.size, BetaBernoulliTS(), randomSeed = 3, maximize = false)
+        val bandit = MultiArmedBandit(arms.size, BetaBernoulliTS(), Random(3))
         val rng = Random(3)
         repeat(1500) {
             val i = bandit.choose()
-            bandit.update(i, if (rng.nextDouble() < arms[i]) 1.0 else 0.0)
+            bandit.update(i, if (rng.nextDouble() < arms[i]) 0.0 else 1.0)
         }
         val best = bandit.snapshot().withIndex().maxBy { (_, s) -> s.trials }.index
-        assertEquals(0, best, "With maximize=false, lowest-p arm should dominate")
+        assertEquals(0, best, "Inverted reward should make the lowest-p arm dominate")
     }
 }

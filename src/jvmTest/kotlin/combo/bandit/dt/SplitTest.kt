@@ -58,7 +58,7 @@ class SplitTest {
         val projection = TreeFeatureProjection(space)
 
         repeat(20) { seed ->
-            val s = solver.sample(LocalSearchParams(randomSeed = seed.toLong()))!!
+            val s = solver.sample(LocalSearchParams(randomSeed = seed.toLong())).assignment!!
             val row = projection.encode(BanditSample.undithered(s))
             val expected = row.bool(model.premium) && row.int(model.budget) > 500
             assertEquals(expected, split.direction(row))
