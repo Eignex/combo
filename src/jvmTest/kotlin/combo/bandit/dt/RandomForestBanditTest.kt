@@ -38,9 +38,15 @@ class RandomForestBanditTest : PredictionBanditTestSuite<ForestData>() {
         val solver = LocalSearchSolver(space.compiled.problem)
         val session = com.eignex.klause.solver.localsearch.LocalSearchSession(solver)
         val backtrack = BacktrackSolver(space.compiled.problem)
+        // Primary descent drives a dedicated session via push/pop assumption state; the
+        // proposeSample/optimizeFallback cascade above remains the hard-problem fallback.
+        val descentSession = KlauseDescentSession(
+            com.eignex.klause.solver.localsearch.LocalSearchSession(solver),
+        ) { rng -> LocalSearchParams(randomSeed = rng.nextLong()) }
         return RandomForestBandit.build(
             space = space,
             policy = Greedy(),
+            descentSession = descentSession,
             // Cascade: LS first (fast common case); on null escalate to BacktrackSolver
             // (complete) so null from proposeSample means *definitive* UNSAT rather than
             // "LS gave up". Without the cascade, an LS budget miss silently routes the
