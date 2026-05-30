@@ -3,7 +3,7 @@ package combo.bandit.dt
 import com.eignex.kumulant.core.Result
 import com.eignex.kumulant.core.SeriesStat
 import com.eignex.kumulant.stat.summary.WeightedVarianceResult
-import com.eignex.kumulant.bandit.BanditPolicy
+import com.eignex.kumulant.bandit.univariate.BanditPolicy
 import kotlin.math.ln
 import kotlin.math.pow
 import kotlin.math.sqrt
@@ -123,8 +123,8 @@ class Tree<R : Result>(
         val steps = mutableListOf<PathStep>()
         var node: Node<R> = root
         while (node is SplitNode) {
-            val sPos = policy.evaluate(node.pos.arm.read(), step, maximize, rng)
-            val sNeg = policy.evaluate(node.neg.arm.read(), step, maximize, rng)
+            val sPos = signed(policy.evaluate(node.pos.arm.read(), step, rng), maximize)
+            val sNeg = signed(policy.evaluate(node.neg.arm.read(), step, rng), maximize)
             val takePos = sPos >= sNeg
             steps += PathStep(node.split, takePos)
             node = if (takePos) node.pos else node.neg

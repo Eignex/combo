@@ -3,9 +3,9 @@ package combo.bandit.glm
 import com.eignex.klause.solver.localsearch.LocalSearchParams
 import com.eignex.klause.solver.localsearch.LocalSearchSolver
 import com.eignex.klause.solver.Sample
-import com.eignex.kumulant.stat.regression.FactorisedGaussian
-import com.eignex.kumulant.stat.regression.ConstantRate
-import com.eignex.kumulant.stat.regression.DiagonalRegression
+import com.eignex.kumulant.stat.regression.glm.FactorisedGaussian
+import com.eignex.kumulant.stat.regression.glm.ConstantRate
+import com.eignex.kumulant.stat.regression.glm.DiagonalRegressionStat
 import combo.decisions.DecisionSpace
 import combo.decisions.SubSpace
 import combo.decisions.context
@@ -72,14 +72,14 @@ private fun diagonalBandit(
     randomSeed: Int,
 ) = LinearBandit(
     projection = projection,
-    regression = DiagonalRegression(
+    regression = DiagonalRegressionStat(
         featureSize = projection.featureSize,
         priorPrecision = priorPrecision,
         learningRate = ConstantRate(learningRateEta),
     ),
     posterior = FactorisedGaussian,
     exploration = exploration,
-    innerOptimizer = { obj, asm -> solver.minimize(obj, params.copy(assumptions = asm)) },
+    innerOptimizer = { obj, asm -> solver.minimize(obj, params.copy(assumptions = asm)).assignment },
     randomSeed = randomSeed,
 )
 
@@ -140,7 +140,7 @@ class LinearBanditTest {
 
         val rng = Random(17)
         repeat(800) {
-            val s = combo.decisions.BanditSample.undithered(solver.sample(params.copy(randomSeed = rng.nextLong()))!!)
+            val s = combo.decisions.BanditSample.undithered(solver.sample(params.copy(randomSeed = rng.nextLong())).assignment!!)
             bandit.train(s, ctx, groundTruth(s))
         }
 
@@ -171,10 +171,12 @@ class LinearBanditTest {
         val rng = Random(9)
         val ctxTrue = context { set(schema.premium, true) }
         val ctxFalse = context { set(schema.premium, false) }
-        repeat(2000) {
+        // 5000 rounds: kumulant 0.3.0's diagonal-posterior dynamics converge a touch
+        // slower than the prior GLM, so this exact-label assertion needs a larger budget.
+        repeat(5000) {
             val ctx = if (rng.nextBoolean()) ctxTrue else ctxFalse
             val premium = ctx === ctxTrue
-            val s = combo.decisions.BanditSample.undithered(solver.sample(params.copy(randomSeed = rng.nextLong()))!!)
+            val s = combo.decisions.BanditSample.undithered(solver.sample(params.copy(randomSeed = rng.nextLong())).assignment!!)
             val type = space.compiled.decode(schema.type, s.sample)
             bandit.train(s, ctx, groundTruth(type, premium))
         }
@@ -234,7 +236,7 @@ class LinearBanditTest {
         repeat(2000) {
             val (premium, segment, ctx) = contexts.random(rng)
             val asm = projection.assumptionsFor(ctx)
-            val s = combo.decisions.BanditSample.undithered(solver.sample(params.copy(randomSeed = rng.nextLong(), assumptions = asm))!!)
+            val s = combo.decisions.BanditSample.undithered(solver.sample(params.copy(randomSeed = rng.nextLong(), assumptions = asm)).assignment!!)
             bandit.train(s, ctx, groundTruth(s, premium, segment))
         }
 
@@ -259,7 +261,7 @@ class LinearBanditTest {
         var inactiveSample: Sample? = null
         var activeSample: Sample? = null
         repeat(80) {
-            val s = solver.sample(params.copy(randomSeed = rng.nextLong()))!!
+            val s = solver.sample(params.copy(randomSeed = rng.nextLong())).assignment!!
             val gate = space.gateOf(model.audio)!!
             if (!space.compiled.decode(gate, s) && inactiveSample == null) inactiveSample = s
             if (space.compiled.decode(gate, s) && activeSample == null) activeSample = s

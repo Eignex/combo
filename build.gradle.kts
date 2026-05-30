@@ -4,7 +4,7 @@ import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 plugins {
     id("com.eignex.kmp") version "1.1.5"
-    kotlin("plugin.serialization") version "2.3.0"
+    kotlin("plugin.serialization") version "2.3.20"
 }
 
 eignexPublish {
@@ -24,7 +24,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api("com.eignex:klause")
-            implementation("com.eignex:kumulant:0.1.1")
+            implementation("com.eignex:kumulant:0.3.0")
             implementation("com.eignex:kpermute:1.1.2")
             compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-core:1.10.0")
         }

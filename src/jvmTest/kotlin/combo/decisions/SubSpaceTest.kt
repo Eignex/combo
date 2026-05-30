@@ -139,7 +139,7 @@ class SubSpaceTest {
         assertEquals("audio", gate.name)
         val solver = LocalSearchSolver(space.compiled.problem)
         repeat(50) { seed ->
-            val sample = solver.sample(LocalSearchParams(randomSeed = seed.toLong()))!!
+            val sample = solver.sample(LocalSearchParams(randomSeed = seed.toLong())).assignment!!
             val gateOn = space.compiled.decode(gate, sample)
             if (!gateOn) {
                 assertEquals(false, space.compiled.decode(model.audio.mute, sample),
@@ -180,7 +180,7 @@ class SubSpaceTest {
         assertEquals("area.budget", model.area.budget.name)
 
         val solver = LocalSearchSolver(space.compiled.problem)
-        val sample = solver.sample(LocalSearchParams(randomSeed = 1L))
+        val sample = solver.sample(LocalSearchParams(randomSeed = 1L)).assignment
         assertNotNull(sample, "solver must produce a feasible sample over a flat-bool problem")
         assertEquals(2, sample.bools.size)
         assertEquals(1, sample.ints.size)

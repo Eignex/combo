@@ -9,7 +9,7 @@ import com.eignex.klause.solver.SolveResult
 import com.eignex.kumulant.stat.summary.MeanStat
 import combo.bandit.PredictionLearner
 import combo.bandit.PredictionBanditTestSuite
-import com.eignex.kumulant.bandit.Greedy
+import com.eignex.kumulant.bandit.univariate.Greedy
 import combo.decisions.CompiledDecisionSpace
 
 /**
@@ -41,7 +41,7 @@ class DecisionTreeBanditTest : PredictionBanditTestSuite<DecisionTreeData>() {
             policy = Greedy(),
             // LS→BacktrackSolver cascade: definitive UNSAT or a witness LS missed.
             proposeSample = { rng, assumptions ->
-                session.sample(LocalSearchParams(randomSeed = rng.nextLong(), assumptions = assumptions))
+                session.sample(LocalSearchParams(randomSeed = rng.nextLong(), assumptions = assumptions)).assignment
                     ?: when (val r = backtrack.solve(BacktrackParams(
                         randomSeed = rng.nextLong(),
                         assumptions = assumptions,

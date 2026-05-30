@@ -5,9 +5,9 @@ import com.eignex.klause.ast.le
 import com.eignex.klause.ast.not
 import com.eignex.klause.solver.localsearch.LocalSearchParams
 import com.eignex.klause.solver.localsearch.LocalSearchSolver
-import com.eignex.kumulant.stat.regression.FactorisedGaussian
-import com.eignex.kumulant.stat.regression.ConstantRate
-import com.eignex.kumulant.stat.regression.DiagonalRegression
+import com.eignex.kumulant.stat.regression.glm.FactorisedGaussian
+import com.eignex.kumulant.stat.regression.glm.ConstantRate
+import com.eignex.kumulant.stat.regression.glm.DiagonalRegressionStat
 import combo.bandit.glm.LinearBandit
 import combo.decisions.BanditSample
 import combo.bandit.glm.LinearFeatureProjection
@@ -46,7 +46,7 @@ class OptionalContextTest {
         repeat(10) { seed ->
             val ctx = context { set(model.premium, false) }
             val asm = projection.assumptionsFor(ctx)
-            val s = solver.sample(LocalSearchParams(randomSeed = seed.toLong(), assumptions = asm))!!
+            val s = solver.sample(LocalSearchParams(randomSeed = seed.toLong(), assumptions = asm)).assignment!!
             assertEquals(false, space.decode(model.premium, s))
             assertTrue(space.compiled.decode(model.budget, s) <= 1000,
                 "budget should be ≤ 1000 when premium=false; got ${space.compiled.decode(model.budget, s)}")
@@ -56,7 +56,7 @@ class OptionalContextTest {
         val asmOn = projection.assumptionsFor(ctxOn)
         var sawHigh = false
         for (seed in 1L..20L) {
-            val s = solver.sample(LocalSearchParams(randomSeed = seed, assumptions = asmOn))!!
+            val s = solver.sample(LocalSearchParams(randomSeed = seed, assumptions = asmOn)).assignment!!
             if (space.compiled.decode(model.budget, s) > 1000) { sawHigh = true; break }
         }
         assertTrue(sawHigh, "premium=true should permit budget > 1000")
@@ -72,14 +72,14 @@ class OptionalContextTest {
         // Absent: isKnown=false pinned via assumption, klause's __pin_age forces age=0.
         val ctxAbsent = context { }
         val asmAbsent = projection.assumptionsFor(ctxAbsent)
-        val sAbsent = solver.sample(LocalSearchParams(randomSeed = 1, assumptions = asmAbsent))!!
+        val sAbsent = solver.sample(LocalSearchParams(randomSeed = 1, assumptions = asmAbsent)).assignment!!
         assertEquals(0, space.decode(model.age, sAbsent))
         assertFalse(space.isActive(model.age, sAbsent), "age should be inactive when absent")
 
         // Present: pin to 42.
         val ctxPresent = context { set(model.age, 42) }
         val asmPresent = projection.assumptionsFor(ctxPresent)
-        val sPresent = solver.sample(LocalSearchParams(randomSeed = 2, assumptions = asmPresent))!!
+        val sPresent = solver.sample(LocalSearchParams(randomSeed = 2, assumptions = asmPresent)).assignment!!
         assertEquals(42, space.decode(model.age, sPresent))
         assertTrue(space.isActive(model.age, sPresent))
     }
@@ -93,7 +93,7 @@ class OptionalContextTest {
 
         // Build a synthetic sample with choice=true. Encode under absent vs present age.
         val params = LocalSearchParams(randomSeed = 1L)
-        val sAbsent = solver.sample(params.copy(assumptions = projection.assumptionsFor(context { })))!!
+        val sAbsent = solver.sample(params.copy(assumptions = projection.assumptionsFor(context { }))).assignment!!
         val fAbsent = projection.encode(BanditSample.undithered(sAbsent), context { })
         // ageXchoice slot is the last one in the layout (numBool + numInt offset).
         // When absent: age is pinned to 0, so age * choice = 0 regardless of choice.
@@ -106,7 +106,7 @@ class OptionalContextTest {
 
         // Present, age=30: interaction = 30 * choice_value.
         val ctxPresent = context { set(model.age, 30) }
-        val sPresent = solver.sample(params.copy(assumptions = projection.assumptionsFor(ctxPresent)))!!
+        val sPresent = solver.sample(params.copy(assumptions = projection.assumptionsFor(ctxPresent))).assignment!!
         val fPresent = projection.encode(BanditSample.undithered(sPresent), ctxPresent)
         val choiceVal = if (space.compiled.decode(model.choice, sPresent)) 1.0 else 0.0
         assertEquals(30.0 * choiceVal, fPresent[interactionSlot])
@@ -120,7 +120,7 @@ class OptionalContextTest {
         val solver = LocalSearchSolver(space.compiled.problem)
         val params = LocalSearchParams(maxFlips = 1_000, randomSeed = 7L)
 
-        val regression = DiagonalRegression(
+        val regression = DiagonalRegressionStat(
             featureSize = projection.featureSize,
             priorPrecision = 0.01,
             learningRate = ConstantRate(1.0),
@@ -130,7 +130,7 @@ class OptionalContextTest {
             regression = regression,
             posterior = FactorisedGaussian,
             exploration = 0.0,
-            innerOptimizer = { obj, asm -> solver.minimize(obj, params.copy(assumptions = asm)) },
+            innerOptimizer = { obj, asm -> solver.minimize(obj, params.copy(assumptions = asm)).assignment },
             randomSeed = 7,
         )
 

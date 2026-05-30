@@ -3,7 +3,7 @@ package combo.bandit
 import com.eignex.klause.solver.Sample
 import com.eignex.kumulant.core.Result
 import com.eignex.kumulant.core.SeriesStat
-import com.eignex.kumulant.bandit.BanditPolicy
+import com.eignex.kumulant.bandit.univariate.BanditPolicy
 import combo.decisions.BanditSample
 import combo.decisions.CompiledDecisionSpace
 import combo.decisions.Context
@@ -44,6 +44,10 @@ class ListBandit<R : Result>(
     private val randomSequence = RandomSequence(randomSeed)
     private val step = AtomicLong()
 
+    /** Flip a policy score for minimization; kumulant's [policy] now scores
+     *  "higher is better" and no longer takes a maximize flag. */
+    private fun signed(m: Double): Double = if (maximize) m else -m
+
     fun chooseOrThrow(context: Context): BanditSample {
         val assumptions = space.assumptionsFor(context)
         val rng = randomSequence.next()
@@ -52,7 +56,7 @@ class ListBandit<R : Result>(
         var bestScore = Double.NEGATIVE_INFINITY
         for (i in samples.indices) {
             if (!space.matches(samples[i], assumptions)) continue
-            val score = policy.evaluate(arms[i].read(0L), t, maximize, rng)
+            val score = signed(policy.evaluate(arms[i].read(0L), t, rng))
             if (score > bestScore) { bestScore = score; bestIdx = i }
         }
         if (bestIdx < 0) throw NoFeasibleSampleException(
@@ -77,7 +81,7 @@ class ListBandit<R : Result>(
         var bestScore = Double.NEGATIVE_INFINITY
         for (i in samples.indices) {
             if (!space.matches(samples[i], assumptions)) continue
-            val score = policy.evaluate(arms[i].read(0L), t, maximize, rng)
+            val score = signed(policy.evaluate(arms[i].read(0L), t, rng))
             if (score > bestScore) { bestScore = score; bestIdx = i }
         }
         if (bestIdx < 0) throw NoFeasibleSampleException(

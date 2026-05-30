@@ -22,7 +22,7 @@ class TreeFeatureProjectionTest {
         val space = model.compileSpace()
         val projection = TreeFeatureProjection(space)
         val solver = LocalSearchSolver(space.compiled.problem)
-        val sample = solver.sample(LocalSearchParams(randomSeed = 1L))!!
+        val sample = solver.sample(LocalSearchParams(randomSeed = 1L)).assignment!!
 
         val row = projection.encode(combo.decisions.BanditSample.undithered(sample))
 
@@ -42,7 +42,7 @@ class TreeFeatureProjectionTest {
 
         // Try multiple samples — directions must agree with the underlying bool.
         repeat(10) { seed ->
-            val s = solver.sample(LocalSearchParams(randomSeed = seed.toLong()))!!
+            val s = solver.sample(LocalSearchParams(randomSeed = seed.toLong())).assignment!!
             val row = projection.encode(combo.decisions.BanditSample.undithered(s))
             assertEquals(row.bool(model.premium), split.direction(row))
         }
@@ -57,7 +57,7 @@ class TreeFeatureProjectionTest {
         val split = IntThresholdSplit(model.budget, threshold = 500)
 
         repeat(20) { seed ->
-            val s = solver.sample(LocalSearchParams(randomSeed = seed.toLong()))!!
+            val s = solver.sample(LocalSearchParams(randomSeed = seed.toLong())).assignment!!
             val row = projection.encode(combo.decisions.BanditSample.undithered(s))
             val expected = row.int(model.budget) <= 500
             assertEquals(expected, split.direction(row))
@@ -73,7 +73,7 @@ class TreeFeatureProjectionTest {
         val split = NominalSplit(model.tier, label = "free")
 
         repeat(20) { seed ->
-            val s = solver.sample(LocalSearchParams(randomSeed = seed.toLong()))!!
+            val s = solver.sample(LocalSearchParams(randomSeed = seed.toLong())).assignment!!
             val row = projection.encode(combo.decisions.BanditSample.undithered(s))
             assertEquals(row.nominal(model.tier) == "free", split.direction(row))
         }
@@ -113,7 +113,7 @@ class TreeFeatureProjectionTest {
         val space = model.compileSpace()
         val projection = TreeFeatureProjection(space)
         val solver = LocalSearchSolver(space.compiled.problem)
-        val s = solver.sample(LocalSearchParams(randomSeed = 99L))!!
+        val s = solver.sample(LocalSearchParams(randomSeed = 99L)).assignment!!
         val row = projection.encode(combo.decisions.BanditSample.undithered(s))
         // No optionals declared in ToyTree → everything is always present.
         assertTrue(row.isPresent(model.premium))

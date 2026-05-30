@@ -6,7 +6,7 @@ import com.eignex.kumulant.core.Result
 import com.eignex.kumulant.core.SeriesStat
 import combo.bandit.NoFeasibleSampleException
 import combo.bandit.PredictionLearner
-import com.eignex.kumulant.bandit.BanditPolicy
+import com.eignex.kumulant.bandit.univariate.BanditPolicy
 import combo.decisions.BanditSample
 import combo.decisions.CompiledDecisionSpace
 import combo.util.RandomSequence

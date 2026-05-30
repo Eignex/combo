@@ -91,7 +91,7 @@ class LinearFeatureFloatScalingTest {
         val countId = space.compiled.intVarIdByName.getValue("count")
 
         val solver = LocalSearchSolver(space.compiled.problem)
-        val sample = solver.sample(LocalSearchParams(randomSeed = 1L))!!
+        val sample = solver.sample(LocalSearchParams(randomSeed = 1L)).assignment!!
         // Undithered wrap on purpose: this test verifies the bucket-midpoint encoding,
         // which is what features look like in the absence of dither.
         val features = projection.encode(combo.decisions.BanditSample.undithered(sample), Context.Empty)

@@ -1,6 +1,6 @@
 package combo.bandit.glm
 
-import com.eignex.kumulant.stat.regression.LinearRegressionResult
+import com.eignex.kumulant.stat.regression.glm.LinearRegressionResult
 import combo.bandit.LearnerData
 import combo.bandit.SlotRemap
 import kotlinx.serialization.SerialName

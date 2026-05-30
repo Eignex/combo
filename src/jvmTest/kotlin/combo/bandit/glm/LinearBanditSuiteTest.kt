@@ -3,9 +3,9 @@ package combo.bandit.glm
 import com.eignex.klause.solver.localsearch.LocalSearchParams
 import com.eignex.klause.solver.localsearch.LocalSearchSolver
 import com.eignex.klause.solver.Sample
-import com.eignex.kumulant.stat.regression.FactorisedGaussian
-import com.eignex.kumulant.stat.regression.ConstantRate
-import com.eignex.kumulant.stat.regression.DiagonalRegression
+import com.eignex.kumulant.stat.regression.glm.FactorisedGaussian
+import com.eignex.kumulant.stat.regression.glm.ConstantRate
+import com.eignex.kumulant.stat.regression.glm.DiagonalRegressionStat
 import com.eignex.kumulant.stat.summary.MeanStat
 import combo.bandit.PredictionLearner
 import combo.bandit.PredictionBanditTestSuite
@@ -32,7 +32,7 @@ class LinearBanditSuiteTest : PredictionBanditTestSuite<LinearLearnerData>() {
     ): PredictionLearner<LinearLearnerData> {
         val projection = LinearFeatureProjection(space)
         val solver = LocalSearchSolver(space.compiled.problem)
-        val regression = DiagonalRegression(
+        val regression = DiagonalRegressionStat(
             featureSize = projection.featureSize,
             priorPrecision = 0.01,
             learningRate = ConstantRate(1.0),
@@ -43,7 +43,7 @@ class LinearBanditSuiteTest : PredictionBanditTestSuite<LinearLearnerData>() {
             posterior = FactorisedGaussian,
             exploration = 0.2,
             innerOptimizer = { obj, asm ->
-                solver.minimize(obj, LocalSearchParams(maxFlips = 200L, randomSeed = randomSeed.toLong(), assumptions = asm))
+                solver.minimize(obj, LocalSearchParams(maxFlips = 200L, randomSeed = randomSeed.toLong(), assumptions = asm)).assignment
             },
             randomSeed = randomSeed,
             maximize = maximize,

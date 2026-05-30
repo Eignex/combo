@@ -3,10 +3,10 @@ package combo.bandit.glm
 import com.eignex.klause.solver.Assumptions
 import com.eignex.klause.solver.LinearObjective
 import com.eignex.klause.solver.Sample
-import com.eignex.kumulant.stat.regression.LinearPosterior
+import com.eignex.kumulant.stat.regression.glm.LinearPosterior
 import com.eignex.kumulant.core.RegressionStat
 import com.eignex.kumulant.core.SeriesStat
-import com.eignex.kumulant.stat.regression.LinearRegressionResult
+import com.eignex.kumulant.stat.regression.glm.LinearRegressionResult
 import combo.bandit.NoFeasibleSampleException
 import combo.bandit.PredictionLearner
 import combo.decisions.BanditSample

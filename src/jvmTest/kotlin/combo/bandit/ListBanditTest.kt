@@ -5,7 +5,7 @@ import com.eignex.klause.solver.localsearch.LocalSearchSolver
 import com.eignex.klause.solver.Sample
 import com.eignex.kumulant.stat.summary.BernoulliSumResult
 import com.eignex.kumulant.stat.summary.MeanStat
-import com.eignex.kumulant.bandit.BetaBernoulliTS
+import com.eignex.kumulant.bandit.univariate.BetaBernoulliTS
 import combo.decisions.CompiledDecisionSpace
 import combo.decisions.DecisionSpace
 import combo.decisions.context

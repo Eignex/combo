@@ -9,7 +9,7 @@ import com.eignex.klause.solver.SolveResult
 import com.eignex.kumulant.stat.summary.MeanStat
 import combo.bandit.PredictionLearner
 import combo.bandit.PredictionBanditTestSuite
-import com.eignex.kumulant.bandit.Greedy
+import com.eignex.kumulant.bandit.univariate.Greedy
 import combo.decisions.CompiledDecisionSpace
 import combo.decisions.DecisionSpace
 import com.eignex.klause.ast.and
@@ -46,12 +46,12 @@ class RandomForestBanditTest : PredictionBanditTestSuite<ForestData>() {
             // "LS gave up". Without the cascade, an LS budget miss silently routes the
             // bandit through the LinearObjective fallback and biases its training data.
             proposeSample = { rng, assumptions ->
-                session.sample(LocalSearchParams(randomSeed = rng.nextLong(), assumptions = assumptions))
+                session.sample(LocalSearchParams(randomSeed = rng.nextLong(), assumptions = assumptions)).assignment
                     ?: backtrackSat(backtrack, rng, assumptions)
             },
             optimizeFallback = { objective, assumptions ->
-                session.minimize(objective, LocalSearchParams(randomSeed = 0L, assumptions = assumptions))
-                    ?: backtrack.minimize(objective, BacktrackParams(assumptions = assumptions))
+                session.minimize(objective, LocalSearchParams(randomSeed = 0L, assumptions = assumptions)).assignment
+                    ?: backtrack.minimize(objective, BacktrackParams(assumptions = assumptions)).assignment
             },
             nbrTrees = 6,
             mtry = null,
@@ -79,7 +79,7 @@ class RandomForestBanditTest : PredictionBanditTestSuite<ForestData>() {
         val (model, space) = freshSpace()
         val solver = LocalSearchSolver(space.compiled.problem)
         val sampler: (Random, com.eignex.klause.solver.Assumptions) -> Sample? =
-            { rng, asmps -> solver.sample(LocalSearchParams(randomSeed = rng.nextLong(), assumptions = asmps)) }
+            { rng, asmps -> solver.sample(LocalSearchParams(randomSeed = rng.nextLong(), assumptions = asmps)).assignment }
 
         fun forestWith(bagging: Boolean): RandomForestBandit<*> {
             val cfg = TreeConfig(splitPeriod = 5, minSamplesSplit = 10.0, minSamplesLeaf = 2.0)
@@ -146,15 +146,15 @@ class RandomForestBanditTest : PredictionBanditTestSuite<ForestData>() {
                 randomSeed = rng.nextLong(),
                 maxFlips = 4_000L,
                 assumptions = asmps,
-            )) ?: backtrackSat(backtrack, rng, asmps)
+            )).assignment ?: backtrackSat(backtrack, rng, asmps)
         }
         val bandit = RandomForestBandit.build(
             space = space,
             policy = Greedy(),
             proposeSample = sampler,
             optimizeFallback = { obj, asmps ->
-                session.minimize(obj, LocalSearchParams(randomSeed = 0L, maxFlips = 4_000L, assumptions = asmps))
-                    ?: backtrack.minimize(obj, BacktrackParams(assumptions = asmps))
+                session.minimize(obj, LocalSearchParams(randomSeed = 0L, maxFlips = 4_000L, assumptions = asmps)).assignment
+                    ?: backtrack.minimize(obj, BacktrackParams(assumptions = asmps)).assignment
             },
             nbrTrees = 4,
             mtry = null,
