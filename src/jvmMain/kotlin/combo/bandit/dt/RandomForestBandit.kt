@@ -81,6 +81,15 @@ class RandomForestBandit<R : Result>(
      * over-constraint.
      */
     val optimizeFallback: ((LinearObjective, Assumptions) -> Sample?)? = null,
+    /**
+     * klause session-based incremental solver driving the *primary* descent. When
+     * present, `choose` first runs the iterative session descent — pinning decisions
+     * onto the session's assumption stack and committing only those that keep a witness
+     * solvable. When the base problem can't be solved iteratively (a very hard instance
+     * the backend can't crack incrementally), the bandit falls back to the
+     * propagation-based CDCL descent below. Null → always use the CDCL descent.
+     */
+    val descentSession: DescentSession? = null,
     /** Enable Oza-Russell online bagging: per-tree Poisson(1) reweighting on every
      *  training observation. Defaults to true; turn off to make every tree see every
      *  observation identically (only useful when trees diverge solely via mtry). */
@@ -101,8 +110,91 @@ class RandomForestBandit<R : Result>(
     private val projection = TreeFeatureProjection(space)
     private var step: Long = 0L
 
-    override fun chooseOrThrow(): BanditSample = greedyDescent(thompson = true)
-    override fun optimalOrThrow(): BanditSample = greedyDescent(thompson = false)
+    override fun chooseOrThrow(): BanditSample = descend(thompson = true)
+    override fun optimalOrThrow(): BanditSample = descend(thompson = false)
+
+    /**
+     * Primary path: klause session-based iterative descent (when a [descentSession] is
+     * wired). Falls back to the propagation-based CDCL descent for hard problems the
+     * session solver can't crack iteratively (signalled by a null return).
+     */
+    private fun descend(thompson: Boolean): BanditSample {
+        val sess = descentSession
+        if (sess != null) {
+            greedyDescentSession(sess, thompson)?.let { return it }
+        }
+        return greedyDescentCdcl(thompson)
+    }
+
+    /**
+     * Session-based greedy descent. Pins each chosen `(variable, direction)` onto the
+     * klause [DescentSession] stack and keeps it only when a witness is still solvable;
+     * an over-constraining pin is popped and recorded as tried. Because every kept pin
+     * is verified feasible, the stack stays satisfiable throughout — no backjumping is
+     * needed. Returns null (so the caller falls back to CDCL) when even the base problem
+     * yields no witness from the iterative solver.
+     */
+    private fun greedyDescentSession(sess: DescentSession, thompson: Boolean): BanditSample? {
+        val rng = randomSequence.next()
+        val t = if (thompson) step++ else step
+        val boolIdByName = space.compiled.boolVarIdByName
+
+        while (sess.depth > 0) sess.pop()
+        sess.push(Assumptions.None)
+        val base = sess.sample(rng)
+        if (base == null) {
+            while (sess.depth > 0) sess.pop()
+            return null
+        }
+        var witness: Sample = base
+        val pinned = mutableMapOf<Int, Boolean>()
+        val tried = mutableSetOf<Pair<Int, Boolean>>()
+
+        try {
+            while (true) {
+                val byVar = mutableMapOf<Int, MutableList<SplitNode<R>>>()
+                for (tree in trees) {
+                    val node = tree.descendTo(pinned, boolIdByName)
+                    if (node !is SplitNode) continue
+                    val split = node.split
+                    if (split !is BoolSplit) continue
+                    val id = boolIdByName[split.handle.name] ?: continue
+                    if (id in pinned) continue
+                    byVar.getOrPut(id) { mutableListOf() }.add(node)
+                }
+                if (byVar.isEmpty()) break
+
+                var bestId = -1
+                var bestDirection = true
+                var bestScore = Double.NEGATIVE_INFINITY
+                for ((id, nodes) in byVar) {
+                    val merger = trees[0]
+                    val posSnap = merger.mergeArms(nodes.map { it.pos.arm })
+                    val negSnap = merger.mergeArms(nodes.map { it.neg.arm })
+                    val sPos = if (thompson) signed(policy.evaluate(posSnap, t, rng)) else signed(scalarMean(posSnap))
+                    val sNeg = if (thompson) signed(policy.evaluate(negSnap, t, rng)) else signed(scalarMean(negSnap))
+                    if (id to true !in tried && sPos > bestScore) { bestId = id; bestDirection = true; bestScore = sPos }
+                    if (id to false !in tried && sNeg > bestScore) { bestId = id; bestDirection = false; bestScore = sNeg }
+                }
+                if (bestId < 0) break
+
+                // Commit the pin only if a witness still exists under it; otherwise pop
+                // and record the direction as tried (chronological local backtrack).
+                sess.push(Assumptions(bools = mapOf(bestId to bestDirection)))
+                val s = sess.sample(rng)
+                if (s != null) {
+                    pinned[bestId] = bestDirection
+                    witness = s
+                } else {
+                    sess.pop()
+                    tried += bestId to bestDirection
+                }
+            }
+        } finally {
+            while (sess.depth > 0) sess.pop()
+        }
+        return BanditSample.dithered(witness, space, rng)
+    }
 
     /**
      * Iterative greedy literal-selection loop. When [thompson] is true, scores each
@@ -110,7 +202,7 @@ class RandomForestBandit<R : Result>(
      * if it's `ThompsonSampling`); when false, scores by deterministic mean — the
      * exploit-only counterpart used by `optimalOrThrow`.
      */
-    private fun greedyDescent(thompson: Boolean): BanditSample {
+    private fun greedyDescentCdcl(thompson: Boolean): BanditSample {
         val rng = randomSequence.next()
         val t = if (thompson) step++ else step
         val boolIdByName = space.compiled.boolVarIdByName
@@ -319,6 +411,7 @@ class RandomForestBandit<R : Result>(
             config: TreeConfig = TreeConfig(),
             retryBudget: Int = 32,
             optimizeFallback: ((LinearObjective, Assumptions) -> Sample?)? = null,
+            descentSession: DescentSession? = null,
             randomSeed: Int = System.currentTimeMillis().toInt(),
             maximize: Boolean = true,
             rewards: SeriesStat<*>? = null,
@@ -339,6 +432,7 @@ class RandomForestBandit<R : Result>(
                 trees = trees,
                 retryBudget = retryBudget,
                 optimizeFallback = optimizeFallback,
+                descentSession = descentSession,
                 randomSeed = randomSeed,
                 maximize = maximize,
                 rewards = rewards,
