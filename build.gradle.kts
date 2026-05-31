@@ -25,17 +25,14 @@ kotlin {
         commonMain.dependencies {
             api("com.eignex:klause")
             implementation("com.eignex:kumulant:0.3.0")
-            implementation("com.eignex:kpermute:1.1.2")
             compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-core:1.10.0")
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
-            implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.10.0")
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
         }
         jvmMain.dependencies {
             api("com.eignex:klause-logicng")
-            implementation("org.slf4j:slf4j-api:2.0.17")
         }
     }
 }
