@@ -2,8 +2,8 @@ package combo.bandit.dt
 
 import com.eignex.klause.solver.Assumptions
 import com.eignex.klause.solver.Sample
-import com.eignex.kumulant.core.Result
 import com.eignex.kumulant.core.SeriesStat
+import com.eignex.kumulant.stat.summary.WeightedVarianceResult
 import combo.bandit.NoFeasibleSampleException
 import combo.bandit.PredictionLearner
 import com.eignex.kumulant.bandit.univariate.BanditPolicy
@@ -31,11 +31,11 @@ import kotlin.random.Random
  * `optimalOrThrow` performs the same walk-down but follows the deterministic mean at
  * each split instead of a policy draw — the no-exploration counterpart.
  */
-class DecisionTreeBandit<R : Result>(
+class DecisionTreeBandit(
     val space: CompiledDecisionSpace,
-    val policy: BanditPolicy<R>,
+    val policy: BanditPolicy<WeightedVarianceResult>,
     val proposeSample: (Random, Assumptions) -> Sample?,
-    val tree: Tree<R> = Tree(policy, defaultSplitCandidates(space)),
+    val tree: Tree = Tree(policy, defaultSplitCandidates(space)),
     val retryBudget: Int = 32,
     override val randomSeed: Int = System.currentTimeMillis().toInt(),
     override val maximize: Boolean = true,
@@ -60,7 +60,7 @@ class DecisionTreeBandit<R : Result>(
         return realise(choice, rng)
     }
 
-    private fun realise(choice: LeafChoice<R>, rng: Random): BanditSample {
+    private fun realise(choice: LeafChoice, rng: Random): BanditSample {
         val m = materialize(space, choice.path)
         val sample = materializeLeaf(
             rng = rng,

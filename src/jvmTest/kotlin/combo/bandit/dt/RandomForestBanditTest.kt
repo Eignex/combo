@@ -6,6 +6,7 @@ import com.eignex.klause.solver.localsearch.LocalSearchParams
 import com.eignex.klause.solver.localsearch.LocalSearchSolver
 import com.eignex.klause.solver.Sample
 import com.eignex.klause.solver.SolveResult
+import com.eignex.kumulant.stat.regression.tree.RegressionTreeConfig
 import com.eignex.kumulant.stat.summary.MeanStat
 import combo.bandit.PredictionLearner
 import combo.bandit.PredictionBanditTestSuite
@@ -61,7 +62,7 @@ class RandomForestBanditTest : PredictionBanditTestSuite<ForestData>() {
             },
             nbrTrees = 6,
             mtry = null,
-            config = TreeConfig(
+            config = RegressionTreeConfig(
                 splitPeriod = 5,
                 minSamplesSplit = 10.0,
                 minSamplesLeaf = 2.0,
@@ -87,8 +88,8 @@ class RandomForestBanditTest : PredictionBanditTestSuite<ForestData>() {
         val sampler: (Random, com.eignex.klause.solver.Assumptions) -> Sample? =
             { rng, asmps -> solver.sample(LocalSearchParams(randomSeed = rng.nextLong(), assumptions = asmps)).assignment }
 
-        fun forestWith(bagging: Boolean): RandomForestBandit<*> {
-            val cfg = TreeConfig(splitPeriod = 5, minSamplesSplit = 10.0, minSamplesLeaf = 2.0)
+        fun forestWith(bagging: Boolean): RandomForestBandit {
+            val cfg = RegressionTreeConfig(splitPeriod = 5, minSamplesSplit = 10.0, minSamplesLeaf = 2.0)
             val candidates = defaultSplitCandidates(space)
             val seedRng = Random(11)
             val trees = (0 until 8).map { Tree(Greedy(), candidates, cfg, randomSeed = seedRng.nextInt()) }
@@ -114,7 +115,7 @@ class RandomForestBanditTest : PredictionBanditTestSuite<ForestData>() {
         )
     }
 
-    private fun trainAndMeasureLeafSpread(model: TinySpace, forest: RandomForestBandit<*>): Double {
+    private fun trainAndMeasureLeafSpread(model: TinySpace, forest: RandomForestBandit): Double {
         val aId = forest.space.compiled.boolVarIdByName[model.a.name]!!
         val rng = Random(42)
         // Bernoulli rewards depending on `a` only — gives trees the same signal to
@@ -164,7 +165,7 @@ class RandomForestBanditTest : PredictionBanditTestSuite<ForestData>() {
             },
             nbrTrees = 4,
             mtry = null,
-            config = TreeConfig(splitPeriod = 5, minSamplesSplit = 10.0, minSamplesLeaf = 2.0),
+            config = RegressionTreeConfig(splitPeriod = 5, minSamplesSplit = 10.0, minSamplesLeaf = 2.0),
             randomSeed = 23,
             maximize = true,
         )
