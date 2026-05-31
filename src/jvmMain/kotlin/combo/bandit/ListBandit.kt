@@ -95,8 +95,7 @@ class ListBandit<R : Result>(
         // is bookkeeping on top — we look up the arm by the underlying [Sample].
         val idx = samples.indexOf(sample.sample)
         if (idx >= 0) policy.update(arms[idx], reward, weight)
-        @Suppress("UNCHECKED_CAST")
-        (rewards as? SeriesStat<Any>)?.update(reward, 0L, weight)
+        rewards?.update(reward, 0L, weight)
     }
 
     // Learner<D> interface — contextless overloads default to empty context.

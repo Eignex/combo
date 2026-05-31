@@ -71,7 +71,6 @@ class RandomForestBandit(
     val policy: BanditPolicy<WeightedVarianceResult>,
     val proposeSample: (Random, Assumptions) -> Sample?,
     val trees: List<Tree>,
-    val retryBudget: Int = 32,
     /**
      * Recovery hook for over-constrained decision sets. When [proposeSample] returns
      * null under the greedy-and-propagated pin set, the bandit builds a
@@ -173,8 +172,8 @@ class RandomForestBandit(
                 for ((id, nodes) in byVar) {
                     val posSnap = Tree.mergeAggregates(nodes.map { it.pos.aggregate() })
                     val negSnap = Tree.mergeAggregates(nodes.map { it.neg.aggregate() })
-                    val sPos = if (thompson) signed(policy.evaluate(posSnap, t, rng)) else signed(scalarMean(posSnap))
-                    val sNeg = if (thompson) signed(policy.evaluate(negSnap, t, rng)) else signed(scalarMean(negSnap))
+                    val sPos = if (thompson) signed(policy.evaluate(posSnap, t, rng)) else signed(posSnap.mean)
+                    val sNeg = if (thompson) signed(policy.evaluate(negSnap, t, rng)) else signed(negSnap.mean)
                     if (id to true !in tried && sPos > bestScore) { bestId = id; bestDirection = true; bestScore = sPos }
                     if (id to false !in tried && sNeg > bestScore) { bestId = id; bestDirection = false; bestScore = sNeg }
                 }
@@ -257,9 +256,9 @@ class RandomForestBandit(
                 val posSnap = Tree.mergeAggregates(nodes.map { it.pos.aggregate() })
                 val negSnap = Tree.mergeAggregates(nodes.map { it.neg.aggregate() })
                 val sPos = if (thompson) signed(policy.evaluate(posSnap, t, rng))
-                           else signed(scalarMean(posSnap))
+                           else signed(posSnap.mean)
                 val sNeg = if (thompson) signed(policy.evaluate(negSnap, t, rng))
-                           else signed(scalarMean(negSnap))
+                           else signed(negSnap.mean)
                 if (id to true !in tried && sPos > bestScore) { bestId = id; bestDirection = true; bestScore = sPos }
                 if (id to false !in tried && sNeg > bestScore) { bestId = id; bestDirection = false; bestScore = sNeg }
             }
@@ -410,7 +409,6 @@ class RandomForestBandit(
             nbrTrees: Int = 10,
             mtry: Int? = null,
             config: RegressionTreeConfig = RegressionTreeConfig(),
-            retryBudget: Int = 32,
             optimizeFallback: ((LinearObjective, Assumptions) -> Sample?)? = null,
             descentSession: DescentSession? = null,
             randomSeed: Int = System.currentTimeMillis().toInt(),
@@ -431,7 +429,6 @@ class RandomForestBandit(
                 policy = policy,
                 proposeSample = proposeSample,
                 trees = trees,
-                retryBudget = retryBudget,
                 optimizeFallback = optimizeFallback,
                 descentSession = descentSession,
                 randomSeed = randomSeed,

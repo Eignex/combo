@@ -269,13 +269,13 @@ class LinearBanditTest {
         assertTrue(inactiveSample != null && activeSample != null,
             "solver should produce both gate-off and gate-on samples")
 
-        val inactiveFeatures = projection.encode(combo.decisions.BanditSample.undithered(inactiveSample!!))
+        val inactiveFeatures = projection.encode(combo.decisions.BanditSample.undithered(inactiveSample))
         val muteSlot = projection.layout.boolStart +
             space.compiled.boolVarIdByName["audio.mute"]!!
         assertEquals(0.0, inactiveFeatures[muteSlot])
 
-        val activeFeatures = projection.encode(combo.decisions.BanditSample.undithered(activeSample!!))
-        val expected = if (activeSample!!.bools[space.compiled.boolVarIdByName["audio.mute"]!!]) 1.0 else 0.0
+        val activeFeatures = projection.encode(combo.decisions.BanditSample.undithered(activeSample))
+        val expected = if (activeSample.bools[space.compiled.boolVarIdByName["audio.mute"]!!]) 1.0 else 0.0
         assertEquals(expected, activeFeatures[muteSlot])
     }
 
@@ -299,7 +299,7 @@ class LinearBanditTest {
         }
         val ex = runCatching { bandit.chooseOrThrow(incompleteCtx) }.exceptionOrNull()
         assertTrue(ex != null, "missing context value should fail fast")
-        assertTrue(ex!!.message!!.contains("segment"),
+        assertTrue(ex.message!!.contains("segment"),
             "error should name the missing handle: got '${ex.message}'")
     }
 }

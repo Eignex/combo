@@ -125,9 +125,8 @@ class RandomBandit<P : SolverParams>(
 
     override fun optimalOrThrow(): BanditSample = chooseOrThrow()
 
-    @Suppress("UNCHECKED_CAST")
     override fun update(sample: BanditSample, reward: Double, weight: Double) {
-        (rewards as? SeriesStat<Any>)?.update(reward, 0L, weight)
+        rewards?.update(reward, 0L, weight)
     }
 
     override fun importData(data: RandomLearnerData) {}

@@ -88,7 +88,7 @@ class SubSpaceTest {
         assertTrue(area.variables["flag"] is BoolSpec)
         val budget = area.variables["budget"]
         assertTrue(budget is IntSpec)
-        assertEquals(0, (budget as IntSpec).min)
+        assertEquals(0, budget.min)
         assertEquals(100, budget.max)
     }
 
@@ -166,7 +166,6 @@ class SubSpaceTest {
         // Active condition for the leaf should require both gates.
         val cond = space.activeConditions["outer.inner.volume"]
         assertTrue(cond is com.eignex.klause.ast.And)
-        cond as com.eignex.klause.ast.And
         assertEquals(2, cond.children.size)
     }
 
