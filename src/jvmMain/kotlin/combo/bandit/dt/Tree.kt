@@ -1,16 +1,13 @@
 package combo.bandit.dt
 
 import com.eignex.kumulant.bandit.univariate.BanditPolicy
-import com.eignex.kumulant.core.Result
 import com.eignex.kumulant.stat.regression.tree.RegressionLeafNode
 import com.eignex.kumulant.stat.regression.tree.RegressionNode
 import com.eignex.kumulant.stat.regression.tree.RegressionSplitNode
 import com.eignex.kumulant.stat.regression.tree.RegressionTree
 import com.eignex.kumulant.stat.regression.tree.RegressionTreeConfig
 import com.eignex.kumulant.stat.regression.tree.aggregate
-import com.eignex.kumulant.stat.summary.MomentsResult
 import com.eignex.kumulant.stat.summary.VarianceStat
-import com.eignex.kumulant.stat.summary.WeightedMeanResult
 import com.eignex.kumulant.stat.summary.WeightedVarianceResult
 import kotlin.random.Random
 
@@ -132,14 +129,3 @@ data class PathStep(val split: Split, val tookPos: Boolean)
 
 /** Walk result: the chosen kumulant leaf node plus the sequence of splits taken to it. */
 data class LeafChoice(val leaf: RegressionLeafNode<TreeRow>, val path: List<PathStep>)
-
-/** Read a scalar mean from any of the kumulant Result types used as bandit-arm
- *  sufficient statistics. Used by both DT and RF for prediction and scoring. */
-internal fun scalarMean(snapshot: Result): Double = when (snapshot) {
-    is WeightedVarianceResult -> snapshot.mean
-    is WeightedMeanResult -> snapshot.mean
-    is MomentsResult -> snapshot.mean
-    is com.eignex.kumulant.stat.summary.BernoulliSumResult ->
-        if (snapshot.trials <= 0.0) 0.0 else snapshot.successes / snapshot.trials
-    else -> error("Tree can't read mean from snapshot type ${snapshot::class}")
-}

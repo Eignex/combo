@@ -61,19 +61,10 @@ class LinearBandit<R : LinearRegressionResult>(
     }
 
     fun update(sample: BanditSample, context: Context, reward: Double, weight: Double = 1.0) {
-        @Suppress("UNCHECKED_CAST")
-        (rewards as? SeriesStat<Any>)?.update(reward, 0L, weight)
-        if (testAbsError != null) {
-            val err = abs(reward - predict(sample, context))
-            @Suppress("UNCHECKED_CAST")
-            (testAbsError as SeriesStat<Any>).update(err, 0L, weight)
-        }
+        rewards?.update(reward, 0L, weight)
+        if (testAbsError != null) testAbsError.update(abs(reward - predict(sample, context)), 0L, weight)
         train(sample, context, reward, weight)
-        if (trainAbsError != null) {
-            val err = abs(reward - predict(sample, context))
-            @Suppress("UNCHECKED_CAST")
-            (trainAbsError as SeriesStat<Any>).update(err, 0L, weight)
-        }
+        if (trainAbsError != null) trainAbsError.update(abs(reward - predict(sample, context)), 0L, weight)
     }
 
     fun chooseOrThrow(context: Context): BanditSample {

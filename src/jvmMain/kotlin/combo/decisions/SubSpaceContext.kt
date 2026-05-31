@@ -176,6 +176,5 @@ internal class RootKlauseSchema : VariableSchema() {
         add(name, NamedConstraint(expr))
     }
 
-    @Suppress("UNCHECKED_CAST")
-    fun entries(): Map<String, SchemaEntry> = (definition().entries as Map<String, SchemaEntry>)
+    fun entries(): Map<String, SchemaEntry> = definition().entries
 }

@@ -53,9 +53,9 @@ internal class SampleTreeRow(
     override fun isPresent(handle: BoolHandle): Boolean = space.isActive(handle, sample.sample)
     override fun isPresent(handle: IntHandle): Boolean = space.isActive(handle, sample.sample)
     override fun isPresent(handle: NominalHandle): Boolean = space.isActive(handle, sample.sample)
-    override fun isPresent(handle: FloatHandle): Boolean =
-        // Float handles share klause's int-id space — the active condition is keyed on the same name.
-        space.activeConditions[handle.name] == null || space.isActive(
-            com.eignex.klause.schema.IntHandle(handle.name, 0, handle.buckets - 1), sample.sample,
-        )
+    override fun isPresent(handle: FloatHandle): Boolean {
+        // Float handles share klause's int-id space; presence is keyed on the variable name.
+        val cond = space.activeConditions[handle.name] ?: return true
+        return space.evaluate(cond, sample.sample)
+    }
 }
