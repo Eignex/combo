@@ -31,9 +31,6 @@ kotlin {
             implementation(kotlin("test"))
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
         }
-        jvmMain.dependencies {
-            api("com.eignex:klause-logicng")
-        }
     }
 }
 
