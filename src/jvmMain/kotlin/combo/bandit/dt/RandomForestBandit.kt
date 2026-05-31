@@ -5,8 +5,11 @@ import com.eignex.klause.solver.LinearObjective
 import com.eignex.klause.solver.propagation.PropagationResult
 import com.eignex.klause.solver.propagation.PropagationSession
 import com.eignex.klause.solver.Sample
-import com.eignex.kumulant.core.Result
 import com.eignex.kumulant.core.SeriesStat
+import com.eignex.kumulant.stat.regression.tree.RegressionSplitNode
+import com.eignex.kumulant.stat.regression.tree.RegressionTreeConfig
+import com.eignex.kumulant.stat.regression.tree.aggregate
+import com.eignex.kumulant.stat.summary.WeightedVarianceResult
 import combo.bandit.NoFeasibleSampleException
 import combo.bandit.PredictionLearner
 import com.eignex.kumulant.bandit.univariate.BanditPolicy
@@ -63,11 +66,11 @@ import kotlin.random.Random
  * stop the descent on the tree carrying them. Adding [NominalSplit] / float-typed
  * frontier scoring is a small future slice.
  */
-class RandomForestBandit<R : Result>(
+class RandomForestBandit(
     val space: CompiledDecisionSpace,
-    val policy: BanditPolicy<R>,
+    val policy: BanditPolicy<WeightedVarianceResult>,
     val proposeSample: (Random, Assumptions) -> Sample?,
-    val trees: List<Tree<R>>,
+    val trees: List<Tree>,
     val retryBudget: Int = 32,
     /**
      * Recovery hook for over-constrained decision sets. When [proposeSample] returns
@@ -152,10 +155,10 @@ class RandomForestBandit<R : Result>(
 
         try {
             while (true) {
-                val byVar = mutableMapOf<Int, MutableList<SplitNode<R>>>()
+                val byVar = mutableMapOf<Int, MutableList<RegressionSplitNode<TreeRow>>>()
                 for (tree in trees) {
                     val node = tree.descendTo(pinned, boolIdByName)
-                    if (node !is SplitNode) continue
+                    if (node !is RegressionSplitNode) continue
                     val split = node.split
                     if (split !is BoolSplit) continue
                     val id = boolIdByName[split.handle.name] ?: continue
@@ -168,9 +171,8 @@ class RandomForestBandit<R : Result>(
                 var bestDirection = true
                 var bestScore = Double.NEGATIVE_INFINITY
                 for ((id, nodes) in byVar) {
-                    val merger = trees[0]
-                    val posSnap = merger.mergeArms(nodes.map { it.pos.arm })
-                    val negSnap = merger.mergeArms(nodes.map { it.neg.arm })
+                    val posSnap = Tree.mergeAggregates(nodes.map { it.pos.aggregate() })
+                    val negSnap = Tree.mergeAggregates(nodes.map { it.neg.aggregate() })
                     val sPos = if (thompson) signed(policy.evaluate(posSnap, t, rng)) else signed(scalarMean(posSnap))
                     val sNeg = if (thompson) signed(policy.evaluate(negSnap, t, rng)) else signed(scalarMean(negSnap))
                     if (id to true !in tried && sPos > bestScore) { bestId = id; bestDirection = true; bestScore = sPos }
@@ -234,10 +236,10 @@ class RandomForestBandit<R : Result>(
             // Group frontier SplitNodes by the klause bool var they branch on. Variables
             // already pinned (whether by a decision or by implication) aren't on any
             // tree's frontier — descendTo walked past them.
-            val byVar = mutableMapOf<Int, MutableList<SplitNode<R>>>()
+            val byVar = mutableMapOf<Int, MutableList<RegressionSplitNode<TreeRow>>>()
             for (tree in trees) {
                 val node = tree.descendTo(pinned, boolIdByName)
-                if (node !is SplitNode) continue
+                if (node !is RegressionSplitNode) continue
                 val split = node.split
                 if (split !is BoolSplit) continue
                 val id = boolIdByName[split.handle.name] ?: continue
@@ -245,16 +247,15 @@ class RandomForestBandit<R : Result>(
             }
             if (byVar.isEmpty()) break
 
-            // For each candidate variable, merge pos/neg arms across the trees whose
-            // frontier branches on it; score both directions, pick the best
+            // For each candidate variable, merge pos/neg subtree aggregates across the
+            // trees whose frontier branches on it; score both directions, pick the best
             // (id, direction) pair that hasn't already been tried.
             var bestId = -1
             var bestDirection = true
             var bestScore = Double.NEGATIVE_INFINITY
             for ((id, nodes) in byVar) {
-                val merger = trees[0]
-                val posSnap = merger.mergeArms(nodes.map { it.pos.arm })
-                val negSnap = merger.mergeArms(nodes.map { it.neg.arm })
+                val posSnap = Tree.mergeAggregates(nodes.map { it.pos.aggregate() })
+                val negSnap = Tree.mergeAggregates(nodes.map { it.neg.aggregate() })
                 val sPos = if (thompson) signed(policy.evaluate(posSnap, t, rng))
                            else signed(scalarMean(posSnap))
                 val sNeg = if (thompson) signed(policy.evaluate(negSnap, t, rng))
@@ -402,13 +403,13 @@ class RandomForestBandit<R : Result>(
          * Breiman default `⌈√p⌉` unless overridden). Seeded deterministically from
          * [randomSeed] so the same call always produces the same forest.
          */
-        fun <R : Result> build(
+        fun build(
             space: CompiledDecisionSpace,
-            policy: BanditPolicy<R>,
+            policy: BanditPolicy<WeightedVarianceResult>,
             proposeSample: (Random, Assumptions) -> Sample?,
             nbrTrees: Int = 10,
             mtry: Int? = null,
-            config: TreeConfig = TreeConfig(),
+            config: RegressionTreeConfig = RegressionTreeConfig(),
             retryBudget: Int = 32,
             optimizeFallback: ((LinearObjective, Assumptions) -> Sample?)? = null,
             descentSession: DescentSession? = null,
@@ -417,7 +418,7 @@ class RandomForestBandit<R : Result>(
             rewards: SeriesStat<*>? = null,
             trainAbsError: SeriesStat<*>? = null,
             testAbsError: SeriesStat<*>? = null,
-        ): RandomForestBandit<R> {
+        ): RandomForestBandit {
             val candidates = defaultSplitCandidates(space)
             val k = (mtry ?: defaultMtry(candidates.size)).coerceAtMost(candidates.size)
             val perTreeConfig = config.copy(mtry = k)

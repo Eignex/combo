@@ -6,6 +6,7 @@ import com.eignex.klause.solver.localsearch.LocalSearchParams
 import com.eignex.klause.solver.localsearch.LocalSearchSolver
 import com.eignex.klause.solver.Sample
 import com.eignex.klause.solver.SolveResult
+import com.eignex.kumulant.stat.regression.tree.RegressionTreeConfig
 import com.eignex.kumulant.stat.summary.MeanStat
 import combo.bandit.PredictionLearner
 import combo.bandit.PredictionBanditTestSuite
@@ -30,7 +31,7 @@ class DecisionTreeBanditTest : PredictionBanditTestSuite<DecisionTreeData>() {
         val session = com.eignex.klause.solver.localsearch.LocalSearchSession(solver)
         val backtrack = BacktrackSolver(space.compiled.problem)
         // TinySpace has 4 feasible samples and 600 rounds — keep splitting cheap.
-        val config = TreeConfig(
+        val config = RegressionTreeConfig(
             splitPeriod = 5,
             minSamplesSplit = 10.0,
             minSamplesLeaf = 2.0,
