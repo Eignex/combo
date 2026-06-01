@@ -72,7 +72,7 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
                 // For float slots we prefer the dithered continuous value (carried by
                 // BanditSample) over the bucket midpoint — same dimensional units,
                 // sub-bucket precision. realValue handles the identity case for true ints.
-                val scaling = layout.floatScaling[i]
+                val scaling = layout.floatSpecs[i]
                 val v = if (scaling != null) floatFeatureFor(i, sample)
                         else layout.realValue(i, sample.ints[i])
                 out[layout.intStart + i] = v
@@ -122,7 +122,7 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
             val id = space.compiled.intVarIdByName[handle.name]
                 ?: error("interaction references unknown int '${handle.name}'")
             if (!intActive(id, sample.sample)) 0.0
-            else if (id in layout.floatScaling) floatFeatureFor(id, sample)
+            else if (id in layout.floatSpecs) floatFeatureFor(id, sample)
             else layout.realValue(id, sample.ints[id])
         }
         is NominalHandle -> error("nominal handle should not be a direct scalar; expand via interaction logic")

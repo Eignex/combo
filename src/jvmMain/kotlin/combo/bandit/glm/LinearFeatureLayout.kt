@@ -1,5 +1,6 @@
 package combo.bandit.glm
 
+import com.eignex.klause.ast.FloatSpec
 import com.eignex.klause.schema.NominalHandle
 import combo.decisions.CompiledDecisionSpace
 import combo.decisions.InteractionHandle
@@ -18,27 +19,26 @@ import combo.decisions.InteractionHandle
  * **Float scaling.** Klause represents a float variable as a bucketed int internally,
  * but the bandit fits its model in real-value (Double) units — credible intervals,
  * EI/UCB calculations, and posterior draws are all dimensionally meaningful only when
- * the linear weight is per-unit-real-value. [floatScaling] records the affine map
- * `real = scale · bucket + offset` for every int slot that is actually a bucketed
- * float, where:
- *   - `scale  = (max - min) / (buckets - 1)`
- *   - `offset = min`
+ * the linear weight is per-unit-real-value. [floatSpecs] records the klause [FloatSpec]
+ * for every int slot that is actually a bucketed float; the bucket↔real affine map
+ * (`real = scale · bucket + min`) is read straight off [FloatSpec.scale] /
+ * [FloatSpec.realValue], the single source of truth klause's own decode uses.
  *
  * [LinearFeatureProjection] uses this to:
  *   - emit the *decoded* real value at the int slot in [encode], so models see real-
  *     value features;
  *   - rewrite a model weight `w` (per-unit-real-value) into the bucket coefficient
- *     `w · scale` for klause's [LinearObjective], while accumulating `w · offset` into
+ *     `w · scale` for klause's [LinearObjective], while accumulating `w · min` into
  *     the objective's constant term so the round-trip is exact.
  *
- * True int variables (no entry in [floatScaling]) keep the identity scaling — the
+ * True int variables (no entry in [floatSpecs]) keep the identity scaling — the
  * feature is the int value, the weight rolls straight into klause's coefficient.
  */
 class LinearFeatureLayout internal constructor(
     val numBoolVars: Int,
     val numIntVars: Int,
     val interactions: List<InteractionHandle>,
-    val floatScaling: Map<Int, FloatScaling>,
+    val floatSpecs: Map<Int, FloatSpec>,
 ) {
     val boolStart: Int = 0
     val intStart: Int = numBoolVars
@@ -61,46 +61,36 @@ class LinearFeatureLayout internal constructor(
 
     /** Decode a bucket-int back into its real-value Double for int slot [intVarId].
      *  Identity (`bucket.toDouble()`) when the slot is a true int. */
-    internal fun realValue(intVarId: Int, bucket: Int): Double {
-        val s = floatScaling[intVarId] ?: return bucket.toDouble()
-        return s.scale * bucket + s.offset
-    }
+    internal fun realValue(intVarId: Int, bucket: Int): Double =
+        floatSpecs[intVarId]?.realValue(bucket) ?: bucket.toDouble()
 
     /**
      * Translate a model weight (per-unit-real-value) for int slot [intVarId] into the
      * pair `(bucketCoeff, constantContribution)`. For true ints the pair is `(w, 0)`;
-     * for floats it's `(w · scale, w · offset)`. The caller accumulates the constant
+     * for floats it's `(w · scale, w · min)`. The caller accumulates the constant
      * contribution into the objective's bias term.
      */
     internal fun coefficientForInt(intVarId: Int, modelWeight: Double): Pair<Double, Double> {
-        val s = floatScaling[intVarId] ?: return modelWeight to 0.0
-        return modelWeight * s.scale to modelWeight * s.offset
+        val spec = floatSpecs[intVarId] ?: return modelWeight to 0.0
+        return modelWeight * spec.scale to modelWeight * spec.min
     }
 
     companion object {
         fun from(space: CompiledDecisionSpace): LinearFeatureLayout {
-            val floatScaling = mutableMapOf<Int, FloatScaling>()
+            val floatSpecs = mutableMapOf<Int, FloatSpec>()
             for ((name, spec) in space.compiled.floatDecoders) {
                 val id = space.compiled.intVarIdByName[name] ?: continue
-                val span = spec.max - spec.min
-                val divisor = (spec.buckets - 1).coerceAtLeast(1).toDouble()
-                floatScaling[id] = FloatScaling(
-                    scale = span / divisor,
-                    offset = spec.min,
-                )
+                floatSpecs[id] = spec
             }
             return LinearFeatureLayout(
                 numBoolVars = space.compiled.problem.numBoolVars,
                 numIntVars = space.compiled.problem.numIntVars,
                 interactions = space.interactions,
-                floatScaling = floatScaling,
+                floatSpecs = floatSpecs,
             )
         }
     }
 }
-
-/** Affine map between a bucketed-int and its real-value Double: `real = scale · b + offset`. */
-data class FloatScaling(val scale: Double, val offset: Double)
 
 internal fun InteractionHandle.nominalSide(): NominalHandle? = when {
     lhs is NominalHandle -> lhs
