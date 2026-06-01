@@ -26,6 +26,7 @@ import com.eignex.klause.ast.NominalEq
 import com.eignex.klause.ast.NominalSpec
 import com.eignex.klause.ast.Not
 import com.eignex.klause.ast.Or
+import com.eignex.klause.ast.PresenceSpec
 import com.eignex.klause.ast.SchemaEntry
 import com.eignex.klause.ast.VarSpec
 import com.eignex.klause.compile.CompiledProblem
@@ -139,9 +140,10 @@ data class DecisionSpaceDef(
 
     private fun emitOptional(out: MutableMap<String, SchemaEntry>, qualified: String, spec: VarSpec) {
         val gateName = gateNameFor(qualified)
-        out[gateName] = BoolSpec
+        // The gate is a klause PresenceSpec naming its value var, so klause's own absent-value
+        // pinning fixes the value to its default when the gate is false — no combo `__pin_`.
+        out[gateName] = PresenceSpec(qualified)
         out[qualified] = spec
-        out["__pin_$qualified"] = NamedConstraint(synthesizePin(qualified, spec, gateName))
     }
 }
 
@@ -196,6 +198,10 @@ internal class SchemaLoader : VariableSchema() {
 internal fun synthesizePin(qualifiedName: String, spec: VarSpec, gateName: String): BoolExpr {
     val notGate = Not(BoolRef(gateName))
     return when (spec) {
+        is PresenceSpec ->
+            // A presence marker is a gate, never a pinnable value. The synthesizePin path is
+            // only used for sub-space-gated value vars; gates never reach here.
+            throw UnsupportedOperationException("PresenceSpec '$qualifiedName' is a gate, not a value")
         is BoolSpec -> Implies(notGate, Not(BoolRef(qualifiedName)))
         is IntSpec -> Implies(notGate, IntCompare(IntRef(qualifiedName), IntCmpOp.EQ, IntLit(spec.min)))
         is NominalSpec -> Implies(notGate, NominalEq(qualifiedName, spec.labels[0]))

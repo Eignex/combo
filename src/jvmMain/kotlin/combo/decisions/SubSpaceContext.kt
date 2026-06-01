@@ -10,6 +10,7 @@ import com.eignex.klause.ast.IntCmpOp
 import com.eignex.klause.ast.IntCompare
 import com.eignex.klause.ast.IntLit
 import com.eignex.klause.ast.IntRef
+import com.eignex.klause.ast.PresenceSpec
 import com.eignex.klause.ast.IntSpec
 import com.eignex.klause.ast.NamedConstraint
 import com.eignex.klause.ast.NominalEq
@@ -104,22 +105,40 @@ internal class RootKlauseSchema : VariableSchema() {
     private val _multiples = LinkedHashMap<String, List<String>>()
     val multiples: Map<String, List<String>> get() = _multiples
 
-    fun registerBool(name: String, activeCondition: BoolExpr?): BoolHandle {
-        add(name, BoolSpec)
+    /**
+     * Register a presence Boolean gating the optional value variable [valueName]. Emitted as
+     * a klause [PresenceSpec] so klause's own absent-value pinning fixes [valueName] to its
+     * default when this gate is false — combo no longer synthesises that pin itself. When
+     * this gate is itself nested under an [activeCondition] (an optional sub-space), it's
+     * still pinned false while the parent is absent.
+     */
+    fun registerPresence(name: String, valueName: String, activeCondition: BoolExpr?): BoolHandle {
+        add(name, PresenceSpec(valueName))
         if (activeCondition != null) {
             _activeConditions[name] = activeCondition
-            // !activeCondition → !var (default = false)
             add("__pin_$name", NamedConstraint(Implies(Not(activeCondition), Not(BoolRef(name)))))
         }
         return BoolHandle(name)
     }
 
-    fun registerInt(name: String, min: Int, max: Int, activeCondition: BoolExpr?): IntHandle {
+    /** [pin] = false records the activation condition (for feature-projection masking) but
+     *  skips the default-pin constraint — used when klause pins the value via [PresenceSpec]. */
+    fun registerBool(name: String, activeCondition: BoolExpr?, pin: Boolean = true): BoolHandle {
+        add(name, BoolSpec)
+        if (activeCondition != null) {
+            _activeConditions[name] = activeCondition
+            // !activeCondition → !var (default = false)
+            if (pin) add("__pin_$name", NamedConstraint(Implies(Not(activeCondition), Not(BoolRef(name)))))
+        }
+        return BoolHandle(name)
+    }
+
+    fun registerInt(name: String, min: Int, max: Int, activeCondition: BoolExpr?, pin: Boolean = true): IntHandle {
         add(name, IntSpec(min, max))
         if (activeCondition != null) {
             _activeConditions[name] = activeCondition
             // !activeCondition → var == min (default = lower bound)
-            add(
+            if (pin) add(
                 "__pin_$name",
                 NamedConstraint(
                     Implies(

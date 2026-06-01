@@ -69,10 +69,11 @@ abstract class DecisionSpace : SubSpace() {
         PropertyDelegateProvider<DecisionSpace, ReadOnlyProperty<DecisionSpace, BoolContextHandle>> { _, prop ->
             val valueName = ctx.qualify(prop.name)
             val gateName = gateNameFor(valueName)
-            val gateHandle = ctx.root.registerBool(gateName, ctx.activeCondition)
+            val gateHandle = ctx.root.registerPresence(gateName, valueName, ctx.activeCondition)
             val valueHandle = ctx.root.registerBool(
                 valueName,
                 activeCondition = com.eignex.klause.ast.BoolRef(gateName),
+                pin = false,
             )
             val h = BoolContextHandle(valueHandle, isKnownGate = gateHandle)
             _contextBools += h
@@ -87,10 +88,11 @@ abstract class DecisionSpace : SubSpace() {
         PropertyDelegateProvider<DecisionSpace, ReadOnlyProperty<DecisionSpace, IntContextHandle>> { _, prop ->
             val valueName = ctx.qualify(prop.name)
             val gateName = gateNameFor(valueName)
-            val gateHandle = ctx.root.registerBool(gateName, ctx.activeCondition)
+            val gateHandle = ctx.root.registerPresence(gateName, valueName, ctx.activeCondition)
             val valueHandle = ctx.root.registerInt(
                 valueName, min, max,
                 activeCondition = com.eignex.klause.ast.BoolRef(gateName),
+                pin = false,
             )
             val h = IntContextHandle(valueHandle, isKnownGate = gateHandle)
             _contextInts += h
