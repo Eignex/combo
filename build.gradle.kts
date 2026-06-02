@@ -28,7 +28,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api("com.eignex:klause")
-            implementation("com.eignex:kumulant:0.3.0")
+            implementation("com.eignex:kumulant:0.3.1")
             compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-core:1.10.0")
         }
         commonTest.dependencies {
