@@ -1,0 +1,66 @@
+package com.eignex.combo.bandit.dt
+
+import com.eignex.combo.bandit.PredictionBanditTestSuite
+import com.eignex.combo.decisions.CompiledDecisionSpace
+import com.eignex.combo.shared.PredictionLearner
+import com.eignex.klause.backtrack.BacktrackParams
+import com.eignex.klause.backtrack.BacktrackSolver
+import com.eignex.klause.localsearch.LocalSearchParams
+import com.eignex.klause.localsearch.LocalSearchSolver
+import com.eignex.klause.propagation.bake
+import com.eignex.klause.solver.Sample
+import com.eignex.klause.solver.SolveResult
+import com.eignex.kumulant.bandit.univariate.Greedy
+import com.eignex.kumulant.stat.regression.tree.RegressionTreeConfig
+import com.eignex.kumulant.stat.summary.MeanStat
+
+/**
+ * Plug [DecisionTreeBandit] into the shared bandit harness. The harness's `TinySpace`
+ * has two unconstrained bool variables — both eligible split candidates — so the tree
+ * gets to exercise its branch-growth path on the convergence test.
+ */
+class DecisionTreeBanditTest : PredictionBanditTestSuite<DecisionTreeData>() {
+
+    override fun buildPrediction(
+        space: CompiledDecisionSpace,
+        samples: List<Sample>,
+        randomSeed: Int,
+        maximize: Boolean,
+        rewards: MeanStat?,
+    ): PredictionLearner<DecisionTreeData> {
+        val solver = LocalSearchSolver(space.compiled.problem.bake())
+        val session = com.eignex.klause.localsearch.LocalSearchSession(solver)
+        val backtrack = BacktrackSolver(space.compiled.problem.bake())
+        // TinySpace has 4 feasible samples and 600 rounds — keep splitting cheap.
+        val config = RegressionTreeConfig(
+            splitPeriod = 5,
+            minSamplesSplit = 10.0,
+            minSamplesLeaf = 2.0,
+            delta = 0.1,
+        )
+        return DecisionTreeBandit(
+            space = space,
+            policy = Greedy(),
+            // LS→BacktrackSolver cascade: definitive UNSAT or a witness LS missed.
+            proposeSample = { rng, assumptions ->
+                session.sample(LocalSearchParams(randomSeed = rng.nextLong(), assumptions = assumptions)).assignment
+                    ?: when (
+                        val r = backtrack.solve(
+                            BacktrackParams(
+                                randomSeed = rng.nextLong(),
+                                assumptions = assumptions,
+                            ),
+                        )
+                    ) {
+                        is SolveResult.Sat -> r.assignment
+                        else -> null
+                    }
+            },
+            tree = Tree(Greedy(), defaultSplitCandidates(space), config),
+            retryBudget = 32,
+            randomSeed = randomSeed,
+            maximize = maximize,
+            rewards = rewards,
+        )
+    }
+}

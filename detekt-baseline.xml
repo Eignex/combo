@@ -1,0 +1,133 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>BackingPropertyNaming:DecisionSpace.kt:DecisionSpace$private val _contextBools = mutableListOf&lt;BoolContextHandle>()</ID>
+    <ID>BackingPropertyNaming:DecisionSpace.kt:DecisionSpace$private val _contextInts = mutableListOf&lt;IntContextHandle>()</ID>
+    <ID>BackingPropertyNaming:DecisionSpace.kt:DecisionSpace$private val _interactions = mutableListOf&lt;InteractionHandle>()</ID>
+    <ID>EmptyFunctionBlock:Bandits.kt:RandomBandit${}</ID>
+    <ID>EmptyFunctionBlock:DecisionTreeBandit.kt:DecisionTreeBandit${}</ID>
+    <ID>EmptyFunctionBlock:RandomForestBandit.kt:RandomForestBandit${}</ID>
+    <ID>EndOfSentenceFormat:DecisionSpaceDef.kt:* Default-value pin for a variable whose gate is off: * - bool → false * - int → domain min * - nominal → first label</ID>
+    <ID>MatchingDeclarationName:Interactions.kt:InteractionHandle</ID>
+    <ID>MatchingDeclarationName:LeafMaterialization.kt:Materialization</ID>
+    <ID>MaxLineLength:RandomForestBanditTest.kt:RandomForestBanditTest$"bagging should produce more per-tree leaf-mean spread than no-bagging; got bagged=$baggedSpread, plain=$noBagSpread"</ID>
+    <ID>OutdatedDocumentation:ListBandit.kt:ListBandit&lt;R : Result> : Learner</ID>
+    <ID>PropertyName:LinearBanditTest.kt:ContextConditionedSchema$val premium_x_c1 by interact(premium, choice1)</ID>
+    <ID>PropertyName:LinearBanditTest.kt:ContextConditionedSchema$val segment_x_c2 by interact(segment, choice2)</ID>
+    <ID>UndocumentedPublicClass:Bandits.kt:RandomLearnerData : LearnerData</ID>
+    <ID>UndocumentedPublicClass:Context.kt:Context$Companion</ID>
+    <ID>UndocumentedPublicClass:Context.kt:ContextBuilder</ID>
+    <ID>UndocumentedPublicClass:DecisionSpaceDef.kt:InteractionDef</ID>
+    <ID>UndocumentedPublicClass:DecisionSpaceDef.kt:ScalarKind</ID>
+    <ID>UndocumentedPublicClass:LinearFeatureLayout.kt:LinearFeatureLayout$Companion</ID>
+    <ID>UndocumentedPublicClass:ListBandit.kt:ListBanditData : LearnerData</ID>
+    <ID>UndocumentedPublicClass:RandomForestBandit.kt:RandomForestBandit$Companion</ID>
+    <ID>UndocumentedPublicClass:Tree.kt:Tree$Companion</ID>
+    <ID>UndocumentedPublicFunction:Bandits.kt:Learner$fun choose: BanditSample?</ID>
+    <ID>UndocumentedPublicFunction:Bandits.kt:Learner$fun chooseOrThrow: BanditSample</ID>
+    <ID>UndocumentedPublicFunction:Bandits.kt:Learner$fun exportData: D</ID>
+    <ID>UndocumentedPublicFunction:Bandits.kt:Learner$fun importData</ID>
+    <ID>UndocumentedPublicFunction:Bandits.kt:Learner$fun optimal: BanditSample?</ID>
+    <ID>UndocumentedPublicFunction:Bandits.kt:Learner$fun optimalOrThrow: BanditSample</ID>
+    <ID>UndocumentedPublicFunction:Bandits.kt:Learner$fun update</ID>
+    <ID>UndocumentedPublicFunction:Bandits.kt:Learner$fun updateAll</ID>
+    <ID>UndocumentedPublicFunction:Bandits.kt:PredictionLearner$fun predict: Double</ID>
+    <ID>UndocumentedPublicFunction:Bandits.kt:PredictionLearner$fun train</ID>
+    <ID>UndocumentedPublicFunction:Bandits.kt:PredictionLearner$fun trainAll</ID>
+    <ID>UndocumentedPublicFunction:Bandits.kt:SlotRemap$fun remapBool: Int</ID>
+    <ID>UndocumentedPublicFunction:Bandits.kt:SlotRemap$fun remapInt: Int</ID>
+    <ID>UndocumentedPublicFunction:CompiledDecisionSpace.kt:CompiledDecisionSpace$fun isActive: Boolean</ID>
+    <ID>UndocumentedPublicFunction:CompiledDecisionSpace.kt:CompiledDecisionSpace$fun isOptional: Boolean</ID>
+    <ID>UndocumentedPublicFunction:Context.kt:Context$fun isPresent: Boolean</ID>
+    <ID>UndocumentedPublicFunction:Context.kt:Context$operator fun get: Boolean</ID>
+    <ID>UndocumentedPublicFunction:Context.kt:Context$operator fun get: Int</ID>
+    <ID>UndocumentedPublicFunction:Context.kt:ContextBuilder$fun set</ID>
+    <ID>UndocumentedPublicFunction:Context.kt:fun context: Context</ID>
+    <ID>UndocumentedPublicFunction:LinearBandit.kt:LinearBandit$fun choose: BanditSample?</ID>
+    <ID>UndocumentedPublicFunction:LinearBandit.kt:LinearBandit$fun chooseOrThrow: BanditSample</ID>
+    <ID>UndocumentedPublicFunction:LinearBandit.kt:LinearBandit$fun optimal: BanditSample?</ID>
+    <ID>UndocumentedPublicFunction:LinearBandit.kt:LinearBandit$fun optimalOrThrow: BanditSample</ID>
+    <ID>UndocumentedPublicFunction:LinearBandit.kt:LinearBandit$fun predict: Double</ID>
+    <ID>UndocumentedPublicFunction:LinearBandit.kt:LinearBandit$fun train</ID>
+    <ID>UndocumentedPublicFunction:LinearBandit.kt:LinearBandit$fun update</ID>
+    <ID>UndocumentedPublicFunction:LinearFeatureLayout.kt:LinearFeatureLayout.Companion$fun from: LinearFeatureLayout</ID>
+    <ID>UndocumentedPublicFunction:ListBandit.kt:ListBandit$fun choose: BanditSample?</ID>
+    <ID>UndocumentedPublicFunction:ListBandit.kt:ListBandit$fun chooseOrThrow: BanditSample</ID>
+    <ID>UndocumentedPublicFunction:ListBandit.kt:ListBandit$fun optimalOrThrow: BanditSample</ID>
+    <ID>UndocumentedPublicFunction:ListBandit.kt:ListBandit$fun update</ID>
+    <ID>UndocumentedPublicFunction:RandomSequence.kt:RandomSequence$fun next: Random</ID>
+    <ID>UndocumentedPublicFunction:TreeRow.kt:TreeRow$fun bool: Boolean</ID>
+    <ID>UndocumentedPublicFunction:TreeRow.kt:TreeRow$fun int: Int</ID>
+    <ID>UndocumentedPublicFunction:TreeRow.kt:TreeRow$fun isPresent: Boolean</ID>
+    <ID>UndocumentedPublicFunction:TreeRow.kt:TreeRow$fun nominal: String</ID>
+    <ID>UndocumentedPublicProperty:Bandits.kt:Learner$val maximize: Boolean</ID>
+    <ID>UndocumentedPublicProperty:Bandits.kt:Learner$val randomSeed: Int</ID>
+    <ID>UndocumentedPublicProperty:Bandits.kt:PredictionLearner$val testAbsError: SeriesStat&lt;*>?</ID>
+    <ID>UndocumentedPublicProperty:Bandits.kt:PredictionLearner$val trainAbsError: SeriesStat&lt;*>?</ID>
+    <ID>UndocumentedPublicProperty:Bandits.kt:RandomBandit$val params: P</ID>
+    <ID>UndocumentedPublicProperty:Bandits.kt:RandomBandit$val sampler: Solver&lt;P></ID>
+    <ID>UndocumentedPublicProperty:Bandits.kt:RandomBandit$val space: CompiledDecisionSpace</ID>
+    <ID>UndocumentedPublicProperty:CompiledDecisionSpace.kt:CompiledDecisionSpace$val compiled: CompiledSchema</ID>
+    <ID>UndocumentedPublicProperty:CompiledDecisionSpace.kt:CompiledDecisionSpace$val contextBools: List&lt;BoolContextHandle></ID>
+    <ID>UndocumentedPublicProperty:CompiledDecisionSpace.kt:CompiledDecisionSpace$val contextInts: List&lt;IntContextHandle></ID>
+    <ID>UndocumentedPublicProperty:CompiledDecisionSpace.kt:CompiledDecisionSpace$val interactions: List&lt;InteractionHandle></ID>
+    <ID>UndocumentedPublicProperty:Context.kt:Context.Companion$val Empty: Context = Context(emptyMap(), emptyMap())</ID>
+    <ID>UndocumentedPublicProperty:DecisionSpaceDef.kt:InteractionDef$val lhs: ScalarRef</ID>
+    <ID>UndocumentedPublicProperty:DecisionSpaceDef.kt:InteractionDef$val name: String</ID>
+    <ID>UndocumentedPublicProperty:DecisionSpaceDef.kt:InteractionDef$val rhs: ScalarRef</ID>
+    <ID>UndocumentedPublicProperty:DecisionSpaceDef.kt:ScalarKind$BoolContext</ID>
+    <ID>UndocumentedPublicProperty:DecisionSpaceDef.kt:ScalarKind$BoolDecision</ID>
+    <ID>UndocumentedPublicProperty:DecisionSpaceDef.kt:ScalarKind$IntContext</ID>
+    <ID>UndocumentedPublicProperty:DecisionSpaceDef.kt:ScalarKind$IntDecision</ID>
+    <ID>UndocumentedPublicProperty:DecisionSpaceDef.kt:ScalarKind$NominalContext</ID>
+    <ID>UndocumentedPublicProperty:DecisionSpaceDef.kt:ScalarKind$NominalDecision</ID>
+    <ID>UndocumentedPublicProperty:DecisionSpaceDef.kt:ScalarRef$val kind: ScalarKind</ID>
+    <ID>UndocumentedPublicProperty:DecisionSpaceDef.kt:ScalarRef$val path: List&lt;String></ID>
+    <ID>UndocumentedPublicProperty:DecisionTreeBandit.kt:DecisionTreeBandit$val space: CompiledDecisionSpace</ID>
+    <ID>UndocumentedPublicProperty:FeatureEncoder.kt:FeatureEncoder$val space: CompiledDecisionSpace</ID>
+    <ID>UndocumentedPublicProperty:Handles.kt:BoolContextHandle$val isOptional: Boolean get() = isKnownGate != null</ID>
+    <ID>UndocumentedPublicProperty:Handles.kt:BoolContextHandle$val klauseHandle: BoolHandle</ID>
+    <ID>UndocumentedPublicProperty:Handles.kt:BoolContextHandle$val name: String get() = klauseHandle.name</ID>
+    <ID>UndocumentedPublicProperty:Handles.kt:IntContextHandle$val isOptional: Boolean get() = isKnownGate != null</ID>
+    <ID>UndocumentedPublicProperty:Handles.kt:IntContextHandle$val klauseHandle: IntHandle</ID>
+    <ID>UndocumentedPublicProperty:Handles.kt:IntContextHandle$val max: Int get() = klauseHandle.max</ID>
+    <ID>UndocumentedPublicProperty:Handles.kt:IntContextHandle$val min: Int get() = klauseHandle.min</ID>
+    <ID>UndocumentedPublicProperty:Handles.kt:IntContextHandle$val name: String get() = klauseHandle.name</ID>
+    <ID>UndocumentedPublicProperty:Handles.kt:MultipleHandle$val name: String</ID>
+    <ID>UndocumentedPublicProperty:Interactions.kt:InteractionHandle$val name: String</ID>
+    <ID>UndocumentedPublicProperty:LinearBandit.kt:LinearBandit$val exploration: Double = 1.0</ID>
+    <ID>UndocumentedPublicProperty:LinearBandit.kt:LinearBandit$val projection: LinearFeatureProjection</ID>
+    <ID>UndocumentedPublicProperty:LinearBandit.kt:LinearBandit$val space get() = projection.space</ID>
+    <ID>UndocumentedPublicProperty:LinearFeatureLayout.kt:LinearFeatureLayout$val boolStart: Int = 0</ID>
+    <ID>UndocumentedPublicProperty:LinearFeatureLayout.kt:LinearFeatureLayout$val featureSize: Int = interactionsStart + interactionSlotCount.values.sum()</ID>
+    <ID>UndocumentedPublicProperty:LinearFeatureLayout.kt:LinearFeatureLayout$val intStart: Int = numBoolVars</ID>
+    <ID>UndocumentedPublicProperty:LinearFeatureLayout.kt:LinearFeatureLayout$val interactions: List&lt;InteractionHandle></ID>
+    <ID>UndocumentedPublicProperty:LinearFeatureLayout.kt:LinearFeatureLayout$val interactionsStart: Int = realStart + numRealVars</ID>
+    <ID>UndocumentedPublicProperty:LinearFeatureLayout.kt:LinearFeatureLayout$val numBoolVars: Int</ID>
+    <ID>UndocumentedPublicProperty:LinearFeatureLayout.kt:LinearFeatureLayout$val numIntVars: Int</ID>
+    <ID>UndocumentedPublicProperty:LinearFeatureProjection.kt:LinearFeatureProjection$val layout: LinearFeatureLayout = LinearFeatureLayout.from(space)</ID>
+    <ID>UndocumentedPublicProperty:LinearLearnerData.kt:LinearLearnerData$val state: LinearRegressionResult</ID>
+    <ID>UndocumentedPublicProperty:RandomForestBandit.kt:RandomForestBandit$val policy: BanditPolicy&lt;WeightedVarianceResult></ID>
+    <ID>UndocumentedPublicProperty:RandomForestBandit.kt:RandomForestBandit$val space: CompiledDecisionSpace</ID>
+    <ID>UndocumentedPublicProperty:RandomForestBandit.kt:RandomForestBandit$val trees: List&lt;Tree></ID>
+    <ID>UndocumentedPublicProperty:RandomSequence.kt:RandomSequence$val sequenceStart: Int</ID>
+    <ID>UndocumentedPublicProperty:Split.kt:BoolSplit$val handle: BoolHandle</ID>
+    <ID>UndocumentedPublicProperty:Split.kt:FloatThresholdSplit$val handle: FloatHandle</ID>
+    <ID>UndocumentedPublicProperty:Split.kt:FloatThresholdSplit$val threshold: Double</ID>
+    <ID>UndocumentedPublicProperty:Split.kt:IntThresholdSplit$val handle: IntHandle</ID>
+    <ID>UndocumentedPublicProperty:Split.kt:IntThresholdSplit$val threshold: Int</ID>
+    <ID>UndocumentedPublicProperty:Split.kt:NominalSplit$val handle: NominalHandle</ID>
+    <ID>UndocumentedPublicProperty:Split.kt:NominalSplit$val label: String</ID>
+    <ID>UndocumentedPublicProperty:Tree.kt:LeafChoice$val leaf: RegressionLeafNode&lt;TreeRow></ID>
+    <ID>UndocumentedPublicProperty:Tree.kt:LeafChoice$val path: List&lt;PathStep></ID>
+    <ID>UndocumentedPublicProperty:Tree.kt:PathStep$val split: Split</ID>
+    <ID>UndocumentedPublicProperty:Tree.kt:PathStep$val tookPos: Boolean</ID>
+    <ID>UndocumentedPublicProperty:TreeData.kt:ForestData$val trees: List&lt;DecisionTreeData></ID>
+    <ID>UndocumentedPublicProperty:TreeRow.kt:TreeRow$val sample: BanditSample</ID>
+    <ID>UndocumentedPublicProperty:TreeRow.kt:TreeRow$val space: CompiledDecisionSpace</ID>
+    <ID>UnusedParameter:ListBandit.kt:ListBandit$context: Context</ID>
+    <ID>VariableNaming:LinearBanditTest.kt:ContextConditionedSchema$val premium_x_c1 by interact(premium, choice1)</ID>
+    <ID>VariableNaming:LinearBanditTest.kt:ContextConditionedSchema$val segment_x_c2 by interact(segment, choice2)</ID>
+  </CurrentIssues>
+</SmellBaseline>
