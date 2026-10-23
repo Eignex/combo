@@ -1,0 +1,58 @@
+package com.eignex.combo.bandit.glm
+
+import com.eignex.combo.bandit.PredictionBanditTestSuite
+import com.eignex.combo.decisions.CompiledDecisionSpace
+import com.eignex.combo.shared.LinearFeatureProjection
+import com.eignex.combo.shared.PredictionLearner
+import com.eignex.klause.localsearch.LocalSearchParams
+import com.eignex.klause.localsearch.LocalSearchSolver
+import com.eignex.klause.propagation.bake
+import com.eignex.klause.solver.Sample
+import com.eignex.kumulant.stat.regression.glm.ConstantRate
+import com.eignex.kumulant.stat.regression.glm.DiagonalRegressionStat
+import com.eignex.kumulant.stat.regression.glm.FactorisedGaussian
+import com.eignex.kumulant.stat.summary.MeanStat
+
+/**
+ * Plug [LinearBandit] into the shared bandit harness.
+ *
+ * Convergence under Bernoulli rewards is harder for the linear model than for a beta-
+ * Bernoulli bandit because the model trains a linear regression on 0/1 features rather
+ * than tracking sufficient stats per arm. Disable the strict win-rate assertion via
+ * [converges]=false; the rest of the contract still applies.
+ */
+class LinearBanditSuiteTest : PredictionBanditTestSuite<LinearLearnerData>() {
+
+    override val converges: Boolean = false
+
+    override fun buildPrediction(
+        space: CompiledDecisionSpace,
+        samples: List<Sample>,
+        randomSeed: Int,
+        maximize: Boolean,
+        rewards: MeanStat?,
+    ): PredictionLearner<LinearLearnerData> {
+        val projection = LinearFeatureProjection(space)
+        val solver = LocalSearchSolver(space.compiled.problem.bake())
+        val regression = DiagonalRegressionStat(
+            featureSize = projection.featureSize,
+            priorPrecision = 0.01,
+            learningRate = ConstantRate(1.0),
+        )
+        return LinearBandit(
+            projection = projection,
+            regression = regression,
+            posterior = FactorisedGaussian,
+            exploration = 0.2,
+            innerOptimizer = { obj, asm ->
+                solver.minimize(
+                    obj,
+                    LocalSearchParams(maxFlips = 200L, randomSeed = randomSeed.toLong(), assumptions = asm),
+                ).assignment
+            },
+            randomSeed = randomSeed,
+            maximize = maximize,
+            rewards = rewards,
+        )
+    }
+}

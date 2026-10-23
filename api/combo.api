@@ -1,0 +1,911 @@
+public final class com/eignex/combo/bandit/ListBandit : com/eignex/combo/shared/Learner {
+	public fun <init> (Ljava/util/List;Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;Lcom/eignex/combo/decisions/CompiledDecisionSpace;IZLcom/eignex/kumulant/core/SeriesStat;)V
+	public synthetic fun <init> (Ljava/util/List;Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;Lcom/eignex/combo/decisions/CompiledDecisionSpace;IZLcom/eignex/kumulant/core/SeriesStat;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun choose ()Lcom/eignex/combo/decisions/BanditSample;
+	public final fun choose (Lcom/eignex/combo/decisions/Context;)Lcom/eignex/combo/decisions/BanditSample;
+	public fun chooseOrThrow ()Lcom/eignex/combo/decisions/BanditSample;
+	public final fun chooseOrThrow (Lcom/eignex/combo/decisions/Context;)Lcom/eignex/combo/decisions/BanditSample;
+	public fun exportData ()Lcom/eignex/combo/bandit/ListBanditData;
+	public synthetic fun exportData ()Lcom/eignex/combo/shared/LearnerData;
+	public fun getMaximize ()Z
+	public final fun getPolicy ()Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;
+	public fun getRandomSeed ()I
+	public fun getRewards ()Lcom/eignex/kumulant/core/SeriesStat;
+	public final fun getSamples ()Ljava/util/List;
+	public final fun getSpace ()Lcom/eignex/combo/decisions/CompiledDecisionSpace;
+	public fun importData (Lcom/eignex/combo/bandit/ListBanditData;)V
+	public synthetic fun importData (Lcom/eignex/combo/shared/LearnerData;)V
+	public fun optimal ()Lcom/eignex/combo/decisions/BanditSample;
+	public fun optimalOrThrow ()Lcom/eignex/combo/decisions/BanditSample;
+	public final fun optimalOrThrow (Lcom/eignex/combo/decisions/Context;)Lcom/eignex/combo/decisions/BanditSample;
+	public final fun snapshot ()Ljava/util/List;
+	public fun update (Lcom/eignex/combo/decisions/BanditSample;DD)V
+	public final fun update (Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;DD)V
+	public static synthetic fun update$default (Lcom/eignex/combo/bandit/ListBandit;Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;DDILjava/lang/Object;)V
+	public fun updateAll (Ljava/util/List;[D[D)V
+}
+
+public final class com/eignex/combo/bandit/ListBanditData : com/eignex/combo/shared/LearnerData {
+	public static final field INSTANCE Lcom/eignex/combo/bandit/ListBanditData;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun remap (Lcom/eignex/combo/shared/SlotRemap;)Lcom/eignex/combo/shared/LearnerData;
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/eignex/combo/bandit/RandomBandit : com/eignex/combo/shared/Learner {
+	public fun <init> (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/klause/solver/Solver;Lcom/eignex/klause/solver/SolverParams;ILcom/eignex/kumulant/core/SeriesStat;)V
+	public synthetic fun <init> (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/klause/solver/Solver;Lcom/eignex/klause/solver/SolverParams;ILcom/eignex/kumulant/core/SeriesStat;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun choose ()Lcom/eignex/combo/decisions/BanditSample;
+	public fun chooseOrThrow ()Lcom/eignex/combo/decisions/BanditSample;
+	public fun exportData ()Lcom/eignex/combo/bandit/RandomLearnerData;
+	public synthetic fun exportData ()Lcom/eignex/combo/shared/LearnerData;
+	public fun getMaximize ()Z
+	public final fun getParams ()Lcom/eignex/klause/solver/SolverParams;
+	public fun getRandomSeed ()I
+	public fun getRewards ()Lcom/eignex/kumulant/core/SeriesStat;
+	public final fun getSampler ()Lcom/eignex/klause/solver/Solver;
+	public final fun getSpace ()Lcom/eignex/combo/decisions/CompiledDecisionSpace;
+	public fun importData (Lcom/eignex/combo/bandit/RandomLearnerData;)V
+	public synthetic fun importData (Lcom/eignex/combo/shared/LearnerData;)V
+	public fun optimal ()Lcom/eignex/combo/decisions/BanditSample;
+	public fun optimalOrThrow ()Lcom/eignex/combo/decisions/BanditSample;
+	public fun update (Lcom/eignex/combo/decisions/BanditSample;DD)V
+	public fun updateAll (Ljava/util/List;[D[D)V
+}
+
+public final class com/eignex/combo/bandit/RandomLearnerData : com/eignex/combo/shared/LearnerData {
+	public static final field INSTANCE Lcom/eignex/combo/bandit/RandomLearnerData;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun remap (Lcom/eignex/combo/shared/SlotRemap;)Lcom/eignex/combo/shared/LearnerData;
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/eignex/combo/bandit/dt/BoolSplit : com/eignex/combo/bandit/dt/Split {
+	public fun <init> (Lcom/eignex/klause/schema/BoolHandle;)V
+	public final fun component1 ()Lcom/eignex/klause/schema/BoolHandle;
+	public final fun copy (Lcom/eignex/klause/schema/BoolHandle;)Lcom/eignex/combo/bandit/dt/BoolSplit;
+	public static synthetic fun copy$default (Lcom/eignex/combo/bandit/dt/BoolSplit;Lcom/eignex/klause/schema/BoolHandle;ILjava/lang/Object;)Lcom/eignex/combo/bandit/dt/BoolSplit;
+	public fun direction (Lcom/eignex/combo/bandit/dt/TreeRow;)Z
+	public synthetic fun direction (Ljava/lang/Object;)Z
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getExpr ()Lcom/eignex/klause/model/BoolExpr;
+	public final fun getHandle ()Lcom/eignex/klause/schema/BoolHandle;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/eignex/combo/bandit/dt/DecisionTreeBandit : com/eignex/combo/shared/PredictionLearner {
+	public fun <init> (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;Lkotlin/jvm/functions/Function2;Lcom/eignex/combo/bandit/dt/Tree;IIZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;)V
+	public synthetic fun <init> (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;Lkotlin/jvm/functions/Function2;Lcom/eignex/combo/bandit/dt/Tree;IIZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun choose ()Lcom/eignex/combo/decisions/BanditSample;
+	public fun chooseOrThrow ()Lcom/eignex/combo/decisions/BanditSample;
+	public fun exportData ()Lcom/eignex/combo/bandit/dt/DecisionTreeData;
+	public synthetic fun exportData ()Lcom/eignex/combo/shared/LearnerData;
+	public fun getMaximize ()Z
+	public final fun getPolicy ()Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;
+	public final fun getProposeSample ()Lkotlin/jvm/functions/Function2;
+	public fun getRandomSeed ()I
+	public final fun getRetryBudget ()I
+	public fun getRewards ()Lcom/eignex/kumulant/core/SeriesStat;
+	public final fun getSpace ()Lcom/eignex/combo/decisions/CompiledDecisionSpace;
+	public fun getTestAbsError ()Lcom/eignex/kumulant/core/SeriesStat;
+	public fun getTrainAbsError ()Lcom/eignex/kumulant/core/SeriesStat;
+	public final fun getTree ()Lcom/eignex/combo/bandit/dt/Tree;
+	public fun importData (Lcom/eignex/combo/bandit/dt/DecisionTreeData;)V
+	public synthetic fun importData (Lcom/eignex/combo/shared/LearnerData;)V
+	public fun optimal ()Lcom/eignex/combo/decisions/BanditSample;
+	public fun optimalOrThrow ()Lcom/eignex/combo/decisions/BanditSample;
+	public fun predict (Lcom/eignex/combo/decisions/BanditSample;)D
+	public fun train (Lcom/eignex/combo/decisions/BanditSample;DD)V
+	public fun trainAll (Ljava/util/List;[D[D)V
+	public fun update (Lcom/eignex/combo/decisions/BanditSample;DD)V
+	public fun updateAll (Ljava/util/List;[D[D)V
+}
+
+public final class com/eignex/combo/bandit/dt/DecisionTreeData : com/eignex/combo/shared/LearnerData {
+	public final fun getSplits ()Ljava/util/List;
+	public final fun getState ()Lcom/eignex/kumulant/stat/regression/tree/TreeRegressionResult;
+	public fun remap (Lcom/eignex/combo/shared/SlotRemap;)Lcom/eignex/combo/shared/LearnerData;
+}
+
+public final class com/eignex/combo/bandit/dt/ExprSplit : com/eignex/combo/bandit/dt/Split {
+	public fun <init> (Lcom/eignex/klause/model/BoolExpr;)V
+	public final fun component1 ()Lcom/eignex/klause/model/BoolExpr;
+	public final fun copy (Lcom/eignex/klause/model/BoolExpr;)Lcom/eignex/combo/bandit/dt/ExprSplit;
+	public static synthetic fun copy$default (Lcom/eignex/combo/bandit/dt/ExprSplit;Lcom/eignex/klause/model/BoolExpr;ILjava/lang/Object;)Lcom/eignex/combo/bandit/dt/ExprSplit;
+	public fun direction (Lcom/eignex/combo/bandit/dt/TreeRow;)Z
+	public synthetic fun direction (Ljava/lang/Object;)Z
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getExpr ()Lcom/eignex/klause/model/BoolExpr;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/eignex/combo/bandit/dt/FloatThresholdSplit : com/eignex/combo/bandit/dt/Split {
+	public fun <init> (Lcom/eignex/klause/schema/FloatHandle;D)V
+	public final fun component1 ()Lcom/eignex/klause/schema/FloatHandle;
+	public final fun component2 ()D
+	public final fun copy (Lcom/eignex/klause/schema/FloatHandle;D)Lcom/eignex/combo/bandit/dt/FloatThresholdSplit;
+	public static synthetic fun copy$default (Lcom/eignex/combo/bandit/dt/FloatThresholdSplit;Lcom/eignex/klause/schema/FloatHandle;DILjava/lang/Object;)Lcom/eignex/combo/bandit/dt/FloatThresholdSplit;
+	public fun direction (Lcom/eignex/combo/bandit/dt/TreeRow;)Z
+	public synthetic fun direction (Ljava/lang/Object;)Z
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getExpr ()Lcom/eignex/klause/model/BoolExpr;
+	public final fun getHandle ()Lcom/eignex/klause/schema/FloatHandle;
+	public final fun getThreshold ()D
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/eignex/combo/bandit/dt/ForestData : com/eignex/combo/shared/LearnerData {
+	public final fun getSplits ()Ljava/util/List;
+	public final fun getState ()Lcom/eignex/kumulant/stat/regression/tree/ForestRegressionResult;
+	public fun remap (Lcom/eignex/combo/shared/SlotRemap;)Lcom/eignex/combo/shared/LearnerData;
+}
+
+public final class com/eignex/combo/bandit/dt/IntThresholdSplit : com/eignex/combo/bandit/dt/Split {
+	public fun <init> (Lcom/eignex/klause/schema/IntHandle;I)V
+	public final fun component1 ()Lcom/eignex/klause/schema/IntHandle;
+	public final fun component2 ()I
+	public final fun copy (Lcom/eignex/klause/schema/IntHandle;I)Lcom/eignex/combo/bandit/dt/IntThresholdSplit;
+	public static synthetic fun copy$default (Lcom/eignex/combo/bandit/dt/IntThresholdSplit;Lcom/eignex/klause/schema/IntHandle;IILjava/lang/Object;)Lcom/eignex/combo/bandit/dt/IntThresholdSplit;
+	public fun direction (Lcom/eignex/combo/bandit/dt/TreeRow;)Z
+	public synthetic fun direction (Ljava/lang/Object;)Z
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getExpr ()Lcom/eignex/klause/model/BoolExpr;
+	public final fun getHandle ()Lcom/eignex/klause/schema/IntHandle;
+	public final fun getThreshold ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/eignex/combo/bandit/dt/LeafChoice {
+	public fun <init> (Lcom/eignex/kumulant/stat/regression/tree/RegressionLeafNode;Ljava/util/List;)V
+	public final fun component1 ()Lcom/eignex/kumulant/stat/regression/tree/RegressionLeafNode;
+	public final fun component2 ()Ljava/util/List;
+	public final fun copy (Lcom/eignex/kumulant/stat/regression/tree/RegressionLeafNode;Ljava/util/List;)Lcom/eignex/combo/bandit/dt/LeafChoice;
+	public static synthetic fun copy$default (Lcom/eignex/combo/bandit/dt/LeafChoice;Lcom/eignex/kumulant/stat/regression/tree/RegressionLeafNode;Ljava/util/List;ILjava/lang/Object;)Lcom/eignex/combo/bandit/dt/LeafChoice;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getLeaf ()Lcom/eignex/kumulant/stat/regression/tree/RegressionLeafNode;
+	public final fun getPath ()Ljava/util/List;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/eignex/combo/bandit/dt/NominalSplit : com/eignex/combo/bandit/dt/Split {
+	public fun <init> (Lcom/eignex/klause/schema/NominalHandle;Ljava/lang/String;)V
+	public final fun component1 ()Lcom/eignex/klause/schema/NominalHandle;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun copy (Lcom/eignex/klause/schema/NominalHandle;Ljava/lang/String;)Lcom/eignex/combo/bandit/dt/NominalSplit;
+	public static synthetic fun copy$default (Lcom/eignex/combo/bandit/dt/NominalSplit;Lcom/eignex/klause/schema/NominalHandle;Ljava/lang/String;ILjava/lang/Object;)Lcom/eignex/combo/bandit/dt/NominalSplit;
+	public fun direction (Lcom/eignex/combo/bandit/dt/TreeRow;)Z
+	public synthetic fun direction (Ljava/lang/Object;)Z
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getExpr ()Lcom/eignex/klause/model/BoolExpr;
+	public final fun getHandle ()Lcom/eignex/klause/schema/NominalHandle;
+	public final fun getLabel ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/eignex/combo/bandit/dt/PathStep {
+	public fun <init> (Lcom/eignex/combo/bandit/dt/Split;Z)V
+	public final fun component1 ()Lcom/eignex/combo/bandit/dt/Split;
+	public final fun component2 ()Z
+	public final fun copy (Lcom/eignex/combo/bandit/dt/Split;Z)Lcom/eignex/combo/bandit/dt/PathStep;
+	public static synthetic fun copy$default (Lcom/eignex/combo/bandit/dt/PathStep;Lcom/eignex/combo/bandit/dt/Split;ZILjava/lang/Object;)Lcom/eignex/combo/bandit/dt/PathStep;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getSplit ()Lcom/eignex/combo/bandit/dt/Split;
+	public final fun getTookPos ()Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/eignex/combo/bandit/dt/RandomForestBandit : com/eignex/combo/shared/PredictionLearner {
+	public static final field Companion Lcom/eignex/combo/bandit/dt/RandomForestBandit$Companion;
+	public fun <init> (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;Lkotlin/jvm/functions/Function2;Lcom/eignex/kumulant/stat/regression/tree/RandomForestRegressionStat;Lcom/eignex/combo/bandit/dt/TreeVectorLayout;Lkotlin/jvm/functions/Function2;Lcom/eignex/combo/shared/DescentSession;IZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;)V
+	public synthetic fun <init> (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;Lkotlin/jvm/functions/Function2;Lcom/eignex/kumulant/stat/regression/tree/RandomForestRegressionStat;Lcom/eignex/combo/bandit/dt/TreeVectorLayout;Lkotlin/jvm/functions/Function2;Lcom/eignex/combo/shared/DescentSession;IZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun choose ()Lcom/eignex/combo/decisions/BanditSample;
+	public final fun choose (Lcom/eignex/combo/decisions/Context;)Lcom/eignex/combo/decisions/BanditSample;
+	public fun chooseOrThrow ()Lcom/eignex/combo/decisions/BanditSample;
+	public final fun chooseOrThrow (Lcom/eignex/combo/decisions/Context;)Lcom/eignex/combo/decisions/BanditSample;
+	public fun exportData ()Lcom/eignex/combo/bandit/dt/ForestData;
+	public synthetic fun exportData ()Lcom/eignex/combo/shared/LearnerData;
+	public final fun getBagging ()Z
+	public final fun getDescentSession ()Lcom/eignex/combo/shared/DescentSession;
+	public final fun getLayout ()Lcom/eignex/combo/bandit/dt/TreeVectorLayout;
+	public fun getMaximize ()Z
+	public final fun getOptimizeFallback ()Lkotlin/jvm/functions/Function2;
+	public final fun getPolicy ()Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;
+	public final fun getProposeSample ()Lkotlin/jvm/functions/Function2;
+	public fun getRandomSeed ()I
+	public final fun getRegression ()Lcom/eignex/kumulant/stat/regression/tree/RandomForestRegressionStat;
+	public fun getRewards ()Lcom/eignex/kumulant/core/SeriesStat;
+	public final fun getSpace ()Lcom/eignex/combo/decisions/CompiledDecisionSpace;
+	public fun getTestAbsError ()Lcom/eignex/kumulant/core/SeriesStat;
+	public fun getTrainAbsError ()Lcom/eignex/kumulant/core/SeriesStat;
+	public final fun getTrees ()Ljava/util/List;
+	public fun importData (Lcom/eignex/combo/bandit/dt/ForestData;)V
+	public synthetic fun importData (Lcom/eignex/combo/shared/LearnerData;)V
+	public fun optimal ()Lcom/eignex/combo/decisions/BanditSample;
+	public final fun optimal (Lcom/eignex/combo/decisions/Context;)Lcom/eignex/combo/decisions/BanditSample;
+	public fun optimalOrThrow ()Lcom/eignex/combo/decisions/BanditSample;
+	public final fun optimalOrThrow (Lcom/eignex/combo/decisions/Context;)Lcom/eignex/combo/decisions/BanditSample;
+	public fun predict (Lcom/eignex/combo/decisions/BanditSample;)D
+	public final fun predict (Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;)D
+	public fun train (Lcom/eignex/combo/decisions/BanditSample;DD)V
+	public final fun train (Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;DD)V
+	public static synthetic fun train$default (Lcom/eignex/combo/bandit/dt/RandomForestBandit;Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;DDILjava/lang/Object;)V
+	public fun trainAll (Ljava/util/List;[D[D)V
+	public fun update (Lcom/eignex/combo/decisions/BanditSample;DD)V
+	public final fun update (Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;DD)V
+	public static synthetic fun update$default (Lcom/eignex/combo/bandit/dt/RandomForestBandit;Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;DDILjava/lang/Object;)V
+	public fun updateAll (Ljava/util/List;[D[D)V
+}
+
+public final class com/eignex/combo/bandit/dt/RandomForestBandit$Companion {
+	public final fun build (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;ILjava/lang/Integer;Lcom/eignex/kumulant/stat/regression/tree/RegressionTreeConfig;Lcom/eignex/klause/localsearch/LocalSearchParams;Lcom/eignex/klause/backtrack/BacktrackParams;IIIZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;ZLjava/util/List;)Lcom/eignex/combo/bandit/dt/RandomForestBandit;
+	public final fun build (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;Lkotlin/jvm/functions/Function2;ILjava/lang/Integer;Lcom/eignex/kumulant/stat/regression/tree/RegressionTreeConfig;Lkotlin/jvm/functions/Function2;Lcom/eignex/combo/shared/DescentSession;IZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;ZLjava/util/List;)Lcom/eignex/combo/bandit/dt/RandomForestBandit;
+	public static synthetic fun build$default (Lcom/eignex/combo/bandit/dt/RandomForestBandit$Companion;Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;ILjava/lang/Integer;Lcom/eignex/kumulant/stat/regression/tree/RegressionTreeConfig;Lcom/eignex/klause/localsearch/LocalSearchParams;Lcom/eignex/klause/backtrack/BacktrackParams;IIIZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;ZLjava/util/List;ILjava/lang/Object;)Lcom/eignex/combo/bandit/dt/RandomForestBandit;
+	public static synthetic fun build$default (Lcom/eignex/combo/bandit/dt/RandomForestBandit$Companion;Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;Lkotlin/jvm/functions/Function2;ILjava/lang/Integer;Lcom/eignex/kumulant/stat/regression/tree/RegressionTreeConfig;Lkotlin/jvm/functions/Function2;Lcom/eignex/combo/shared/DescentSession;IZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;ZLjava/util/List;ILjava/lang/Object;)Lcom/eignex/combo/bandit/dt/RandomForestBandit;
+}
+
+public abstract interface class com/eignex/combo/bandit/dt/Split : com/eignex/kumulant/stat/regression/tree/Split {
+	public fun direction (Lcom/eignex/combo/bandit/dt/TreeRow;)Z
+	public synthetic fun direction (Ljava/lang/Object;)Z
+	public abstract fun getExpr ()Lcom/eignex/klause/model/BoolExpr;
+	public abstract fun toString ()Ljava/lang/String;
+}
+
+public final class com/eignex/combo/bandit/dt/Split$DefaultImpls {
+	public static fun direction (Lcom/eignex/combo/bandit/dt/Split;Lcom/eignex/combo/bandit/dt/TreeRow;)Z
+}
+
+public final class com/eignex/combo/bandit/dt/SplitCandidatesKt {
+	public static final fun defaultSplitCandidates (Lcom/eignex/combo/decisions/CompiledDecisionSpace;I)Ljava/util/List;
+	public static synthetic fun defaultSplitCandidates$default (Lcom/eignex/combo/decisions/CompiledDecisionSpace;IILjava/lang/Object;)Ljava/util/List;
+}
+
+public final class com/eignex/combo/bandit/dt/SplitKt {
+	public static final fun pretty (Lcom/eignex/klause/model/BoolExpr;)Ljava/lang/String;
+}
+
+public final class com/eignex/combo/bandit/dt/Tree {
+	public static final field Companion Lcom/eignex/combo/bandit/dt/Tree$Companion;
+	public fun <init> (Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;Ljava/util/List;Lcom/eignex/kumulant/stat/regression/tree/RegressionTreeConfig;I)V
+	public synthetic fun <init> (Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;Ljava/util/List;Lcom/eignex/kumulant/stat/regression/tree/RegressionTreeConfig;IILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun chooseLeaf (Lkotlin/random/Random;JZ)Lcom/eignex/combo/bandit/dt/LeafChoice;
+	public final fun descendTo (Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Lcom/eignex/klause/propagation/Assumptions;Ljava/util/Map;)Lcom/eignex/kumulant/stat/regression/tree/RegressionNode;
+	public static synthetic fun descendTo$default (Lcom/eignex/combo/bandit/dt/Tree;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Lcom/eignex/klause/propagation/Assumptions;Ljava/util/Map;ILjava/lang/Object;)Lcom/eignex/kumulant/stat/regression/tree/RegressionNode;
+	public final fun findLeaf (Lcom/eignex/combo/bandit/dt/TreeRow;)Lcom/eignex/kumulant/stat/regression/tree/RegressionLeafNode;
+	public final fun getPolicy ()Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;
+	public final fun optimalLeaf (Z)Lcom/eignex/combo/bandit/dt/LeafChoice;
+	public final fun predict (Lcom/eignex/combo/bandit/dt/TreeRow;)D
+	public final fun prettyPrint (Ljava/lang/String;)Ljava/lang/String;
+	public static synthetic fun prettyPrint$default (Lcom/eignex/combo/bandit/dt/Tree;Ljava/lang/String;ILjava/lang/Object;)Ljava/lang/String;
+	public final fun update (Lcom/eignex/combo/bandit/dt/TreeRow;DD)V
+	public static synthetic fun update$default (Lcom/eignex/combo/bandit/dt/Tree;Lcom/eignex/combo/bandit/dt/TreeRow;DDILjava/lang/Object;)V
+}
+
+public final class com/eignex/combo/bandit/dt/Tree$Companion {
+	public final fun mergeAggregates (Ljava/lang/Iterable;)Lcom/eignex/kumulant/stat/summary/WeightedVarianceResult;
+}
+
+public final class com/eignex/combo/bandit/dt/TreeFeatureProjection : com/eignex/combo/decisions/FeatureEncoder {
+	public fun <init> (Lcom/eignex/combo/decisions/CompiledDecisionSpace;)V
+	public fun encode (Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;)Lcom/eignex/combo/bandit/dt/TreeRow;
+	public synthetic fun encode (Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;)Ljava/lang/Object;
+	public fun getFeatureSize ()I
+	public fun getSpace ()Lcom/eignex/combo/decisions/CompiledDecisionSpace;
+}
+
+public abstract interface class com/eignex/combo/bandit/dt/TreeRow {
+	public abstract fun bool (Lcom/eignex/klause/schema/BoolHandle;)Z
+	public abstract fun float (Lcom/eignex/klause/schema/FloatHandle;)D
+	public abstract fun getSample ()Lcom/eignex/combo/decisions/BanditSample;
+	public abstract fun getSpace ()Lcom/eignex/combo/decisions/CompiledDecisionSpace;
+	public abstract fun int (Lcom/eignex/klause/schema/IntHandle;)I
+	public abstract fun isPresent (Lcom/eignex/klause/schema/BoolHandle;)Z
+	public abstract fun isPresent (Lcom/eignex/klause/schema/FloatHandle;)Z
+	public abstract fun isPresent (Lcom/eignex/klause/schema/IntHandle;)Z
+	public abstract fun isPresent (Lcom/eignex/klause/schema/NominalHandle;)Z
+	public abstract fun nominal (Lcom/eignex/klause/schema/NominalHandle;)Ljava/lang/String;
+}
+
+public final class com/eignex/combo/bandit/dt/TreeVectorLayout {
+	public fun <init> (Ljava/util/List;)V
+	public final fun encode (Lcom/eignex/combo/bandit/dt/TreeRow;)Lcom/eignex/koblas/Vector;
+	public final fun getFeatureSize ()I
+	public final fun getSplits ()Ljava/util/List;
+	public final fun predicate (Lcom/eignex/kumulant/stat/regression/tree/Split;)Lcom/eignex/combo/bandit/dt/Split;
+}
+
+public final class com/eignex/combo/bandit/glm/LinearBandit : com/eignex/combo/shared/PredictionLearner {
+	public fun <init> (Lcom/eignex/combo/shared/LinearFeatureProjection;Lcom/eignex/kumulant/core/RegressionStat;Lcom/eignex/kumulant/stat/regression/glm/LinearPosterior;DLkotlin/jvm/functions/Function2;IZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;)V
+	public synthetic fun <init> (Lcom/eignex/combo/shared/LinearFeatureProjection;Lcom/eignex/kumulant/core/RegressionStat;Lcom/eignex/kumulant/stat/regression/glm/LinearPosterior;DLkotlin/jvm/functions/Function2;IZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun choose ()Lcom/eignex/combo/decisions/BanditSample;
+	public final fun choose (Lcom/eignex/combo/decisions/Context;)Lcom/eignex/combo/decisions/BanditSample;
+	public fun chooseOrThrow ()Lcom/eignex/combo/decisions/BanditSample;
+	public final fun chooseOrThrow (Lcom/eignex/combo/decisions/Context;)Lcom/eignex/combo/decisions/BanditSample;
+	public fun exportData ()Lcom/eignex/combo/bandit/glm/LinearLearnerData;
+	public synthetic fun exportData ()Lcom/eignex/combo/shared/LearnerData;
+	public final fun getExploration ()D
+	public final fun getInnerOptimizer ()Lkotlin/jvm/functions/Function2;
+	public fun getMaximize ()Z
+	public final fun getPosterior ()Lcom/eignex/kumulant/stat/regression/glm/LinearPosterior;
+	public final fun getProjection ()Lcom/eignex/combo/shared/LinearFeatureProjection;
+	public fun getRandomSeed ()I
+	public final fun getRegression ()Lcom/eignex/kumulant/core/RegressionStat;
+	public fun getRewards ()Lcom/eignex/kumulant/core/SeriesStat;
+	public final fun getSpace ()Lcom/eignex/combo/decisions/CompiledDecisionSpace;
+	public fun getTestAbsError ()Lcom/eignex/kumulant/core/SeriesStat;
+	public fun getTrainAbsError ()Lcom/eignex/kumulant/core/SeriesStat;
+	public fun importData (Lcom/eignex/combo/bandit/glm/LinearLearnerData;)V
+	public synthetic fun importData (Lcom/eignex/combo/shared/LearnerData;)V
+	public fun optimal ()Lcom/eignex/combo/decisions/BanditSample;
+	public final fun optimal (Lcom/eignex/combo/decisions/Context;)Lcom/eignex/combo/decisions/BanditSample;
+	public fun optimalOrThrow ()Lcom/eignex/combo/decisions/BanditSample;
+	public final fun optimalOrThrow (Lcom/eignex/combo/decisions/Context;)Lcom/eignex/combo/decisions/BanditSample;
+	public fun predict (Lcom/eignex/combo/decisions/BanditSample;)D
+	public final fun predict (Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;)D
+	public fun train (Lcom/eignex/combo/decisions/BanditSample;DD)V
+	public final fun train (Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;DD)V
+	public static synthetic fun train$default (Lcom/eignex/combo/bandit/glm/LinearBandit;Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;DDILjava/lang/Object;)V
+	public fun trainAll (Ljava/util/List;[D[D)V
+	public fun update (Lcom/eignex/combo/decisions/BanditSample;DD)V
+	public final fun update (Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;DD)V
+	public static synthetic fun update$default (Lcom/eignex/combo/bandit/glm/LinearBandit;Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;DDILjava/lang/Object;)V
+	public fun updateAll (Ljava/util/List;[D[D)V
+}
+
+public final class com/eignex/combo/bandit/glm/LinearLearnerData : com/eignex/combo/shared/LearnerData {
+	public static final field Companion Lcom/eignex/combo/bandit/glm/LinearLearnerData$Companion;
+	public fun <init> (Lcom/eignex/kumulant/stat/regression/glm/LinearRegressionResult;)V
+	public final fun component1 ()Lcom/eignex/kumulant/stat/regression/glm/LinearRegressionResult;
+	public final fun copy (Lcom/eignex/kumulant/stat/regression/glm/LinearRegressionResult;)Lcom/eignex/combo/bandit/glm/LinearLearnerData;
+	public static synthetic fun copy$default (Lcom/eignex/combo/bandit/glm/LinearLearnerData;Lcom/eignex/kumulant/stat/regression/glm/LinearRegressionResult;ILjava/lang/Object;)Lcom/eignex/combo/bandit/glm/LinearLearnerData;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getState ()Lcom/eignex/kumulant/stat/regression/glm/LinearRegressionResult;
+	public fun hashCode ()I
+	public fun remap (Lcom/eignex/combo/shared/SlotRemap;)Lcom/eignex/combo/bandit/glm/LinearLearnerData;
+	public synthetic fun remap (Lcom/eignex/combo/shared/SlotRemap;)Lcom/eignex/combo/shared/LearnerData;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class com/eignex/combo/bandit/glm/LinearLearnerData$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lcom/eignex/combo/bandit/glm/LinearLearnerData$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/eignex/combo/bandit/glm/LinearLearnerData;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/eignex/combo/bandit/glm/LinearLearnerData;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/eignex/combo/bandit/glm/LinearLearnerData$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/eignex/combo/bo/ForestAcquisition : java/lang/Enum {
+	public static final field BootstrapThompson Lcom/eignex/combo/bo/ForestAcquisition;
+	public static final field ExpectedImprovement Lcom/eignex/combo/bo/ForestAcquisition;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/eignex/combo/bo/ForestAcquisition;
+	public static fun values ()[Lcom/eignex/combo/bo/ForestAcquisition;
+}
+
+public final class com/eignex/combo/bo/ForestOptimizerConfig {
+	public fun <init> ()V
+	public fun <init> (Lcom/eignex/kumulant/stat/regression/tree/BatchForestConfig;Lcom/eignex/combo/bo/ForestAcquisition;IDD)V
+	public synthetic fun <init> (Lcom/eignex/kumulant/stat/regression/tree/BatchForestConfig;Lcom/eignex/combo/bo/ForestAcquisition;IDDILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lcom/eignex/kumulant/stat/regression/tree/BatchForestConfig;
+	public final fun component2 ()Lcom/eignex/combo/bo/ForestAcquisition;
+	public final fun component3 ()I
+	public final fun component4 ()D
+	public final fun component5 ()D
+	public final fun copy (Lcom/eignex/kumulant/stat/regression/tree/BatchForestConfig;Lcom/eignex/combo/bo/ForestAcquisition;IDD)Lcom/eignex/combo/bo/ForestOptimizerConfig;
+	public static synthetic fun copy$default (Lcom/eignex/combo/bo/ForestOptimizerConfig;Lcom/eignex/kumulant/stat/regression/tree/BatchForestConfig;Lcom/eignex/combo/bo/ForestAcquisition;IDDILjava/lang/Object;)Lcom/eignex/combo/bo/ForestOptimizerConfig;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAcquisition ()Lcom/eignex/combo/bo/ForestAcquisition;
+	public final fun getForest ()Lcom/eignex/kumulant/stat/regression/tree/BatchForestConfig;
+	public final fun getImprovementMargin ()D
+	public final fun getInitialRandomObservations ()I
+	public final fun getRandomExploration ()D
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/eignex/combo/bo/HistoryData : com/eignex/combo/shared/LearnerData {
+	public final fun getDefinition ()Lcom/eignex/combo/decisions/DecisionSpaceDef;
+	public final fun getHistory ()Lcom/eignex/combo/bo/ObservationHistory;
+	public fun remap (Lcom/eignex/combo/shared/SlotRemap;)Lcom/eignex/combo/shared/LearnerData;
+}
+
+public final class com/eignex/combo/bo/InMemoryObservationStore : com/eignex/combo/bo/ObservationStore {
+	public fun <init> ()V
+	public fun append (Lcom/eignex/combo/bo/Observation;)V
+	public fun getRevision ()J
+	public fun snapshot ()Lcom/eignex/combo/bo/ObservationHistory;
+}
+
+public final class com/eignex/combo/bo/Observation {
+	public fun <init> (Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;DD)V
+	public synthetic fun <init> (Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;DDILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lcom/eignex/combo/decisions/BanditSample;
+	public final fun component2 ()Lcom/eignex/combo/decisions/Context;
+	public final fun component3 ()D
+	public final fun component4 ()D
+	public final fun copy (Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;DD)Lcom/eignex/combo/bo/Observation;
+	public static synthetic fun copy$default (Lcom/eignex/combo/bo/Observation;Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;DDILjava/lang/Object;)Lcom/eignex/combo/bo/Observation;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getContext ()Lcom/eignex/combo/decisions/Context;
+	public final fun getReward ()D
+	public final fun getSample ()Lcom/eignex/combo/decisions/BanditSample;
+	public final fun getWeight ()D
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/eignex/combo/bo/ObservationHistory {
+	public fun <init> (JLjava/util/List;)V
+	public final fun component1 ()J
+	public final fun component2 ()Ljava/util/List;
+	public final fun copy (JLjava/util/List;)Lcom/eignex/combo/bo/ObservationHistory;
+	public static synthetic fun copy$default (Lcom/eignex/combo/bo/ObservationHistory;JLjava/util/List;ILjava/lang/Object;)Lcom/eignex/combo/bo/ObservationHistory;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getObservations ()Ljava/util/List;
+	public final fun getRevision ()J
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class com/eignex/combo/bo/ObservationStore {
+	public abstract fun append (Lcom/eignex/combo/bo/Observation;)V
+	public abstract fun getRevision ()J
+	public abstract fun snapshot ()Lcom/eignex/combo/bo/ObservationHistory;
+}
+
+public final class com/eignex/combo/bo/RandomForestOptimizer : com/eignex/combo/shared/PredictionLearner {
+	public static final field Companion Lcom/eignex/combo/bo/RandomForestOptimizer$Companion;
+	public fun <init> (Lcom/eignex/combo/decisions/FeatureEncoder;Lcom/eignex/combo/bo/ObservationStore;Lcom/eignex/combo/bo/ForestOptimizerConfig;Lcom/eignex/combo/shared/HybridDescentSession;IZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;)V
+	public synthetic fun <init> (Lcom/eignex/combo/decisions/FeatureEncoder;Lcom/eignex/combo/bo/ObservationStore;Lcom/eignex/combo/bo/ForestOptimizerConfig;Lcom/eignex/combo/shared/HybridDescentSession;IZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun choose ()Lcom/eignex/combo/decisions/BanditSample;
+	public final fun choose (Lcom/eignex/combo/decisions/Context;)Lcom/eignex/combo/decisions/BanditSample;
+	public fun chooseOrThrow ()Lcom/eignex/combo/decisions/BanditSample;
+	public final fun chooseOrThrow (Lcom/eignex/combo/decisions/Context;)Lcom/eignex/combo/decisions/BanditSample;
+	public fun exportData ()Lcom/eignex/combo/bo/HistoryData;
+	public synthetic fun exportData ()Lcom/eignex/combo/shared/LearnerData;
+	public final fun getConfig ()Lcom/eignex/combo/bo/ForestOptimizerConfig;
+	public final fun getFitCount ()J
+	public fun getMaximize ()Z
+	public final fun getProjection ()Lcom/eignex/combo/decisions/FeatureEncoder;
+	public fun getRandomSeed ()I
+	public fun getRewards ()Lcom/eignex/kumulant/core/SeriesStat;
+	public final fun getSearch ()Lcom/eignex/combo/shared/HybridDescentSession;
+	public final fun getSpace ()Lcom/eignex/combo/decisions/CompiledDecisionSpace;
+	public final fun getStore ()Lcom/eignex/combo/bo/ObservationStore;
+	public fun getTestAbsError ()Lcom/eignex/kumulant/core/SeriesStat;
+	public fun getTrainAbsError ()Lcom/eignex/kumulant/core/SeriesStat;
+	public fun importData (Lcom/eignex/combo/bo/HistoryData;)V
+	public synthetic fun importData (Lcom/eignex/combo/shared/LearnerData;)V
+	public fun optimal ()Lcom/eignex/combo/decisions/BanditSample;
+	public final fun optimal (Lcom/eignex/combo/decisions/Context;)Lcom/eignex/combo/decisions/BanditSample;
+	public fun optimalOrThrow ()Lcom/eignex/combo/decisions/BanditSample;
+	public final fun optimalOrThrow (Lcom/eignex/combo/decisions/Context;)Lcom/eignex/combo/decisions/BanditSample;
+	public fun predict (Lcom/eignex/combo/decisions/BanditSample;)D
+	public final fun predict (Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;)D
+	public fun train (Lcom/eignex/combo/decisions/BanditSample;DD)V
+	public final fun train (Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;DD)V
+	public static synthetic fun train$default (Lcom/eignex/combo/bo/RandomForestOptimizer;Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;DDILjava/lang/Object;)V
+	public fun trainAll (Ljava/util/List;[D[D)V
+	public fun update (Lcom/eignex/combo/decisions/BanditSample;DD)V
+	public final fun update (Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;DD)V
+	public static synthetic fun update$default (Lcom/eignex/combo/bo/RandomForestOptimizer;Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;DDILjava/lang/Object;)V
+	public fun updateAll (Ljava/util/List;[D[D)V
+}
+
+public final class com/eignex/combo/bo/RandomForestOptimizer$Companion {
+	public final fun bootstrapThompson (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/combo/bo/ObservationStore;Lcom/eignex/combo/bo/ForestOptimizerConfig;IZ)Lcom/eignex/combo/bo/RandomForestOptimizer;
+	public static synthetic fun bootstrapThompson$default (Lcom/eignex/combo/bo/RandomForestOptimizer$Companion;Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/combo/bo/ObservationStore;Lcom/eignex/combo/bo/ForestOptimizerConfig;IZILjava/lang/Object;)Lcom/eignex/combo/bo/RandomForestOptimizer;
+	public final fun smac (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/combo/bo/ObservationStore;Lcom/eignex/combo/bo/ForestOptimizerConfig;IZ)Lcom/eignex/combo/bo/RandomForestOptimizer;
+	public static synthetic fun smac$default (Lcom/eignex/combo/bo/RandomForestOptimizer$Companion;Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/combo/bo/ObservationStore;Lcom/eignex/combo/bo/ForestOptimizerConfig;IZILjava/lang/Object;)Lcom/eignex/combo/bo/RandomForestOptimizer;
+}
+
+public final class com/eignex/combo/decisions/BanditSample {
+	public fun <init> (Lcom/eignex/klause/solver/Sample;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun float (Lcom/eignex/klause/schema/FloatHandle;Lcom/eignex/combo/decisions/CompiledDecisionSpace;)D
+	public final fun getBools ()[Z
+	public final fun getInts ()[J
+	public final fun getSample ()Lcom/eignex/klause/solver/Sample;
+	public fun hashCode ()I
+}
+
+public final class com/eignex/combo/decisions/BoolContextHandle : com/eignex/klause/model/BoolTerm {
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getKlauseHandle ()Lcom/eignex/klause/schema/BoolHandle;
+	public final fun getName ()Ljava/lang/String;
+	public fun hashCode ()I
+	public final fun isOptional ()Z
+	public fun toExpr ()Lcom/eignex/klause/model/BoolExpr;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/eignex/combo/decisions/CompiledDecisionSpace {
+	public final fun assumptionsFor (Lcom/eignex/combo/decisions/Context;)Lcom/eignex/klause/propagation/Assumptions;
+	public final fun decode (Lcom/eignex/combo/decisions/BoolContextHandle;Lcom/eignex/klause/solver/Sample;)Z
+	public final fun decode (Lcom/eignex/combo/decisions/IntContextHandle;Lcom/eignex/klause/solver/Sample;)I
+	public final fun evaluate (Lcom/eignex/klause/model/BoolExpr;Lcom/eignex/klause/solver/Sample;)Z
+	public final fun gateOf (Lcom/eignex/combo/decisions/SubSpace;)Lcom/eignex/klause/schema/BoolHandle;
+	public final fun getActiveConditions ()Ljava/util/Map;
+	public final fun getCompiled ()Lcom/eignex/klause/compile/CompiledSchema;
+	public final fun getContextBools ()Ljava/util/List;
+	public final fun getContextInts ()Ljava/util/List;
+	public final fun getDefinition ()Lcom/eignex/combo/decisions/DecisionSpaceDef;
+	public final fun getGates ()Ljava/util/Map;
+	public final fun getInteractions ()Ljava/util/List;
+	public final fun isActive (Lcom/eignex/combo/decisions/BoolContextHandle;Lcom/eignex/klause/solver/Sample;)Z
+	public final fun isActive (Lcom/eignex/combo/decisions/IntContextHandle;Lcom/eignex/klause/solver/Sample;)Z
+	public final fun isActive (Lcom/eignex/klause/schema/BoolHandle;Lcom/eignex/klause/solver/Sample;)Z
+	public final fun isActive (Lcom/eignex/klause/schema/IntHandle;Lcom/eignex/klause/solver/Sample;)Z
+	public final fun isActive (Lcom/eignex/klause/schema/NominalHandle;Lcom/eignex/klause/solver/Sample;)Z
+	public final fun isOptional (Lcom/eignex/combo/decisions/BoolContextHandle;)Z
+	public final fun isOptional (Lcom/eignex/combo/decisions/IntContextHandle;)Z
+	public final fun isOptional (Lcom/eignex/klause/schema/BoolHandle;)Z
+	public final fun isOptional (Lcom/eignex/klause/schema/IntHandle;)Z
+	public final fun isOptional (Lcom/eignex/klause/schema/NominalHandle;)Z
+	public final fun matches (Lcom/eignex/klause/solver/Sample;Lcom/eignex/klause/propagation/Assumptions;)Z
+}
+
+public final class com/eignex/combo/decisions/Context {
+	public static final field Companion Lcom/eignex/combo/decisions/Context$Companion;
+	public final fun get (Lcom/eignex/combo/decisions/BoolContextHandle;)Z
+	public final fun get (Lcom/eignex/combo/decisions/IntContextHandle;)I
+	public final fun isPresent (Lcom/eignex/combo/decisions/BoolContextHandle;)Z
+	public final fun isPresent (Lcom/eignex/combo/decisions/IntContextHandle;)Z
+}
+
+public final class com/eignex/combo/decisions/Context$Companion {
+	public final fun getEmpty ()Lcom/eignex/combo/decisions/Context;
+}
+
+public final class com/eignex/combo/decisions/ContextBuilder {
+	public final fun set (Lcom/eignex/combo/decisions/BoolContextHandle;Z)V
+	public final fun set (Lcom/eignex/combo/decisions/IntContextHandle;I)V
+}
+
+public final class com/eignex/combo/decisions/ContextKt {
+	public static final fun context (Lkotlin/jvm/functions/Function1;)Lcom/eignex/combo/decisions/Context;
+}
+
+public abstract class com/eignex/combo/decisions/DecisionSpace : com/eignex/combo/decisions/SubSpace {
+	public fun <init> ()V
+	public final fun compileSpace ()Lcom/eignex/combo/decisions/CompiledDecisionSpace;
+	protected final fun contextBool ()Lkotlin/properties/PropertyDelegateProvider;
+	protected final fun contextInt (II)Lkotlin/properties/PropertyDelegateProvider;
+	public final fun definition ()Lcom/eignex/combo/decisions/DecisionSpaceDef;
+	public fun getName ()Ljava/lang/String;
+	protected final fun interact (Ljava/lang/Object;Ljava/lang/Object;)Lkotlin/properties/PropertyDelegateProvider;
+	protected final fun optionalContextBool ()Lkotlin/properties/PropertyDelegateProvider;
+	protected final fun optionalContextInt (II)Lkotlin/properties/PropertyDelegateProvider;
+}
+
+public final class com/eignex/combo/decisions/DecisionSpaceDef {
+	public static final field Companion Lcom/eignex/combo/decisions/DecisionSpaceDef$Companion;
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/String;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/List;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun compile ()Lcom/eignex/klause/compile/CompiledSchema;
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component10 ()Ljava/util/List;
+	public final fun component2 ()Ljava/util/Map;
+	public final fun component3 ()Ljava/util/Map;
+	public final fun component4 ()Ljava/util/Map;
+	public final fun component5 ()Ljava/util/Map;
+	public final fun component6 ()Ljava/util/Map;
+	public final fun component7 ()Ljava/util/Map;
+	public final fun component8 ()Ljava/util/Map;
+	public final fun component9 ()Ljava/util/Map;
+	public final fun copy (Ljava/lang/String;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/List;)Lcom/eignex/combo/decisions/DecisionSpaceDef;
+	public static synthetic fun copy$default (Lcom/eignex/combo/decisions/DecisionSpaceDef;Ljava/lang/String;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/List;ILjava/lang/Object;)Lcom/eignex/combo/decisions/DecisionSpaceDef;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getConstraints ()Ljava/util/Map;
+	public final fun getContext ()Ljava/util/Map;
+	public final fun getInteractions ()Ljava/util/List;
+	public final fun getMultiples ()Ljava/util/Map;
+	public final fun getName ()Ljava/lang/String;
+	public final fun getOptionalContext ()Ljava/util/Map;
+	public final fun getOptionalSpaces ()Ljava/util/Map;
+	public final fun getOptionalVariables ()Ljava/util/Map;
+	public final fun getSpaces ()Ljava/util/Map;
+	public final fun getVariables ()Ljava/util/Map;
+	public fun hashCode ()I
+	public final fun toSchemaDef ()Lcom/eignex/skema/SchemaDef;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class com/eignex/combo/decisions/DecisionSpaceDef$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lcom/eignex/combo/decisions/DecisionSpaceDef$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/eignex/combo/decisions/DecisionSpaceDef;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/eignex/combo/decisions/DecisionSpaceDef;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/eignex/combo/decisions/DecisionSpaceDef$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public abstract interface class com/eignex/combo/decisions/FeatureEncoder {
+	public abstract fun encode (Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;)Ljava/lang/Object;
+	public static synthetic fun encode$default (Lcom/eignex/combo/decisions/FeatureEncoder;Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;ILjava/lang/Object;)Ljava/lang/Object;
+	public abstract fun getFeatureSize ()I
+	public abstract fun getSpace ()Lcom/eignex/combo/decisions/CompiledDecisionSpace;
+}
+
+public final class com/eignex/combo/decisions/FeatureEncoder$DefaultImpls {
+	public static synthetic fun encode$default (Lcom/eignex/combo/decisions/FeatureEncoder;Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;ILjava/lang/Object;)Ljava/lang/Object;
+}
+
+public final class com/eignex/combo/decisions/IntContextHandle : com/eignex/klause/model/IntTerm {
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getKlauseHandle ()Lcom/eignex/klause/schema/IntHandle;
+	public final fun getMax ()I
+	public final fun getMin ()I
+	public final fun getName ()Ljava/lang/String;
+	public fun hashCode ()I
+	public final fun isOptional ()Z
+	public fun toIntExpr ()Lcom/eignex/klause/model/IntExpr;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/eignex/combo/decisions/InteractionDef {
+	public static final field Companion Lcom/eignex/combo/decisions/InteractionDef$Companion;
+	public fun <init> (Ljava/lang/String;Lcom/eignex/combo/decisions/ScalarRef;Lcom/eignex/combo/decisions/ScalarRef;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Lcom/eignex/combo/decisions/ScalarRef;
+	public final fun component3 ()Lcom/eignex/combo/decisions/ScalarRef;
+	public final fun copy (Ljava/lang/String;Lcom/eignex/combo/decisions/ScalarRef;Lcom/eignex/combo/decisions/ScalarRef;)Lcom/eignex/combo/decisions/InteractionDef;
+	public static synthetic fun copy$default (Lcom/eignex/combo/decisions/InteractionDef;Ljava/lang/String;Lcom/eignex/combo/decisions/ScalarRef;Lcom/eignex/combo/decisions/ScalarRef;ILjava/lang/Object;)Lcom/eignex/combo/decisions/InteractionDef;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getLhs ()Lcom/eignex/combo/decisions/ScalarRef;
+	public final fun getName ()Ljava/lang/String;
+	public final fun getRhs ()Lcom/eignex/combo/decisions/ScalarRef;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class com/eignex/combo/decisions/InteractionDef$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lcom/eignex/combo/decisions/InteractionDef$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/eignex/combo/decisions/InteractionDef;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/eignex/combo/decisions/InteractionDef;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/eignex/combo/decisions/InteractionDef$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/eignex/combo/decisions/InteractionHandle {
+	public final fun getName ()Ljava/lang/String;
+}
+
+public final class com/eignex/combo/decisions/MultipleHandle {
+	public final fun contains (Ljava/lang/String;)Lcom/eignex/klause/model/BoolExpr;
+	public final fun containsAll ([Ljava/lang/String;)Lcom/eignex/klause/model/BoolExpr;
+	public final fun containsAny ([Ljava/lang/String;)Lcom/eignex/klause/model/BoolExpr;
+	public final fun count ()Lcom/eignex/klause/model/IntExpr;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBools ()Ljava/util/Map;
+	public final fun getLabels ()Ljava/util/List;
+	public final fun getName ()Ljava/lang/String;
+	public fun hashCode ()I
+	public final fun sizeBetween (II)Lcom/eignex/klause/model/BoolExpr;
+	public final fun sizeEq (I)Lcom/eignex/klause/model/BoolExpr;
+	public final fun sizeGe (I)Lcom/eignex/klause/model/BoolExpr;
+	public final fun sizeLe (I)Lcom/eignex/klause/model/BoolExpr;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/eignex/combo/decisions/ScalarKind : java/lang/Enum {
+	public static final field BoolContext Lcom/eignex/combo/decisions/ScalarKind;
+	public static final field BoolDecision Lcom/eignex/combo/decisions/ScalarKind;
+	public static final field Companion Lcom/eignex/combo/decisions/ScalarKind$Companion;
+	public static final field IntContext Lcom/eignex/combo/decisions/ScalarKind;
+	public static final field IntDecision Lcom/eignex/combo/decisions/ScalarKind;
+	public static final field NominalContext Lcom/eignex/combo/decisions/ScalarKind;
+	public static final field NominalDecision Lcom/eignex/combo/decisions/ScalarKind;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/eignex/combo/decisions/ScalarKind;
+	public static fun values ()[Lcom/eignex/combo/decisions/ScalarKind;
+}
+
+public final class com/eignex/combo/decisions/ScalarKind$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/eignex/combo/decisions/ScalarRef {
+	public static final field Companion Lcom/eignex/combo/decisions/ScalarRef$Companion;
+	public fun <init> (Lcom/eignex/combo/decisions/ScalarKind;Ljava/util/List;Ljava/util/List;)V
+	public synthetic fun <init> (Lcom/eignex/combo/decisions/ScalarKind;Ljava/util/List;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lcom/eignex/combo/decisions/ScalarKind;
+	public final fun component2 ()Ljava/util/List;
+	public final fun component3 ()Ljava/util/List;
+	public final fun copy (Lcom/eignex/combo/decisions/ScalarKind;Ljava/util/List;Ljava/util/List;)Lcom/eignex/combo/decisions/ScalarRef;
+	public static synthetic fun copy$default (Lcom/eignex/combo/decisions/ScalarRef;Lcom/eignex/combo/decisions/ScalarKind;Ljava/util/List;Ljava/util/List;ILjava/lang/Object;)Lcom/eignex/combo/decisions/ScalarRef;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getKind ()Lcom/eignex/combo/decisions/ScalarKind;
+	public final fun getLabels ()Ljava/util/List;
+	public final fun getPath ()Ljava/util/List;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class com/eignex/combo/decisions/ScalarRef$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lcom/eignex/combo/decisions/ScalarRef$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/eignex/combo/decisions/ScalarRef;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/eignex/combo/decisions/ScalarRef;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/eignex/combo/decisions/ScalarRef$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public abstract class com/eignex/combo/decisions/SubSpace {
+	protected final fun boolVar ()Lkotlin/properties/PropertyDelegateProvider;
+	protected final fun constraint (Lkotlin/jvm/functions/Function0;)Lkotlin/properties/PropertyDelegateProvider;
+	protected final fun decisionSpace (Lkotlin/jvm/functions/Function0;)Lkotlin/properties/PropertyDelegateProvider;
+	protected final fun floatVar (DDLjava/lang/Integer;)Lkotlin/properties/PropertyDelegateProvider;
+	public static synthetic fun floatVar$default (Lcom/eignex/combo/decisions/SubSpace;DDLjava/lang/Integer;ILjava/lang/Object;)Lkotlin/properties/PropertyDelegateProvider;
+	protected final fun intVar (II)Lkotlin/properties/PropertyDelegateProvider;
+	protected final fun multiple ([Ljava/lang/String;)Lkotlin/properties/PropertyDelegateProvider;
+	protected final fun nominal ([Ljava/lang/String;)Lkotlin/properties/PropertyDelegateProvider;
+	protected final fun optionalDecisionSpace (Lkotlin/jvm/functions/Function0;)Lkotlin/properties/PropertyDelegateProvider;
+}
+
+public abstract interface class com/eignex/combo/shared/DescentSession {
+	public abstract fun getDepth ()I
+	public abstract fun pop ()V
+	public abstract fun push (Lcom/eignex/klause/propagation/Assumptions;)V
+	public abstract fun sample (Lkotlin/random/Random;)Lcom/eignex/klause/solver/Sample;
+}
+
+public final class com/eignex/combo/shared/HybridDescentSession : com/eignex/combo/shared/DescentSession {
+	public static final field Companion Lcom/eignex/combo/shared/HybridDescentSession$Companion;
+	public fun <init> (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function2;II)V
+	public synthetic fun <init> (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function2;IIILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun beginRound (Lkotlin/jvm/functions/Function1;)V
+	public final fun getBacktrackCalls ()J
+	public fun getDepth ()I
+	public final fun getLastResult ()Lcom/eignex/klause/solver/result/SampleResult;
+	public final fun getPoolHits ()J
+	public final fun getProposalCalls ()J
+	public fun pop ()V
+	public fun push (Lcom/eignex/klause/propagation/Assumptions;)V
+	public fun sample (Lkotlin/random/Random;)Lcom/eignex/klause/solver/Sample;
+	public final fun search (Lkotlin/random/Random;Lcom/eignex/klause/propagation/Assumptions;)Lcom/eignex/klause/solver/result/SampleResult;
+}
+
+public final class com/eignex/combo/shared/HybridDescentSession$Companion {
+	public final fun klause (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/klause/localsearch/LocalSearchParams;Lcom/eignex/klause/backtrack/BacktrackParams;II)Lcom/eignex/combo/shared/HybridDescentSession;
+	public static synthetic fun klause$default (Lcom/eignex/combo/shared/HybridDescentSession$Companion;Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/klause/localsearch/LocalSearchParams;Lcom/eignex/klause/backtrack/BacktrackParams;IIILjava/lang/Object;)Lcom/eignex/combo/shared/HybridDescentSession;
+}
+
+public final class com/eignex/combo/shared/KlauseDescentSession : com/eignex/combo/shared/DescentSession {
+	public fun <init> (Lcom/eignex/klause/solver/Session;Lkotlin/jvm/functions/Function1;)V
+	public fun getDepth ()I
+	public fun pop ()V
+	public fun push (Lcom/eignex/klause/propagation/Assumptions;)V
+	public fun sample (Lkotlin/random/Random;)Lcom/eignex/klause/solver/Sample;
+}
+
+public abstract interface class com/eignex/combo/shared/Learner {
+	public fun choose ()Lcom/eignex/combo/decisions/BanditSample;
+	public abstract fun chooseOrThrow ()Lcom/eignex/combo/decisions/BanditSample;
+	public abstract fun exportData ()Lcom/eignex/combo/shared/LearnerData;
+	public abstract fun getMaximize ()Z
+	public abstract fun getRandomSeed ()I
+	public abstract fun getRewards ()Lcom/eignex/kumulant/core/SeriesStat;
+	public abstract fun importData (Lcom/eignex/combo/shared/LearnerData;)V
+	public fun optimal ()Lcom/eignex/combo/decisions/BanditSample;
+	public abstract fun optimalOrThrow ()Lcom/eignex/combo/decisions/BanditSample;
+	public abstract fun update (Lcom/eignex/combo/decisions/BanditSample;DD)V
+	public static synthetic fun update$default (Lcom/eignex/combo/shared/Learner;Lcom/eignex/combo/decisions/BanditSample;DDILjava/lang/Object;)V
+	public fun updateAll (Ljava/util/List;[D[D)V
+	public static synthetic fun updateAll$default (Lcom/eignex/combo/shared/Learner;Ljava/util/List;[D[DILjava/lang/Object;)V
+}
+
+public final class com/eignex/combo/shared/Learner$DefaultImpls {
+	public static fun choose (Lcom/eignex/combo/shared/Learner;)Lcom/eignex/combo/decisions/BanditSample;
+	public static fun optimal (Lcom/eignex/combo/shared/Learner;)Lcom/eignex/combo/decisions/BanditSample;
+	public static synthetic fun update$default (Lcom/eignex/combo/shared/Learner;Lcom/eignex/combo/decisions/BanditSample;DDILjava/lang/Object;)V
+	public static fun updateAll (Lcom/eignex/combo/shared/Learner;Ljava/util/List;[D[D)V
+	public static synthetic fun updateAll$default (Lcom/eignex/combo/shared/Learner;Ljava/util/List;[D[DILjava/lang/Object;)V
+}
+
+public abstract interface class com/eignex/combo/shared/LearnerData {
+	public abstract fun remap (Lcom/eignex/combo/shared/SlotRemap;)Lcom/eignex/combo/shared/LearnerData;
+}
+
+public final class com/eignex/combo/shared/LinearFeatureLayout {
+	public static final field Companion Lcom/eignex/combo/shared/LinearFeatureLayout$Companion;
+	public final fun getBoolStart ()I
+	public final fun getFeatureSize ()I
+	public final fun getFloatSpecs ()Ljava/util/Map;
+	public final fun getIntStart ()I
+	public final fun getInteractions ()Ljava/util/List;
+	public final fun getInteractionsStart ()I
+	public final fun getNumBoolVars ()I
+	public final fun getNumIntVars ()I
+	public final fun getNumRealVars ()I
+	public final fun getRealHandles ()Ljava/util/Map;
+	public final fun getRealStart ()I
+}
+
+public final class com/eignex/combo/shared/LinearFeatureLayout$Companion {
+	public final fun from (Lcom/eignex/combo/decisions/CompiledDecisionSpace;)Lcom/eignex/combo/shared/LinearFeatureLayout;
+}
+
+public final class com/eignex/combo/shared/LinearFeatureProjection : com/eignex/combo/decisions/FeatureEncoder {
+	public fun <init> (Lcom/eignex/combo/decisions/CompiledDecisionSpace;)V
+	public final fun assumptionsFor (Lcom/eignex/combo/decisions/Context;)Lcom/eignex/klause/propagation/Assumptions;
+	public fun encode (Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;)Lcom/eignex/koblas/Vector;
+	public synthetic fun encode (Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;)Ljava/lang/Object;
+	public fun getFeatureSize ()I
+	public final fun getLayout ()Lcom/eignex/combo/shared/LinearFeatureLayout;
+	public fun getSpace ()Lcom/eignex/combo/decisions/CompiledDecisionSpace;
+	public final fun toObjective (Lcom/eignex/koblas/Vector;DLcom/eignex/combo/decisions/Context;Z)Lcom/eignex/klause/solver/objective/LinearObjective;
+}
+
+public final class com/eignex/combo/shared/NoFeasibleSampleException : java/lang/RuntimeException {
+	public fun <init> (Ljava/lang/String;)V
+}
+
+public abstract interface class com/eignex/combo/shared/PredictionLearner : com/eignex/combo/shared/Learner {
+	public abstract fun getTestAbsError ()Lcom/eignex/kumulant/core/SeriesStat;
+	public abstract fun getTrainAbsError ()Lcom/eignex/kumulant/core/SeriesStat;
+	public abstract fun predict (Lcom/eignex/combo/decisions/BanditSample;)D
+	public abstract fun train (Lcom/eignex/combo/decisions/BanditSample;DD)V
+	public static synthetic fun train$default (Lcom/eignex/combo/shared/PredictionLearner;Lcom/eignex/combo/decisions/BanditSample;DDILjava/lang/Object;)V
+	public fun trainAll (Ljava/util/List;[D[D)V
+	public static synthetic fun trainAll$default (Lcom/eignex/combo/shared/PredictionLearner;Ljava/util/List;[D[DILjava/lang/Object;)V
+}
+
+public final class com/eignex/combo/shared/PredictionLearner$DefaultImpls {
+	public static fun choose (Lcom/eignex/combo/shared/PredictionLearner;)Lcom/eignex/combo/decisions/BanditSample;
+	public static fun optimal (Lcom/eignex/combo/shared/PredictionLearner;)Lcom/eignex/combo/decisions/BanditSample;
+	public static synthetic fun train$default (Lcom/eignex/combo/shared/PredictionLearner;Lcom/eignex/combo/decisions/BanditSample;DDILjava/lang/Object;)V
+	public static fun trainAll (Lcom/eignex/combo/shared/PredictionLearner;Ljava/util/List;[D[D)V
+	public static synthetic fun trainAll$default (Lcom/eignex/combo/shared/PredictionLearner;Ljava/util/List;[D[DILjava/lang/Object;)V
+	public static fun updateAll (Lcom/eignex/combo/shared/PredictionLearner;Ljava/util/List;[D[D)V
+}
+
+public abstract interface class com/eignex/combo/shared/SlotRemap {
+	public abstract fun getNewProblem ()Lcom/eignex/klause/compile/CompiledSchema;
+	public abstract fun remapBool (I)I
+	public abstract fun remapInt (I)I
+}
+
+public final class com/eignex/combo/util/RandomSequence {
+	public fun <init> (I)V
+	public final fun getSequenceStart ()I
+	public final fun next ()Lkotlin/random/Random;
+}
+
