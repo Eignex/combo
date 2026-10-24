@@ -115,6 +115,36 @@ class ScaledWitnessProposalsTest {
         val amount by floatVar(0.0, 1.0)
     }
 
+    private class MixedLinear : DecisionSpace() {
+        val count by intVar(1, 6)
+        val mode by nominal("slow", "fast")
+        val finite by floatVar(-2.0, 2.0, buckets = 9)
+        val amount by floatVar(0.0, 1.0)
+        val absent by optionalContextInt(1, 100)
+    }
+
+    @Test
+    fun `real witness initialization explores linear integers categories and finite floats`() {
+        val model = MixedLinear()
+        val space = model.compileSpace()
+        val context = space.assumptionsFor(com.eignex.combo.decisions.Context.Empty)
+        val countId = space.compiled.intVarIdByName.getValue(model.count.name)
+        val search = HybridDescentSession.klause(space)
+        val batch = search.witnesses(WitnessRequest(64, context), Random(23))
+        assertEquals(64, batch.witnesses.size)
+        assertEquals((1L..6L).toSet(), batch.witnesses.map { it.intValue(countId) }.toSet())
+        assertEquals(setOf("slow", "fast"), batch.witnesses.map { space.compiled.decode(model.mode, it) }.toSet())
+        assertTrue(batch.witnesses.map { BanditSample(it).float(model.finite, space) }.distinct().size > 2)
+        assertTrue(batch.witnesses.all { space.decode(model.absent, it) == 1 && !space.isActive(model.absent, it) })
+        assertTrue(batch.witnesses.all(WitnessValidator(space)::valid))
+        val pinned = search.witnesses(
+            WitnessRequest(8, context.mergedWith(Assumptions(ints = mapOf(countId to 4L)))),
+            Random(31),
+        )
+        assertEquals(8, pinned.witnesses.size)
+        assertTrue(pinned.witnesses.all { it.intValue(countId) == 4L })
+    }
+
     @Test
     fun `mixed real and integer proposals honor logarithmic geometry without replacing hard pins`() {
         val model = Mixed()

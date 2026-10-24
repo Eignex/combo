@@ -4,6 +4,7 @@ import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.CompiledDecisionSpace
 import com.eignex.combo.decisions.Context
 import com.eignex.combo.decisions.FeatureEncoder
+import com.eignex.combo.shared.SolverCoordinateLayout
 import com.eignex.combo.shared.WitnessRequest
 import com.eignex.combo.shared.WitnessSearch
 import com.eignex.combo.shared.WitnessTermination
@@ -136,7 +137,7 @@ class LocalAndRandomSearch(
 private class FeasibleNeighborhood(private val space: CompiledDecisionSpace) {
     private val validator = WitnessValidator(space)
     private val solver by lazy { BacktrackSolver(space.compiled.problem.bake()) }
-    private val realIds = com.eignex.combo.shared.LinearFeatureLayout.from(space).realHandles
+    private val realIds = SolverCoordinateLayout(space).realHandles
     private val names = (space.compiled.boolVarIdByName.keys + space.numericDomains.keys).distinct()
 
     fun around(
@@ -199,13 +200,15 @@ private class FeasibleNeighborhood(private val space: CompiledDecisionSpace) {
                 val lo = domain.feature(domain.min)
                 val hi = domain.feature(domain.max)
                 val reals = anchor.reals
+                val exact = (anchor.exactReals ?: reals.map { BigFraction.ofDouble(it)!! }).toMutableList()
                 val unit = if (lo == hi) 0.0 else (domain.feature(reals[realId]) - lo) / (hi - lo)
                 reals[realId] = domain.fromUnit((unit + random.nextDouble(-radius, radius)).coerceIn(0.0, 1.0))
+                exact[realId] = BigFraction.ofDouble(reals[realId])!!
                 val point = Sample(
                     anchor.bools,
                     anchor.ints,
                     reals,
-                    exactReals = reals.map { BigFraction.ofDouble(it)!! },
+                    exactReals = exact,
                 )
                 point.takeIf { space.matches(it, assumptions) && validator.valid(it) }
             } else {
