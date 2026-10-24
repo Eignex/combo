@@ -622,6 +622,15 @@ public abstract interface class com/eignex/combo/bo/InitialDesign {
 	public abstract fun explore (Lcom/eignex/combo/bo/StudySnapshot;Lkotlin/random/Random;)Z
 }
 
+public final class com/eignex/combo/bo/InteractionFeatureProjection : com/eignex/combo/decisions/FeatureEncoder {
+	public fun <init> (Lcom/eignex/combo/bo/SearchTransform;)V
+	public fun encode (Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;)Lcom/eignex/koblas/Vector;
+	public synthetic fun encode (Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;)Ljava/lang/Object;
+	public final fun getCoordinates ()Lcom/eignex/combo/bo/SearchTransform;
+	public fun getFeatureSize ()I
+	public fun getSpace ()Lcom/eignex/combo/decisions/CompiledDecisionSpace;
+}
+
 public final class com/eignex/combo/bo/LocalAndRandomSearch : com/eignex/combo/bo/AcquisitionOptimizer {
 	public fun <init> (Lcom/eignex/combo/decisions/FeatureEncoder;Lcom/eignex/combo/shared/WitnessSearch;IIII)V
 	public synthetic fun <init> (Lcom/eignex/combo/decisions/FeatureEncoder;Lcom/eignex/combo/shared/WitnessSearch;IIIIILkotlin/jvm/internal/DefaultConstructorMarker;)V

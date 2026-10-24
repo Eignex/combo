@@ -192,6 +192,7 @@ class HybridDescentSession(
                         // Solver completions seed independently verified interior proposals.
                         // Failed proposals retain the feasible solver witness.
                         val objective = LinearObjective(
+                            LongArray(problem.numBoolVars) { if (rng.nextBoolean()) 1L else -1L },
                             realCoefficients = DoubleArray(problem.numRealVars) { rng.nextDouble(-1.0, 1.0) },
                         )
                         val pins = proposals.integerPins(assumptions, rng)

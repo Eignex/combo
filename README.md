@@ -336,10 +336,16 @@ val optimizer = BayesianOptimizer(
 
 `SearchTransform` normalizes numeric base coordinates into [0, 1] using declared
 scale geometry. Presence and nominal indicators retain their Boolean slots, and
-interactions are recomputed from normalized scalars. `decode` maps base coordinates
+inactive values are masked. It has no interaction columns or linear-model dependency.
+Models that need declared products can opt into `InteractionFeatureProjection(SearchTransform(space))`;
+this appends interactions to model inputs without changing proposal coordinates.
+`decode` accepts only base coordinates and maps them
 back into a checked original assignment; invalid categorical combinations, contexts,
 and constrained points return null. Constraints are never rewritten into feature space.
 Custom feature encoders remain supported and are fixed for an optimizer's lifetime.
+For spaces declaring interactions, default BO inputs now have fewer columns. Refit
+models trained on the previous expanded vectors, or use `InteractionFeatureProjection`
+to retain those products. Exported original-coordinate observation history can be reused.
 
 `OutcomeSpec` centralizes objective direction and optional response standardization.
 Predictions, EI margins, recorded metrics, and fantasy labels stay in original reward
@@ -360,7 +366,10 @@ and simple regret when a known optimum is supplied. Synthetic noisy objectives c
 provide a separate noiseless reference value. The component tests compare seeded
 forest/EI and random search on a bounded continuous quadratic, verify replay from a
 fresh study, and check that local acquisition search improves beyond an initial pool.
-This is a small regression benchmark, not a claim of universal algorithm superiority.
+The [multi-seed benchmark](benchmarks/README.md) additionally compares guided forest/EI,
+normalized pool-only forest/EI, a legacy-style pool-only baseline, and random search
+on five objectives. It records full regret-versus-cost traces and a checked-in summary.
+These synthetic results do not establish universal algorithm superiority.
 
 ## Building
 
