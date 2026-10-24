@@ -1,9 +1,9 @@
 package com.eignex.combo.bo
 
+import com.eignex.combo.bo.model.BatchForestConfig
 import com.eignex.combo.decisions.DecisionSpace
 import com.eignex.koblas.DenseMatrix
 import com.eignex.koblas.DenseVector
-import com.eignex.kumulant.stat.regression.tree.BatchForestConfig
 import kotlin.math.exp
 import kotlin.random.Random
 import kotlin.test.Test

@@ -1,5 +1,7 @@
 package com.eignex.combo.bo
 
+import com.eignex.combo.bo.model.BatchForestConfig
+import com.eignex.combo.bo.model.BatchSplitStrategy
 import com.eignex.combo.decisions.CompiledDecisionSpace
 import com.eignex.combo.decisions.DecisionSpaceDef
 import com.eignex.combo.decisions.FeatureEncoder
@@ -9,8 +11,6 @@ import com.eignex.combo.shared.SlotRemap
 import com.eignex.combo.shared.WitnessSearch
 import com.eignex.koblas.Vector
 import com.eignex.kumulant.core.SeriesStat
-import com.eignex.kumulant.stat.regression.tree.BatchForestConfig
-import com.eignex.kumulant.stat.regression.tree.BatchSplitStrategy
 
 /** Acquisition rules for a history-fitted random forest. */
 enum class ForestAcquisition {
@@ -62,7 +62,7 @@ data class ForestOptimizerConfig(
 
 /**
  * Forest convenience facade for the composable Bayesian optimization loop.
- * Kumulant supplies numeric CART fitting; Combo's generic components own lifecycle and search.
+ * Combo's batch model component supplies CART fitting; generic components own lifecycle and search.
  *
  * @param projection Fixed model feature encoder.
  * @param store Observation store owned by the new study.

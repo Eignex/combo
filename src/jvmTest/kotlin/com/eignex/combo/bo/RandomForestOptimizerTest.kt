@@ -1,5 +1,6 @@
 package com.eignex.combo.bo
 
+import com.eignex.combo.bo.model.BatchForestConfig
 import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.Context
 import com.eignex.combo.decisions.DecisionSpace
@@ -15,7 +16,6 @@ import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
 import com.eignex.koblas.DenseVector
 import com.eignex.koblas.Vector
-import com.eignex.kumulant.stat.regression.tree.BatchForestConfig
 import com.eignex.kumulant.stat.summary.SumStat
 import org.junit.Rule
 import org.junit.rules.Timeout

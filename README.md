@@ -30,7 +30,7 @@ cumulative reward or the best final configuration.
 Both families use the same decision-space schema and contextual variables.
 [Klause](https://github.com/Eignex/klause) owns constraints and feasible witnesses;
 [Kumulant](https://github.com/Eignex/kumulant) supplies statistical models, posterior
-sampling, and batch CART forest fitting. Combo owns acquisition functions, including
+sampling, and shared tree snapshots. Combo owns full-history model fitting and acquisition functions, including
 Gaussian and lognormal expected improvement, and their optimization over feasible configurations.
 
 Using it requires three steps:
@@ -229,7 +229,7 @@ optimizer.update(configuration, evaluate(configuration))
 val recommendation = optimizer.optimalOrThrow()
 ```
 
-Both algorithms use Kumulant's batch CART forest fitter, which finds numeric split
+Both algorithms use Combo's batch CART forest fitter, which finds numeric split
 thresholds from the observed data. Continuous values retain their declared units.
 
 - **SMAC-style expected improvement** refits a forest when the store revision changes.
@@ -309,7 +309,7 @@ Calls remain single-threaded even when external evaluations run concurrently.
 ## SMAC-inspired profile and paired racing
 
 The compact `smac` factory retains its original signed-response defaults. For positive
-costs, the budget-aware profile combines ten randomized all-feature Kumulant trees,
+costs, the budget-aware profile combines ten randomized all-feature batch trees,
 log-response EI, a continuous Latin hypercube, 20% independent exploration, and ten
 adaptive local-search starts:
 
@@ -427,7 +427,7 @@ val optimizer = BayesianOptimizer(
   observation variances are separate Koblas vectors. Models expose latent moments
   and coherent function draws. Forest variance is ensemble disagreement, not a
   calibrated posterior variance. The default forest mode ignores supplied observation
-  noise; `ForestUncertainty.LeafMean` uses Kumulant’s optional leaf-mean estimates and
+  noise; `ForestUncertainty.LeafMean` uses the batch model’s optional leaf-mean estimates and
   propagates known variances without treating bootstrap copies as independent evidence. `ConditionableSurrogate` is an optional capability for temporary conditioning.
 - `AcquisitionFactory` binds a fixed model, improvement baseline, and outcome policy.
   EI, posterior mean, and coherent posterior Thompson acquisitions use the same

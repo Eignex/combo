@@ -1,5 +1,7 @@
 package com.eignex.combo.bo
 
+import com.eignex.combo.bo.model.BatchForestConfig
+import com.eignex.combo.bo.model.BatchSplitStrategy
 import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.Context
 import com.eignex.combo.decisions.DecisionSpace
@@ -11,8 +13,6 @@ import com.eignex.combo.shared.WitnessTermination
 import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
 import com.eignex.koblas.DenseVector
-import com.eignex.kumulant.stat.regression.tree.BatchForestConfig
-import com.eignex.kumulant.stat.regression.tree.BatchSplitStrategy
 import com.eignex.kumulant.stat.score.MseLossStat
 import com.eignex.kumulant.stat.summary.MeanStat
 import com.eignex.kumulant.stat.summary.estimateMean
