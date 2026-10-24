@@ -1,5 +1,6 @@
 package com.eignex.combo.bo
 
+import com.eignex.combo.bo.model.BatchForestConfig
 import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.DecisionSpace
 import com.eignex.combo.shared.HybridDescentSession
@@ -7,7 +8,6 @@ import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
 import com.eignex.koblas.DenseMatrix
 import com.eignex.koblas.DenseVector
-import com.eignex.kumulant.stat.regression.tree.BatchForestConfig
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals

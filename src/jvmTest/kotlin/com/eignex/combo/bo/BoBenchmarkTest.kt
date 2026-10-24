@@ -1,5 +1,6 @@
 package com.eignex.combo.bo
 
+import com.eignex.combo.bo.model.BatchForestConfig
 import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.CompiledDecisionSpace
 import com.eignex.combo.decisions.DecisionSpace
@@ -8,7 +9,6 @@ import com.eignex.combo.shared.HybridDescentSession
 import com.eignex.combo.shared.LinearFeatureProjection
 import com.eignex.klause.schema.eq
 import com.eignex.klause.schema.plus
-import com.eignex.kumulant.stat.regression.tree.BatchForestConfig
 import java.io.File
 import kotlin.math.ln
 import kotlin.random.Random

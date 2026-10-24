@@ -45,7 +45,7 @@ data class ObservedBest(
  * Composable history-based Bayesian optimization loop over feasible Klause configurations.
  * One study snapshot, response encoding, and base fitted model are shared by each batch.
  * Acquisition maximization, initial exploration, and temporary fantasy policy are replaceable.
- * Numeric inputs/outputs use Koblas directly; statistical forest fitting remains in Kumulant.
+ * Numeric inputs/outputs use Koblas directly; batch forest fitting lives in Combo’s model component.
  * Calls are single-threaded; external evaluations can complete in arbitrary order.
  *
  * @property projection Model feature encoding, fixed for this optimizer's lifetime.

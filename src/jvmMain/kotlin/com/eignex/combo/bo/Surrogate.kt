@@ -1,12 +1,12 @@
 package com.eignex.combo.bo
 
+import com.eignex.combo.bo.model.BatchForestConfig
+import com.eignex.combo.bo.model.BatchRandomForest
+import com.eignex.combo.bo.model.RegressionObservation
+import com.eignex.combo.bo.model.fitModel
 import com.eignex.koblas.DenseMatrix
 import com.eignex.koblas.DenseVector
 import com.eignex.koblas.Vector
-import com.eignex.kumulant.stat.regression.tree.BatchForestConfig
-import com.eignex.kumulant.stat.regression.tree.BatchRandomForest
-import com.eignex.kumulant.stat.regression.tree.RegressionObservation
-import com.eignex.kumulant.stat.regression.tree.fitModel
 import com.eignex.kumulant.stat.regression.tree.predictDistribution
 import kotlin.random.Random
 
@@ -103,11 +103,11 @@ enum class ForestUncertainty {
 
 /**
  * Batch CART forest adapter; between-tree variance is explicitly ensemble disagreement.
- * Leaf-mean mode estimates additional uncertainty on unbootstrapped observations in Kumulant.
+ * Leaf-mean mode estimates additional uncertainty on unbootstrapped observations in Combo.
  * Response dispersion is separate and never directly substituted for function uncertainty.
  */
 class ForestSurrogate(
-    /** Kumulant's numeric forest configuration. */
+    /** Combo's batch forest configuration. */
     val config: BatchForestConfig = BatchForestConfig(),
     /** Optional leaf-mean uncertainty; disagreement retains the original fitting behavior. */
     val uncertainty: ForestUncertainty = ForestUncertainty.Disagreement,

@@ -1,8 +1,8 @@
 package com.eignex.combo.bo
 
+import com.eignex.combo.bo.model.BatchForestConfig
 import com.eignex.combo.decisions.DecisionSpace
 import com.eignex.combo.shared.HybridDescentSession
-import com.eignex.kumulant.stat.regression.tree.BatchForestConfig
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
