@@ -1,0 +1,103 @@
+{
+  "comparison": "Both sibling libraries substituted versus published artifacts; canonical archives use published artifacts",
+  "kumulant_source": "c649728383d69aa166ab13780b9f6a3998fc611e",
+  "koblas_source_tree": "8f41060787ebf2ae2d1f5a6d0cc4654b79f79965",
+  "koblas_merged_tree": "8ac9f73a9cccd3ba15d48d24fe774335cba0d51b",
+  "kumulant_artifacts": "0.3.4-20261024.212301-72",
+  "koblas_jvm_artifact": "0.1.1-20261024.213917-268",
+  "koblas_linux_artifact": "0.1.1-20261024.213917-264",
+  "exact_files": 193,
+  "total_files": 195,
+  "model_rows_exact": 128,
+  "outcome_rows_exact": 192,
+  "changed_search_rows": 1,
+  "changed_trace_rows": 4,
+  "max_coordinate_difference": 1.1906042182152632e-06,
+  "max_objective_difference": 4.079669935208585e-11,
+  "max_acquisition_difference": 4.75175454539567e-13,
+  "isolation": "Either single-library source substitution reproduces the selected frozen-case acquisition from the published run",
+  "differences": [
+    {
+      "file": "search.csv",
+      "line": 6,
+      "differences": {
+        "selected_acquisition": [
+          "1.3395501639745788E-4",
+          "1.3395501592228243E-4"
+        ]
+      }
+    },
+    {
+      "file": "trace-quadratic-301-32-gp.csv",
+      "line": 30,
+      "differences": {
+        "observed": [
+          "1.0000000003106808",
+          "1.0000000003136944"
+        ],
+        "truth": [
+          "1.0000000003106808",
+          "1.0000000003136944"
+        ],
+        "coordinates": [
+          "0.7300176261428927",
+          "0.7300177114222977"
+        ]
+      }
+    },
+    {
+      "file": "trace-quadratic-301-32-gp.csv",
+      "line": 31,
+      "differences": {
+        "observed": [
+          "1.000000000314284",
+          "1.0000000002734872"
+        ],
+        "truth": [
+          "1.000000000314284",
+          "1.0000000002734872"
+        ],
+        "coordinates": [
+          "0.730017728055343",
+          "0.7300165374511248"
+        ]
+      }
+    },
+    {
+      "file": "trace-quadratic-301-32-gp.csv",
+      "line": 32,
+      "differences": {
+        "observed": [
+          "1.000000000113628",
+          "1.0000000001144649"
+        ],
+        "truth": [
+          "1.000000000113628",
+          "1.0000000001144649"
+        ],
+        "coordinates": [
+          "0.7300106596425926",
+          "0.7300106988285344"
+        ]
+      }
+    },
+    {
+      "file": "trace-quadratic-301-32-gp.csv",
+      "line": 33,
+      "differences": {
+        "observed": [
+          "1.0000000003019638",
+          "1.0000000002729055"
+        ],
+        "truth": [
+          "1.0000000003019638",
+          "1.0000000002729055"
+        ],
+        "coordinates": [
+          "0.7300173771025856",
+          "0.7300165198483516"
+        ]
+      }
+    }
+  ]
+}
