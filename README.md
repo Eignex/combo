@@ -16,7 +16,7 @@ algorithms by how they consume observations:
 | Package | Data model | Algorithms |
 | --- | --- | --- |
 | `com.eignex.combo.bandit` | Streaming updates to model state | Online random forest, linear bandit, univariate bandits |
-| `com.eignex.combo.bo` | Retained evaluation history and batch refitting | SMAC-style expected improvement, bootstrap forest Thompson sampling |
+| `com.eignex.combo.bo` | Retained evaluation history and batch refitting | SMAC-style expected improvement, bootstrap forest Thompson sampling, GP/EI |
 | `com.eignex.combo.shared` | Common learner interfaces, feature encoding, feedback, and feasible search | Used by both families |
 
 All public packages use the `com.eignex.combo` prefix. Common learner contracts and
@@ -306,6 +306,59 @@ snapshots. `exportData`/`importData` transfers history, reservations, and the al
 round counter. Persisting only an `ObservationStore` does not preserve reservations.
 Calls remain single-threaded even when external evaluations run concurrently.
 
+## Gaussian-process optimization
+
+For low-dimensional continuous spaces, use the same optimization loop with an exact
+Gaussian-process surrogate:
+
+```kotlin
+import com.eignex.combo.bo.GaussianProcessSurrogate
+import com.eignex.combo.bo.model.GaussianProcessConfig
+
+val optimizer = BayesianOptimizer(
+    projection = SearchTransform(space),
+    surrogate = GaussianProcessSurrogate(GaussianProcessConfig(learnNoise = true)),
+    initialDesign = LatinHypercubeInitialDesign(space, evaluationBudget = 100, seed = 42),
+    batchPolicy = SequentialBatchPolicy(FantasyPolicy.PosteriorMean),
+    outcome = OutcomeSpec(maximize = false, noise = ObservationNoise.Noisy, standardize = true),
+    randomSeed = 42,
+)
+val trial = optimizer.suggest(1)[0]
+optimizer.complete(trial.id, cost, noiseVariance = measurementVariance)
+```
+
+Combo owns the batch GP and CART models under `com.eignex.combo.bo.model`; Kumulant
+retains online learning, statistical summaries, and shared tree snapshots. Koblas
+supplies Cholesky factorization, triangular solves, and matrix/vector products.
+The GP follows [Gaussian Processes for Machine Learning, chapter 2](https://gaussianprocess.org/gpml/chapters/RW2.pdf).
+
+The default kernel is Matérn five halves; `GaussianKernel.Rbf` selects squared exponential
+covariance. Length scales operate in encoded coordinates, so `SearchTransform` supplies
+normalized numeric and declared log geometry. Bounded coordinate search maximizes the
+marginal likelihood over length scales and signal variance; `learnNoise` also fits noise
+for rows whose variance is unspecified. Supplied row variances remain fixed. Set
+`hyperparameterTrials = 0` to fix kernel/noise parameters. Mean and variance configuration
+uses training-response units, after any requested standardization or response transform.
+
+Predictions expose latent function uncertainty conditional on fitted parameters, excluding
+observation noise and uncertainty about the fitted parameters themselves. Numerical jitter
+is separate from noise and reported on `FittedGaussianProcess`. Unit statistical weights
+are required: explicit variances and independent replicate rows express measurement evidence.
+Exact fitting costs cubic time and quadratic memory in history size. Mixed-type kernels,
+censored outcomes, and multi-fidelity scheduling are outside this first GP implementation.
+
+`predictJoint` supplies latent covariance when supported and returns null for marginal-only
+models; `predictLogJoint` preserves Gaussian log-response covariance through transforms.
+Conditioning freezes fitted parameters and re-factorizes augmented data. Function draws
+sample latent points jointly and cache their values across repeated, reordered, and later
+queries. First visits to unseen coordinates determine seeded random assignment order;
+a draw retains those points and its conditioning cost grows with them. Fantasies remain
+outside recorded history. Joint batch EI remains a later acquisition improvement.
+
+See the [GP comparison report](benchmarks/gp-comparison/report.md) for frozen-history
+model diagnostics, acquisition-search checks, and equal-budget GP/EI, forest/EI, and
+random-search experiments. These comparisons use continuous synthetic spaces.
+
 ## SMAC-inspired profile and paired racing
 
 The compact `smac` factory retains its original signed-response defaults. For positive
@@ -521,6 +574,7 @@ Build and validate with the published dependencies:
 ```
 
 For sibling development, `-Pkumulant.local` substitutes `../kumulant`.
+`-Pkoblas.local` substitutes `../koblas`; `-Pkoblas.local=../another-checkout` selects an isolated numerical checkout.
 Use `-Pdependencies.local` to develop against both `../klause` and `../kumulant`.
 The Detekt baseline records existing documentation and style debt surfaced by the
 new Kbuild checks; new findings remain checked. ABI references live under `api/`.
@@ -536,7 +590,6 @@ tasks already supply these flags.
   predictive distributions, slotting in next to the random forest as a stronger
   Thompson-sampling surrogate.
 - **Additional history-based surrogates**: extend the shared store/refit lifecycle
-  to batch linear and Gaussian-process models, with more acquisition functions.
-- **GP surrogate**: Gaussian-process surrogate for problems with a strong continuous
-  component, using Klause's continuous variables and growing toward mixed-type kernels
-  as use cases appear.
+  to batch linear models and additional acquisition functions.
+- **Joint batching and richer kernels**: joint batch acquisitions and mixed-type GP
+  covariance, followed by instance features, censored observations, and multi-fidelity scheduling.

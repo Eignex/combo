@@ -72,6 +72,16 @@ internal class ResponseTransform(val center: Double, val scale: Double, val loga
                 DenseVector.of(prediction.variances.toDoubleArray()).also { it.scale(scale * scale) },
             )
         }
+        fun jointMoments(features: DenseMatrix): JointPredictiveMoments? {
+            val joint = fitted.predictJoint(features) ?: return null
+            val covariance = DenseMatrix.wrap(
+                joint.covariance.rows,
+                joint.covariance.cols,
+                joint.covariance.values.copyOf(),
+            )
+            DenseVector.wrap(covariance.values).scale(scale * scale)
+            return JointPredictiveMoments(decode(joint.means), covariance)
+        }
         val raw = object : FittedSurrogate {
             override val uncertaintyKind get() = fitted.uncertaintyKind
             override fun predict(features: DenseMatrix): PredictiveMoments {
@@ -89,6 +99,21 @@ internal class ResponseTransform(val center: Double, val scale: Double, val loga
                 )
                 return PredictiveMoments(means, variances)
             }
+            override fun predictJoint(features: DenseMatrix): JointPredictiveMoments? {
+                val prediction = jointMoments(features) ?: return null
+                if (!logarithmic) return prediction
+                val covariance = prediction.covariance
+                val means = DoubleArray(prediction.means.size) {
+                    exp(prediction.means[it] + covariance[it, it] / 2.0)
+                }
+                val result = DenseMatrix.zero(means.size)
+                for (i in means.indices) {
+                    for (j in means.indices) {
+                        result[i, j] = means[i] * means[j] * expm1(covariance[i, j])
+                    }
+                }
+                return JointPredictiveMoments(DenseVector.of(means), result)
+            }
             override fun drawFunction(random: Random): SampledFunction {
                 val draw = fitted.drawFunction(random)
                 return SampledFunction { features ->
@@ -100,6 +125,7 @@ internal class ResponseTransform(val center: Double, val scale: Double, val loga
         val wrapped = if (logarithmic) {
             object : LogResponseSurrogate, FittedSurrogate by raw {
                 override fun predictLog(features: DenseMatrix) = moments(features)
+                override fun predictLogJoint(features: DenseMatrix) = jointMoments(features)
             }
         } else {
             raw
@@ -120,6 +146,7 @@ internal class ResponseTransform(val center: Double, val scale: Double, val loga
         return if (wrapped is LogResponseSurrogate) {
             object : ConditionableSurrogate, LogResponseSurrogate, FittedSurrogate by wrapped {
                 override fun predictLog(features: DenseMatrix) = wrapped.predictLog(features)
+                override fun predictLogJoint(features: DenseMatrix) = wrapped.predictLogJoint(features)
                 override fun condition(temporary: TrainingData) = conditioned(temporary)
             }
         } else {
