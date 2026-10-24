@@ -29,7 +29,7 @@ cumulative reward or the best final configuration.
 
 Both families use the same decision-space schema and contextual variables.
 [Klause](https://github.com/Eignex/klause) owns constraints and feasible witnesses;
-[Kumulant](https://github.com/Eignex/kumulant) supplies statistical models, posterior
+[Kumulant](https://github.com/Eignex/kumulant) supplies streaming models, statistical summaries, posterior
 sampling, and shared tree snapshots. Combo owns full-history model fitting and acquisition functions, including
 Gaussian and lognormal expected improvement, and their optimization over feasible configurations.
 

@@ -133,6 +133,11 @@ GP wins/ties/losses count lower regret on the same seed. Differences within 1e-1
 | quadratic | 64 | forest | 8/0/0 | 8/0/0 |
 | quadratic | 64 | random | 8/0/0 | 8/0/0 |
 
+## Published-artifact replay
+
+The canonical archive uses the published artifacts listed in [replay.json](replay.json). 193/195 CSV files match the full sibling-source replay byte-for-byte. All 128 model-metric rows and 192 final outcome rows match exactly. One acquisition score differs by 4.75e-13; four late, nearly converged evaluation coordinates differ by at most 1.19e-06, with objective differences at most 4.08e-11. Best-regret traces and final recommendations are unchanged. Either single-library source substitution reproduces the selected frozen-case score; the small numerical difference appears when both siblings are built together. Bitwise identity across dependency compilations is not assumed. The archived replay record retains the individual changed rows.
+
+
 ## Scope and next refinements
 
 Keep GP/EI as an explicit alternative for small continuous histories; retain the forest defaults for existing users. Read the frozen model and fixed-history acquisition tables together before attributing an optimization difference to search or uncertainty. Mixed-type/conditional kernels, censored outcomes, multi-fidelity scheduling, and joint batch EI are unvalidated or unimplemented here. Exact GP fits retain history and scale cubically; coherent lazy function draws also retain their distinct queried points.

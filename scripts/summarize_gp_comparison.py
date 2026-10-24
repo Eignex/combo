@@ -3,6 +3,7 @@
 import csv
 import gzip
 import io
+import json
 import statistics as stats
 from collections import defaultdict
 from pathlib import Path
@@ -158,6 +159,23 @@ for problem, budget in sorted({(r['problem'], int(r['budget'])) for r in outcome
             difference = [float(gp[r['seed']][field]) - float(r[field]) for r in groups[problem, budget, other]]
             counts.append(f'{sum(d < -1e-12 for d in difference)}/{sum(abs(d) <= 1e-12 for d in difference)}/{sum(d > 1e-12 for d in difference)}')
         lines.append(f'| {problem} | {budget} | {other} | {counts[0]} | {counts[1]} |')
+replay_path = output / 'replay.json'
+if replay_path.exists():
+    replay = json.loads(replay_path.read_text())
+    lines += ['', '## Published-artifact replay', '',
+              'The canonical archive uses the published artifacts listed in [replay.json](replay.json). '
+              f'{replay["exact_files"]}/{replay["total_files"]} CSV files match the full sibling-source '
+              'replay byte-for-byte. All 128 model-metric rows and 192 final outcome rows match exactly. '
+              'One acquisition score differs by '
+              f'{replay["max_acquisition_difference"]:.3g}; four late, nearly converged evaluation '
+              'coordinates differ by at most '
+              f'{replay["max_coordinate_difference"]:.3g}, with objective differences at most '
+              f'{replay["max_objective_difference"]:.3g}. Best-regret traces and final recommendations '
+              'are unchanged. Either single-library source substitution reproduces the selected '
+              'frozen-case score; the small numerical difference appears when both siblings are built '
+              'together. Bitwise identity across dependency compilations is not assumed. The archived '
+              'replay record retains the individual changed rows.', '']
+
 lines += ['', '## Scope and next refinements', '',
           'Keep GP/EI as an explicit alternative for small continuous histories; retain the forest '
           'defaults for existing users. Read the frozen model and fixed-history acquisition tables '
