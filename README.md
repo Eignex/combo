@@ -288,6 +288,14 @@ other surrogates refit temporary datasets. Neither path writes fantasies into th
 observation store. Bootstrap Thompson fits a fresh history-bootstrap model per slot.
 Joint batch EI is not implemented. Streaming learners retain `choose/update`.
 
+Bayesian optimizers exclude completed assignments by default for deterministic outcomes.
+`RepeatPolicy.NoisyOnly` permits replicates when `OutcomeSpec.noise` is `Noisy`;
+`RepeatPolicy.Allow` also supports deliberate deterministic repeats and legacy
+`choose/update` loops over finite spaces. `RepeatPolicy.Never` excludes all completed
+points. An exhausted suggestion search returns a partial/empty batch with its budget
+status rather than silently repeating an evaluation. Recommendations can still return
+evaluated points. Forest configuration exposes this policy as `repeatPolicy`.
+
 `Study` owns observations, IDs, reservations, and completion independently of the
 suggestion algorithm. A `StudySnapshot` captures history and pending evaluations
 once per batch. All proposals are validated before their reservations commit, and
@@ -329,6 +337,10 @@ val optimizer = BayesianOptimizer(
   identical discrete coordinates, retaining exact rational authority for affine
   equalities. Search limits bound initial attempts, local
   iterations, and neighbors; this remains a heuristic acquisition maximizer.
+  Exact acquisition ties use seeded random ordering to explore tree-model plateaus;
+  `AcquisitionTieBreak.First` retains candidate order for reproducing earlier searches.
+  Verified excluded anchors still seed local geometry, but cannot be selected for
+  evaluation. Each distinct source assignment is scored at most once per search.
 - `BatchPolicy` selects all proposals against a frozen study snapshot. `InitialDesign`
   independently controls initial and interleaved random exploration. A custom
   `SuggestionPolicy` can bypass modeling entirely; `StudyRunner` and
@@ -370,6 +382,8 @@ The [multi-seed benchmark](benchmarks/README.md) additionally compares guided fo
 normalized pool-only forest/EI, a legacy-style pool-only baseline, and random search
 on five objectives. It records full regret-versus-cost traces and a checked-in summary.
 These synthetic results do not establish universal algorithm superiority.
+The [forest/EI investigation](benchmarks/forest-ei-investigation.md) traces repeated
+evaluations and acquisition plateaus, with separate ablations and validation quadratics.
 
 ## Building
 

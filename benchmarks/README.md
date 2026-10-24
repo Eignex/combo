@@ -15,8 +15,8 @@ regret-versus-cost traces are written to `build/reports/bo-benchmark/*.csv`.
 
 - `local-ei`: normalized base coordinates, a full-history Kumulant forest, Gaussian EI
   approximation, and feasible local search after random candidate initialization.
-- `pool-ei`: identical to `local-ei`, with local search disabled. This isolates the
-  contribution of acquisition-guided search from model encoding and batch policy.
+- `pool-ei`: the original normalized pool-only forest/EI control, with local search
+  disabled, completed-point repeats allowed, and candidate-order tie-breaking.
 - `legacy-pool-ei`: pool-only forest/EI with `LinearFeatureProjection`, reproducing the
   previous candidate-ranking architecture and feature encoding. It uses the current
   study lifecycle, seeds, noise policy, and shared witness sampler; it is not execution
@@ -28,6 +28,11 @@ exploration, 32 initial candidates, and at most 64 initial witness attempts per 
 Local search uses six iterations and twelve attempted neighbors per iteration. Forests
 refit against completed history; batching is sequential with pending exclusion and no
 fantasies. Trees discover interactions without explicit product features.
+The guided optimizer uses its current repeat and tie policies: deterministic completed
+points are excluded, noisy replicates remain allowed, and equal scores are ordered
+randomly using the round seed. The two pool-only controls retain their original
+selection policies so they remain stable references. Separate ablations below isolate
+the contribution of the repeat and tie changes.
 
 The seeds are 3, 11, 19, 29, 43, and 61. Each algorithm gets 32 external evaluations per
 objective and seed, at unit cost. Acquisition scoring and solver work do not count as
@@ -61,3 +66,18 @@ ranking. The shared witness generator is a heuristic and is not a uniform sample
 a constrained region. In particular, independent random proposals can miss an affine
 equality's interior; local joint interpolation is intended to cover that case. Forest
 variance remains ensemble disagreement rather than a calibrated Bayesian posterior.
+
+## Quadratic EI investigation
+
+```sh
+./gradlew jvmTest --tests '*ForestEiDiagnosticsTest' --rerun-tasks
+python3 scripts/summarize_forest_ei.py --output benchmarks/forest-ei-investigation.md
+```
+
+The [investigation](forest-ei-investigation.md) traces configurations, repeated
+evaluations, model versus random rounds, and acquisition plateaus. It compares the
+original selection policy, completed-point exclusion alone, random ties alone, both
+fixes, and random search. Discovery uses the original six seeds and target 0.73.
+Validation uses six different seeds and targets 0.17, 0.43, and 0.86. Full traces are
+written to `build/reports/bo-diagnostics/quadratic.csv`; tracing does not add calls to
+the acquisition or consume additional search randomness.

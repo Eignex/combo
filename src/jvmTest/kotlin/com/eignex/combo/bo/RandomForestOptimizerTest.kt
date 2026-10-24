@@ -88,7 +88,11 @@ class RandomForestOptimizerTest {
         val space = Toggle().compileSpace()
         val optimizer = RandomForestOptimizer.bootstrapThompson(
             space,
-            config = ForestOptimizerConfig(initialRandomObservations = 0, randomExploration = 0.0),
+            config = ForestOptimizerConfig(
+                initialRandomObservations = 0,
+                randomExploration = 0.0,
+                repeatPolicy = RepeatPolicy.Allow,
+            ),
         )
         optimizer.train(BanditSample(Sample(booleanArrayOf(false), longArrayOf())), 0.0)
         optimizer.train(BanditSample(Sample(booleanArrayOf(true), longArrayOf())), 1.0)
@@ -114,6 +118,7 @@ class RandomForestOptimizerTest {
                     acquisition = acquisition,
                     initialRandomObservations = 0,
                     randomExploration = 0.0,
+                    repeatPolicy = RepeatPolicy.Allow,
                 ),
                 randomSeed = 11,
             )
@@ -165,7 +170,7 @@ class RandomForestOptimizerTest {
         for (acquisition in ForestAcquisition.entries) {
             val optimizer = RandomForestOptimizer(
                 LinearFeatureProjection(space),
-                config = ForestOptimizerConfig(acquisition = acquisition),
+                config = ForestOptimizerConfig(acquisition = acquisition, repeatPolicy = RepeatPolicy.Allow),
                 randomSeed = 31,
             )
             repeat(25) {
@@ -203,7 +208,8 @@ class RandomForestOptimizerTest {
                 optimizer.train(high, 1.0)
             }
             val best = optimizer.optimalOrThrow()
-            assertEquals(1.0, best.float(model.value, space), 1e-8)
+            assertTrue(best.float(model.value, space) in 0.0..1.0)
+            assertEquals(1.0, optimizer.predict(best), 1e-8)
             assertEquals(space.compiled.decode(model.value, best.sample), best.float(model.value, space))
         }
     }
@@ -228,7 +234,9 @@ class RandomForestOptimizerTest {
         optimizer.train(point(1.0), 0.0)
         optimizer.train(point(0.5), 9.0)
         optimizer.train(point(2.0), 100.0)
-        assertEquals(0.5, optimizer.optimalOrThrow().float(model.value, space))
+        val recommended = optimizer.optimalOrThrow()
+        assertTrue(recommended.float(model.value, space) in 0.0..1.0)
+        assertEquals(9.0, optimizer.predict(recommended))
     }
 
     @Test
