@@ -78,8 +78,8 @@ internal class HistoryLearning<Model : Any>(
         if (validWeight(reward, weight)) feedback.train(sample, context, reward, weight)
     }
 
-    fun update(sample: BanditSample, context: Context, reward: Double, weight: Double) {
-        if (validWeight(reward, weight)) feedback.update(sample, context, reward, weight)
+    fun update(sample: BanditSample, context: Context, reward: Double, weight: Double, onRecorded: () -> Unit = {}) {
+        if (validWeight(reward, weight)) feedback.update(sample, context, reward, weight, onRecorded)
     }
 
     private fun validWeight(reward: Double, weight: Double): Boolean {

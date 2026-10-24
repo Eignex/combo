@@ -134,7 +134,8 @@ class HybridRandomForestTest {
         }
         repeat(5) {
             val sample = forest.optimalOrThrow()
-            assertEquals(1.0, sample.float(model.value, space), 1e-8)
+            assertTrue(sample.float(model.value, space) in 0.0..1.0)
+            assertEquals(forest.predict(BanditSample(high)), forest.predict(sample), 1e-8)
             assertEquals(space.compiled.decode(model.value, sample.sample), sample.float(model.value, space))
         }
     }

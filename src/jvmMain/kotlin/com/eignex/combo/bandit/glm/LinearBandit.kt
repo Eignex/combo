@@ -2,18 +2,22 @@ package com.eignex.combo.bandit.glm
 
 import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.Context
+import com.eignex.combo.shared.HybridDescentSession
 import com.eignex.combo.shared.LinearFeatureProjection
 import com.eignex.combo.shared.NoFeasibleSampleException
 import com.eignex.combo.shared.PredictionLearner
 import com.eignex.combo.shared.RegressionLearning
+import com.eignex.combo.shared.WitnessRequest
 import com.eignex.combo.util.RandomSequence
 import com.eignex.klause.propagation.Assumptions
 import com.eignex.klause.solver.Sample
 import com.eignex.klause.solver.objective.LinearObjective
+import com.eignex.koblas.Vector
 import com.eignex.kumulant.core.RegressionStat
 import com.eignex.kumulant.core.SeriesStat
 import com.eignex.kumulant.stat.regression.glm.LinearPosterior
 import com.eignex.kumulant.stat.regression.glm.LinearRegressionResult
+import kotlin.random.Random
 
 /**
  * Linear-model bandit with posterior sampling over the weights.
@@ -23,6 +27,9 @@ import com.eignex.kumulant.stat.regression.glm.LinearRegressionResult
  * under those weights *given the current [Context]*, and yields it. Reward
  * observations [train] the underlying regression stat using the same
  * `(Sample, Context) → feature` projection.
+ *
+ * Nonlinear parameter scales use shared batch witness search to rank transformed
+ * feature scores; [innerOptimizer] is used only for linear source objectives.
  *
  * Pair a [regression] flavour with a matching [posterior]:
  *  - [com.eignex.kumulant.stat.regression.glm.StochasticRegressionStat] + [com.eignex.kumulant.stat.regression.glm.PointPosterior]
@@ -50,6 +57,18 @@ class LinearBandit<R : LinearRegressionResult>(
         }
     }
 
+    private val scaledSearch by lazy { HybridDescentSession.klause(space, candidateBatchSize = 64, poolCapacity = 256) }
+
+    private fun scaledChoice(weights: Vector, context: Context, random: Random): BanditSample {
+        val batch = scaledSearch.witnesses(WitnessRequest(64, projection.assumptionsFor(context)), random)
+        val sign = if (maximize) 1.0 else -1.0
+        val sample = batch.witnesses.maxByOrNull { raw ->
+            val features = projection.encode(BanditSample(raw), context)
+            sign * (0 until weights.size).sumOf { weights[it] * features[it] }
+        } ?: throw NoFeasibleSampleException("scaled candidate search returned no feasible witness")
+        return BanditSample(sample)
+    }
+
     private val randomSequence = RandomSequence(randomSeed)
 
     private val learning = RegressionLearning(
@@ -73,6 +92,7 @@ class LinearBandit<R : LinearRegressionResult>(
         val rng = randomSequence.next()
         val snapshot = learning.snapshot()
         val sampledWeights = posterior.sample(snapshot, rng, exploration)
+        if (projection.hasNonlinearScales) return scaledChoice(sampledWeights, context, rng)
         val objective = projection.toObjective(sampledWeights, snapshot.bias, context, maximize)
         val assumptions = projection.assumptionsFor(context)
         val raw = innerOptimizer(objective, assumptions)
@@ -88,6 +108,7 @@ class LinearBandit<R : LinearRegressionResult>(
 
     fun optimalOrThrow(context: Context): BanditSample {
         val snapshot = learning.snapshot()
+        if (projection.hasNonlinearScales) return scaledChoice(snapshot.weights, context, randomSequence.next())
         val objective = projection.toObjective(snapshot.weights, snapshot.bias, context, maximize)
         val assumptions = projection.assumptionsFor(context)
         val raw = innerOptimizer(objective, assumptions)

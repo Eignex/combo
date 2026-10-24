@@ -18,10 +18,10 @@ import com.eignex.klause.schema.NominalHandle
  *    partitions aren't enumerated by default — too many candidates without
  *    user guidance.
  *  - [numericThresholds] [IntThresholdSplit]s per int variable, at equally-spaced
- *    thresholds across the domain. Bucketed floats are *not* emitted here —
+ *    thresholds across the domain's declared search geometry. Bucketed floats are *not* emitted here —
  *    they get [FloatThresholdSplit]s instead (see below).
  *  - [numericThresholds] [FloatThresholdSplit]s per float variable, at equally-
- *    spaced thresholds in the **real-value domain** `[min, max]` — independent
+ *    spaced thresholds in the declared search geometry, decoded into `[min, max]` — independent
  *    of klause's bucket count. Tree branching semantics therefore don't shift
  *    when the user changes the bucket count.
  *
@@ -45,7 +45,7 @@ fun defaultSplitCandidates(space: CompiledDecisionSpace, numericThresholds: Int 
     for ((name, _) in compiled.intVarIdByName) {
         if (name in floatNames) continue
         val handle = intHandleFor(space, name) ?: continue
-        out += thresholdsAcross(handle.min.toDouble(), handle.max.toDouble(), numericThresholds).map { t ->
+        out += thresholdsAcross(space, name, handle.min.toDouble(), handle.max.toDouble(), numericThresholds).map { t ->
             IntThresholdSplit(handle, t.toInt())
         }
     }
@@ -63,7 +63,7 @@ fun defaultSplitCandidates(space: CompiledDecisionSpace, numericThresholds: Int 
     // Float variables: thresholds in **real-value units**.
     for ((name, spec) in compiled.floatDecoders) {
         val handle = FloatHandle(name, spec.min, spec.max)
-        out += thresholdsAcross(handle.min, handle.max, numericThresholds).map { t ->
+        out += thresholdsAcross(space, name, handle.min, handle.max, numericThresholds).map { t ->
             FloatThresholdSplit(handle, t)
         }
     }
@@ -73,13 +73,16 @@ fun defaultSplitCandidates(space: CompiledDecisionSpace, numericThresholds: Int 
 
 /**
  * Build [k] internal thresholds across `(lo, hi)` — equally spaced, excluding both
- * endpoints. Returns an empty list when no strict interior threshold fits (e.g.,
+ * endpoints, respecting any declared scale hint. Returns an empty list when no strict interior threshold fits (e.g.,
  * `hi - lo <= 0`).
  */
-private fun thresholdsAcross(lo: Double, hi: Double, k: Int): List<Double> {
+private fun thresholdsAcross(space: CompiledDecisionSpace, name: String, lo: Double, hi: Double, k: Int): List<Double> {
     val span = hi - lo
     if (span <= 0.0 || k <= 0) return emptyList()
-    return List(k) { i -> lo + ((i + 1).toDouble() / (k + 1)) * span }
+    return List(k) { i ->
+        val unit = (i + 1).toDouble() / (k + 1)
+        space.numericDomains[name]?.fromUnit(unit) ?: (lo + unit * span)
+    }
 }
 
 /**

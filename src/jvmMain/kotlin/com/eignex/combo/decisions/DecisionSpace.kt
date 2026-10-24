@@ -50,8 +50,9 @@ abstract class DecisionSpace : SubSpace() {
             ReadOnlyProperty { _, _ -> h }
         }
 
-    protected fun contextInt(min: Int, max: Int) =
+    protected fun contextInt(min: Int, max: Int, scale: Scale = Scale.Linear) =
         PropertyDelegateProvider<DecisionSpace, ReadOnlyProperty<DecisionSpace, IntContextHandle>> { _, prop ->
+            ctx.root.recordScale(ctx.qualify(prop.name), min.toDouble(), max.toDouble(), scale)
             val klauseHandle = ctx.root.registerInt(ctx.qualify(prop.name), min, max, ctx.activeCondition)
             val h = IntContextHandle(klauseHandle)
             _contextInts += h
@@ -83,11 +84,12 @@ abstract class DecisionSpace : SubSpace() {
      * Optional contextual int. See [optionalContextBool] for semantics. When absent the
      * value is pinned to `min` (the domain default).
      */
-    protected fun optionalContextInt(min: Int, max: Int) =
+    protected fun optionalContextInt(min: Int, max: Int, scale: Scale = Scale.Linear) =
         PropertyDelegateProvider<DecisionSpace, ReadOnlyProperty<DecisionSpace, IntContextHandle>> { _, prop ->
             val valueName = ctx.qualify(prop.name)
             val gateName = gateNameFor(valueName)
             val gateHandle = ctx.root.registerPresence(gateName, valueName, ctx.activeCondition)
+            ctx.root.recordScale(valueName, min.toDouble(), max.toDouble(), scale)
             val valueHandle = ctx.root.registerInt(
                 valueName,
                 min,
@@ -155,6 +157,7 @@ abstract class DecisionSpace : SubSpace() {
             context = ctxBools + ctxInts,
             optionalContext = ctxBoolsOpt + ctxIntsOpt,
             interactions = _interactions.map { it.toDef() },
+            scales = rootDef.scales + ctx.root.scales.filterKeys { it in contextNames },
         )
     }
 
@@ -245,6 +248,11 @@ abstract class DecisionSpace : SubSpace() {
             constraints = ownConstraints,
             spaces = nested,
             optionalSpaces = optionalNested,
+            scales = ctx.root.scales.filterKeys {
+                it in
+                    (ownVariables.keys + ownOptionalVariables.keys).map { prefix + it }
+            }
+                .mapKeys { (name, _) -> name.removePrefix(prefix) },
         )
     }
 

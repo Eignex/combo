@@ -34,6 +34,8 @@ class CompiledDecisionSpace internal constructor(
      *  variable that controls its activation. */
     val gates: Map<SubSpace, BoolHandle>,
 ) {
+    internal val numericDomains: Map<String, NumericDomain> = definition.numericDomains()
+
     /** Convenience: the auto-allocated gate for an optional sub-space. Null when the
      *  sub-space was mounted via plain `decisionSpace { … }` (unconditional). */
     fun gateOf(sub: SubSpace): BoolHandle? = gates[sub]

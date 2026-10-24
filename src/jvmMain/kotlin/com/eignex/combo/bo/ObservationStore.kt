@@ -35,7 +35,10 @@ interface ObservationStore {
     /** Monotonically increasing revision used to invalidate fitted models. */
     val revision: Long
 
-    /** Append one observation without combining or discarding earlier evaluations. */
+    /**
+     * Atomically append one observation and advance the revision. A failed append must
+     * leave both history and revision unchanged. Earlier evaluations remain intact.
+     */
     fun append(observation: Observation)
 
     /** Capture a stable history; subsequent appends must not modify the returned rows. */

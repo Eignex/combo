@@ -35,14 +35,16 @@ abstract class SubSpace internal constructor() {
         ReadOnlyProperty { _, _ -> handle }
     }
 
-    protected fun intVar(min: Int, max: Int) =
+    protected fun intVar(min: Int, max: Int, scale: Scale = Scale.Linear) =
         PropertyDelegateProvider<SubSpace, ReadOnlyProperty<SubSpace, IntHandle>> { _, prop ->
+            ctx.root.recordScale(ctx.qualify(prop.name), min.toDouble(), max.toDouble(), scale)
             val handle = ctx.root.registerInt(ctx.qualify(prop.name), min, max, ctx.activeCondition)
             ReadOnlyProperty { _, _ -> handle }
         }
 
-    protected fun floatVar(min: Double, max: Double, buckets: Int? = null) =
+    protected fun floatVar(min: Double, max: Double, buckets: Int? = null, scale: Scale = Scale.Linear) =
         PropertyDelegateProvider<SubSpace, ReadOnlyProperty<SubSpace, FloatHandle>> { _, prop ->
+            ctx.root.recordScale(ctx.qualify(prop.name), min, max, scale)
             val handle = ctx.root.registerFloat(ctx.qualify(prop.name), min, max, buckets, ctx.activeCondition)
             ReadOnlyProperty { _, _ -> handle }
         }

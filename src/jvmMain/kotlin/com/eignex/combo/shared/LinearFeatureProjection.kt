@@ -7,6 +7,7 @@ import com.eignex.combo.decisions.Context
 import com.eignex.combo.decisions.FeatureEncoder
 import com.eignex.combo.decisions.IntContextHandle
 import com.eignex.combo.decisions.InteractionHandle
+import com.eignex.combo.decisions.Scale
 import com.eignex.combo.shared.integerObjective
 import com.eignex.klause.model.BoolExpr
 import com.eignex.klause.schema.BoolHandle
@@ -34,6 +35,8 @@ import com.eignex.koblas.Vector
  * Interactions get extra feature slots. `ctx × decision` interactions fold into the
  * bool/int coefficients of klause's objective; `ctx × ctx` is constant during optimization.
  * Continuous floats occupy real-valued feature slots and objective coefficients.
+ * Nonlinear scale hints transform numeric features and interactions. [toObjective]
+ * rejects such projections; their scores require feasible candidate search.
  */
 class LinearFeatureProjection(override val space: CompiledDecisionSpace) : FeatureEncoder<Vector> {
 
@@ -79,18 +82,23 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
                 } else {
                     layout.realValue(i, sample.sample.intValue(i))
                 }
-                out[layout.intStart + i] = v
+                out[layout.intStart + i] = feature(intNameById[i], v)
             }
         }
         for ((id, handle) in layout.realHandles) {
             val active = space.activeConditions[handle.name]?.let { space.evaluate(it, sample.sample) } ?: true
-            if (active) out[layout.realStart + id] = sample.float(handle, space)
+            if (active) out[layout.realStart + id] = feature(handle.name, sample.float(handle, space))
         }
         for (interaction in layout.interactions) {
             encodeInteractionInto(interaction, sample, out)
         }
         return DenseVector.of(out)
     }
+
+    /** Whether feature scaling prevents conversion into a linear objective in source coordinates. */
+    val hasNonlinearScales: Boolean = space.numericDomains.values.any { it.scale != Scale.Linear }
+
+    private fun feature(name: String?, value: Double): Double = space.numericDomains[name]?.feature(value) ?: value
 
     /** Decode a float stored in an integer coordinate by Klause. */
     private fun floatFeatureFor(intVarId: Int, sample: BanditSample): Double {
@@ -138,9 +146,9 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
             if (!intActive(id, sample.sample)) {
                 0.0
             } else if (id in layout.floatSpecs) {
-                floatFeatureFor(id, sample)
+                feature(handle.name, floatFeatureFor(id, sample))
             } else {
-                layout.realValue(id, sample.sample.intValue(id))
+                feature(handle.name, layout.realValue(id, sample.sample.intValue(id)))
             }
         }
 
@@ -172,6 +180,7 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
         context: Context,
         maximize: Boolean,
     ): LinearObjective {
+        require(!hasNonlinearScales) { "nonlinear scales require candidate scoring, not a linear source objective" }
         require(weights.size == layout.featureSize) {
             "weights size ${weights.size} must match feature layout ${layout.featureSize}"
         }

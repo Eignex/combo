@@ -85,7 +85,20 @@ data class DecisionSpaceDef(
     val context: Map<String, VarSpec> = emptyMap(),
     val optionalContext: Map<String, VarSpec> = emptyMap(),
     val interactions: List<InteractionDef> = emptyList(),
+    /** Numeric search geometry keyed by local variable or context name; omitted names use linear scaling. */
+    val scales: Map<String, Scale> = emptyMap(),
 ) {
+    init {
+        val declared = variables + optionalVariables + context + optionalContext
+        for ((name, scale) in scales) {
+            when (val spec = declared[name]) {
+                is com.eignex.klause.model.FloatSpec -> NumericDomain(spec.min, spec.max, scale)
+                is IntSpec -> NumericDomain(spec.min.toDouble(), spec.max.toDouble(), scale)
+                else -> require(false) { "scale '$name' must name a numeric variable at this level" }
+            }
+        }
+    }
+
     /** Flatten to klause's [SchemaDef]: qualify every name with its path prefix, splice
      *  user constraints in, synthesise auto-pinning constraints for optional spaces. */
     fun toSchemaDef(): SchemaDef<SchemaEntry> {
