@@ -86,7 +86,7 @@ def summarize(directory, archive):
             'feasible exploration, 10 randomized all-feature Kumulant trees, lognormal EI, 256 initial candidates, '
             '10 adaptive local walks, 8 steps per walk, and 12 attempted neighbors per step. '
             'Internal computation budgets and forest statistics differ; equal external budgets do not imply '
-            'implementation parity. Kumulant variance is across-tree disagreement; SMAC also uses within-leaf statistics.',
+            'implementation parity. Both pinned forest backends use across-tree disagreement. Leaf-response aggregation and fitting still differ.',
             '- Deterministic objectives are quadratic, logarithmic, and mixed (real, integer, category). '
             'They match the legacy benchmark geometry, shifted to strictly positive costs. The noisy objective '
             'is `1 + (x - .31)^2 + 3*(y - .72)^2` plus a fixed configuration/seed pseudo-noise function '

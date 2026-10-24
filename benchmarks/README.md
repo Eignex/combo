@@ -109,3 +109,28 @@ come directly from Kumulant; Combo handles lifecycle, coordinates, and search.
 The legacy negative-reward benchmarks above remain separate from this positive-cost
 log-response comparison. The EI diagnostics explicitly retain one non-adaptive local
 start to isolate repeat/tie policies from the new multi-start search.
+
+## Refinement cycle
+
+```sh
+./gradlew refineBo -Prefinement.mode=frozen
+PYTHONHASHSEED=0 build/smac-venv/bin/python scripts/run_smac_frozen.py
+./gradlew refineBo -Prefinement.mode=optimize
+./gradlew refineBo -Prefinement.mode=race
+python3 scripts/summarize_bo_refinement.py
+```
+
+The [study](refinement/report.md) archives aggregate frozen-model/search diagnostics and
+complete validation traces. Frozen histories use 20 seeds, 201–220. Whole-loop runs
+use 12 different seeds, 101–112, and budgets of 32 and 128 calls. Development seed 91
+is excluded. `-Prefinement.seeds=91` runs a smoke sample. The model-only reference uses
+the same pinned Python environment as the original SMAC comparison.
+
+Frozen models see identical training rows and predict the same 10,000 independent
+feasible points. Candidate-budget comparisons keep the model fixed and vary nested
+initial pools of 64, 256, and 10,000 points. Whole-loop validation keeps a smaller,
+fixed acquisition budget across all variants and includes an optional integer
+subspace. The noisy runs separately ablate measurement-aware initial design,
+progressive/guarded racing, and a frozen final comparison on unused measurement keys.
+No report asserts a stochastic ranking as a test requirement, and the oracle never
+supplies labels or suggestions to an optimizer.

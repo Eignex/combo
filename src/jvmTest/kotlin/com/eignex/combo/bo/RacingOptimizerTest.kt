@@ -194,4 +194,114 @@ class RacingOptimizerTest {
         assertEquals(100.0 / 3.0 + 1.0, race.incumbent!!.reward, 1e-12)
         assertEquals(challenger.first().sample, race.incumbent!!.sample)
     }
+
+    @Test
+    fun `progressive incumbent avoids requiring the whole measurement plan up front`() {
+        val race = RacingOptimizer(
+            optimizer(Rate().compileSpace()),
+            keys,
+            policy = RacingPolicy(minMeasurements = 2, initialIncumbentMeasurements = 2, rejectionStandardErrors = 2.0),
+        )
+        val tasks = race.ask(3)
+        assertEquals(2, tasks.tasks.size)
+        tasks.tasks.forEach { race.complete(it.id, 10.0) }
+        assertEquals(2, race.incumbent!!.measurements)
+        assertEquals(2L, race.optimizer.store.revision)
+    }
+
+    @Test
+    fun `fresh confirmation can recover an early rejected configuration without reusing selection labels`() {
+        val race = RacingOptimizer(optimizer(Rate().compileSpace()), listOf(keys.first()), evaluationBudget = 7)
+        val first = race.ask(1).tasks.single()
+        race.complete(first.id, 10.0)
+        val second = race.ask(1).tasks.single()
+        race.complete(second.id, 8.0)
+        race.beginConfirmation(listOf(EvaluationKey(seed = 101), EvaluationKey(seed = 102)), candidates = 2)
+        val tasks = race.ask(4).tasks
+        tasks.reversed().forEach {
+            race.complete(
+                it.id,
+                if (it.configurationId == second.configurationId) 12.0 else 9.0,
+            )
+        }
+        assertEquals(second.sample, race.incumbent!!.sample)
+        assertEquals(12.0, race.incumbent!!.reward)
+        assertEquals(2, race.incumbent!!.measurements)
+        assertEquals(6L, race.optimizer.store.revision)
+    }
+
+    @Test
+    fun `confirmation transfer preserves its frozen shortlist and fresh pending keys`() {
+        val space = Rate().compileSpace()
+        val left = RacingOptimizer(optimizer(space), listOf(keys.first()))
+        left.complete(left.ask(1).tasks.single().id, 10.0)
+        left.beginConfirmation(listOf(EvaluationKey(seed = 100)), candidates = 1)
+        val task = left.ask(1).tasks.single()
+        val right = RacingOptimizer(optimizer(space), listOf(keys.first()))
+        right.importData(left.exportData())
+        right.complete(task.id, 7.0)
+        assertEquals(7.0, right.incumbent!!.reward)
+        assertEquals(EvaluationBatchStatus.ConfirmationComplete, right.ask(1).status)
+    }
+
+    @Test
+    fun `permanent confirmation failure does not retry beyond policy or invent a final response`() {
+        val race = RacingOptimizer(optimizer(Rate().compileSpace()), listOf(keys.first()))
+        race.complete(race.ask(1).tasks.single().id, 10.0)
+        race.beginConfirmation(listOf(EvaluationKey(seed = 100)), candidates = 1)
+        race.fail(race.ask(1).tasks.single().id, "worker lost")
+        assertEquals(EvaluationBatchStatus.ConfirmationComplete, race.ask(1).status)
+        assertEquals(10.0, race.incumbent!!.reward)
+        assertEquals(1L, race.optimizer.store.revision)
+    }
+
+    @Test
+    fun `standard error guard does not reject a challenger from one unknown noise difference`() {
+        val race = RacingOptimizer(
+            optimizer(Rate().compileSpace()),
+            keys,
+            policy = RacingPolicy(rejectionStandardErrors = 2.0),
+        )
+        race.ask(3).tasks.forEach { race.complete(it.id, 10.0) }
+        val task = race.ask(1).tasks.single()
+        race.complete(task.id, 9.0)
+        assertEquals(RaceStatus.Active, race.configurations.single { it.id == task.configurationId }.status)
+    }
+
+    @Test
+    fun `failed final confirmation preserves a transferable search incumbent`() {
+        val space = Rate().compileSpace()
+        val first = RacingOptimizer(optimizer(space), listOf(keys.first()))
+        first.complete(first.ask(1).tasks.single().id, 10.0)
+        first.beginConfirmation(listOf(EvaluationKey(seed = 100)), candidates = 1)
+        first.fail(first.ask(1).tasks.single().id, "worker lost")
+        val second = RacingOptimizer(optimizer(space), listOf(keys.first()))
+        second.importData(first.exportData())
+        assertEquals(10.0, second.incumbent!!.reward)
+        assertEquals(EvaluationBatchStatus.ConfirmationComplete, second.ask(1).status)
+    }
+
+    @Test
+    fun `permanent progressive incumbent failure leaves a transferable continuing race`() {
+        val space = Rate().compileSpace()
+        val policy = RacingPolicy(initialIncumbentMeasurements = 1, rejectionStandardErrors = 2.0)
+        val race = RacingOptimizer(optimizer(space), keys, policy = policy)
+        val initial = race.ask(1).tasks.single()
+        race.complete(initial.id, 10.0)
+        var failed = false
+        repeat(6) {
+            if (failed) return@repeat
+            val task = race.ask(1).tasks.single()
+            if (task.configurationId == initial.configurationId) {
+                race.fail(task.id, "worker lost")
+                failed = true
+            } else {
+                race.complete(task.id, 9.0)
+            }
+        }
+        assertTrue(failed)
+        val restored = RacingOptimizer(optimizer(space), keys, policy = policy)
+        restored.importData(race.exportData())
+        assertTrue(restored.ask(1).tasks.isNotEmpty())
+    }
 }

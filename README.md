@@ -357,12 +357,32 @@ Each challenger has a reproducibly shuffled measurement order to avoid favoring 
 same first seed or instance in every early comparison.
 Worse paired means trigger early rejection; a fully measured winner becomes the
 incumbent. `RacingPolicy` controls stage growth, rejection slack, concurrency, and
-retries. This is a paired-mean heuristic without a statistical confidence guarantee.
+retries. `initialIncumbentMeasurements` allows progressive incumbent evaluation; missing
+incumbent keys are scheduled before their paired comparisons settle. Setting
+`rejectionStandardErrors` requires a mean disadvantage exceeding that descriptive
+standard-error allowance. These repeated comparisons have no sequential significance
+guarantee, and a single unknown-noise difference cannot justify guarded early rejection.
 Each successful worker result trains the surrogate once in raw response units;
 stage means never become additional observations. `fail` records unsuccessful cost
 without a response, and `cancel` releases the key. Already-issued workers may finish
 in any order. Attempt limits include failures and cancellations, and short batches
 explicitly distinguish waiting, budget exhaustion, and unsuccessful configuration search.
+
+Initial-design budgets count configurations, while racing spends multiple calls on each.
+Use `LatinHypercubeInitialDesign(space, evaluationBudget, measurementsPerConfiguration = 3.0)`
+for a three-measurement allowance; this divides the initial configuration cap by three.
+The allowance sizes the design and does not enforce an external evaluation budget.
+`smacProfile` accepts an `initialDesign` override for composing these policies.
+
+When search ends, `race.beginConfirmation(freshKeys, candidates = 3)` freezes the best
+observed configurations and compares them on fresh instance/seed keys. Call after
+outstanding workers finish and reserve enough remaining budget for every finalist/key.
+The final recommendation uses only those fresh outcomes; they also train the model
+once and consume the ordinary external budget. Rejected search configurations can
+return to the shortlist. Selection never adapts to confirmation labels. The frozen
+shortlist and pending fresh-key workers survive export/import. Permanent failures
+exhaust their configured retries without inventing responses; if all finalists fail,
+the search incumbent remains the fallback.
 
 `EvaluationStore` persists closed worker outcomes separately from `ObservationStore`.
 Use `race.exportData()`/`importData()` with a fresh compatible race to retain pending
@@ -374,6 +394,11 @@ outcome for recovery. Instances and seeds identify paired measurements; they do 
 supply learned instance features. Uneven instance coverage can therefore affect the
 pooled surrogate. All keys use one fixed fidelity; budget promotions, censored costs,
 and automatic multi-fidelity scheduling are future work.
+
+The [refinement study](benchmarks/refinement/report.md) separates frozen-model diagnostics,
+acquisition search budgets, initial measurement allocation, guarded racing, and fresh-key
+confirmation. Optional leaf-mean variance can overlap tree disagreement and overcover;
+response dispersion is not interchangeable with uncertainty about the function.
 
 The [pinned SMAC comparison](benchmarks/smac-comparison.md) runs the actual SMAC 2.4.1
 HPO facade alongside this profile and feasible random search. This profile is inspired
@@ -400,8 +425,9 @@ val optimizer = BayesianOptimizer(
   Feature batches are Koblas `DenseMatrix` rows; responses, weights, and known
   observation variances are separate Koblas vectors. Models expose latent moments
   and coherent function draws. Forest variance is ensemble disagreement, not a
-  calibrated posterior variance; the forest fitter does not model known observation
-  noise. `ConditionableSurrogate` is an optional capability for temporary conditioning.
+  calibrated posterior variance. The default forest mode ignores supplied observation
+  noise; `ForestUncertainty.LeafMean` uses Kumulant’s optional leaf-mean estimates and
+  propagates known variances without treating bootstrap copies as independent evidence. `ConditionableSurrogate` is an optional capability for temporary conditioning.
 - `AcquisitionFactory` binds a fixed model, improvement baseline, and outcome policy.
   EI, posterior mean, and coherent posterior Thompson acquisitions use the same
   batch scoring interface. A context with no evaluated baseline uses model-mean

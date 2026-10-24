@@ -105,4 +105,14 @@ class InitialDesignTest {
         assertTrue(batch.all { space.compiled.decode(model.count, it.sample.sample) in 1L..3L })
         assertTrue(batch.all { it.sample.float(model.rate, space) in 1e-6..1.0 })
     }
+
+    @Test
+    fun `initial configuration budget accounts for planned repeated measurements`() {
+        val space = Rate().compileSpace()
+        val design = LatinHypercubeInitialDesign(space, 32, measurementsPerConfiguration = 3.0)
+        assertEquals(2, design.size)
+        val optimizer = BayesianOptimizer(SearchTransform(space), ForestSurrogate(), initialDesign = design)
+        assertEquals(2, optimizer.suggest(2).size)
+        assertEquals(0L, optimizer.fitCount)
+    }
 }

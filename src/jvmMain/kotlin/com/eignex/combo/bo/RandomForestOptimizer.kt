@@ -47,6 +47,8 @@ data class ForestOptimizerConfig(
     val tieBreak: AcquisitionTieBreak = AcquisitionTieBreak.Random,
     /** Multi-start acquisition search and adaptive radius policy. */
     val localSearch: LocalSearchPolicy = LocalSearchPolicy(),
+    /** Forest function-variance approximation. */
+    val uncertainty: ForestUncertainty = ForestUncertainty.Disagreement,
 ) {
     init {
         require(
@@ -94,7 +96,7 @@ class RandomForestOptimizer(
     initialDesign: InitialDesign = RandomInitialDesign(config.initialRandomObservations, config.randomExploration),
 ) : BayesianOptimizer(
     projection = projection,
-    surrogate = ForestSurrogate(config.forest),
+    surrogate = ForestSurrogate(config.forest, config.uncertainty),
     study = Study(projection.space, store),
     acquisitionFactory = ExpectedImprovement(config.improvementMargin),
     acquisitionOptimizer = LocalAndRandomSearch(
@@ -152,6 +154,8 @@ class RandomForestOptimizer(
             store: ObservationStore = InMemoryObservationStore(),
             noise: ObservationNoise = ObservationNoise.Deterministic,
             repeatPolicy: RepeatPolicy = RepeatPolicy.NoisyOnly,
+            uncertainty: ForestUncertainty = ForestUncertainty.Disagreement,
+            initialDesign: InitialDesign? = null,
         ): RandomForestOptimizer {
             val projection = SearchTransform(space)
             return RandomForestOptimizer(
@@ -165,13 +169,18 @@ class RandomForestOptimizer(
                     randomExploration = 0.2,
                     candidateCount = candidateCount,
                     repeatPolicy = repeatPolicy,
+                    uncertainty = uncertainty,
                     maxWitnessAttempts = maxOf(128, candidateCount * 2),
                     localSearch = LocalSearchPolicy(starts = 10),
                 ),
                 randomSeed = randomSeed,
                 maximize = maximize,
                 outcome = OutcomeSpec(maximize = maximize, noise = noise, responseScale = responseScale),
-                initialDesign = LatinHypercubeInitialDesign(space, evaluationBudget, seed = randomSeed),
+                initialDesign = initialDesign ?: LatinHypercubeInitialDesign(
+                    space,
+                    evaluationBudget,
+                    seed = randomSeed,
+                ),
             )
         }
 

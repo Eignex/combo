@@ -22,6 +22,7 @@ import kotlin.random.Random
  * @property probability Independent exploration probability after the initial design.
  * @property seed Plan seed, independent of model fitting and per-round search randomness.
  * @property witnesses Feasible anchors and fallback proposals.
+ * @property measurementsPerConfiguration Planned measurement allowance per initial configuration.
  */
 class LatinHypercubeInitialDesign(
     val space: CompiledDecisionSpace,
@@ -31,13 +32,14 @@ class LatinHypercubeInitialDesign(
     val probability: Double = 0.2,
     val seed: Int = 0,
     val witnesses: WitnessSearch = HybridDescentSession.klause(space),
+    val measurementsPerConfiguration: Double = 1.0,
 ) : InitialDesign {
     private val transform = SearchTransform(space)
 
     /** Number of planned initial configurations. */
     val size: Int = minOf(
         (perDimension.toLong() * maxOf(1, transform.dimension)).coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
-        maxOf(1, (evaluationBudget * maxRatio).toInt()),
+        maxOf(1, (evaluationBudget * maxRatio / measurementsPerConfiguration).toInt()),
     )
     private val plan: List<DoubleArray> by lazy {
         val random = Random(seed)
@@ -50,6 +52,7 @@ class LatinHypercubeInitialDesign(
     }
     init {
         require(evaluationBudget > 0 && perDimension > 0)
+        require(measurementsPerConfiguration >= 1.0 && measurementsPerConfiguration.isFinite())
         require(maxRatio > 0.0 && maxRatio <= 1.0 && probability in 0.0..1.0)
     }
     private fun position(snapshot: StudySnapshot): Int {
