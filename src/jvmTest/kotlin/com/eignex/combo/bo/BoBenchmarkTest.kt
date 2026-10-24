@@ -123,7 +123,7 @@ class BoBenchmarkTest {
             for (seed in seeds) {
                 val problem = factory()
                 val result = run(problem, algorithm, seed)
-                assertEquals(32, result.bestValues.size)
+                assertEquals(32, result.bestValues.size, "${problem.name} $algorithm seed=$seed")
                 assertEquals(32.0, result.cumulativeCost[31])
                 val regret = result.simpleRegret!!
                 assertTrue(regret.toDoubleArray().all { it.isFinite() && it >= 0.0 })

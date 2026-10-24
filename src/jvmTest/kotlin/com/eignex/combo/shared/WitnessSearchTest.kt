@@ -2,6 +2,9 @@ package com.eignex.combo.shared
 
 import com.eignex.combo.decisions.DecisionSpace
 import com.eignex.klause.propagation.Assumptions
+import com.eignex.klause.schema.eq
+import com.eignex.klause.schema.plus
+import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
 import com.eignex.klause.solver.result.SampleResult
 import com.eignex.klause.solver.result.TerminationReason
@@ -103,5 +106,72 @@ class WitnessSearchTest {
         val search = HybridDescentSession.klause(Toggle().compileSpace())
         search.push(Assumptions.None)
         assertFailsWith<IllegalStateException> { search.witnesses(WitnessRequest(1), Random(1)) }
+    }
+    private class Affine : DecisionSpace() {
+        val x by floatVar(0.0, 1.0)
+        val y by floatVar(0.0, 1.0)
+        val sum by constraint { (x + y) eq 1.0 }
+    }
+
+    @Test
+    fun `stalled random exploration samples exact affine interiors within its attempt budget`() {
+        val space = Affine().compileSpace()
+        fun endpoint(x: Double) = Sample(
+            booleanArrayOf(),
+            longArrayOf(),
+            doubleArrayOf(x, 1.0 - x),
+            exactReals = listOf(BigFraction.ofDouble(x)!!, BigFraction.ofDouble(1.0 - x)!!),
+        )
+        val ends = listOf(endpoint(0.0), endpoint(1.0))
+        var calls = 0
+        val search = HybridDescentSession(
+            space,
+            { _, _, _ ->
+                calls++
+                SampleResult.Found(ends.first())
+            },
+            { _, _ -> error("no backtracking expected") },
+            candidateBatchSize = 1,
+        )
+        val batch = search.witnesses(WitnessRequest(8, anchors = ends, exclude = ends, maxAttempts = 16), Random(9))
+        assertEquals(WitnessTermination.CountReached, batch.termination)
+        assertEquals(8, batch.witnesses.map { it.assignmentKey() }.distinct().size)
+        assertEquals(8, calls)
+        assertTrue(batch.witnesses.all { WitnessValidator(space).valid(it) })
+        assertTrue(batch.witnesses.all { it.reals[0] > 0.0 && it.reals[0] < 1.0 })
+        assertTrue(
+            search.witnesses(
+                WitnessRequest(
+                    1,
+                    exclude = ends + batch.witnesses,
+                    maxAttempts = 0,
+                ),
+                Random(1),
+            ).witnesses.isEmpty(),
+        )
+    }
+
+    @Test
+    fun `refresh explores affine interiors even when cached endpoints already fill a request`() {
+        val space = Affine().compileSpace()
+        val ends = listOf(0.0, 1.0).map { x ->
+            Sample(
+                booleanArrayOf(),
+                longArrayOf(),
+                doubleArrayOf(x, 1.0 - x),
+                exactReals = listOf(BigFraction.ofDouble(x)!!, BigFraction.ofDouble(1.0 - x)!!),
+            )
+        }
+        val samples = (0 until 16).map { seed ->
+            val search = HybridDescentSession(
+                space,
+                { _, _, _ -> SampleResult.Found(ends.first()) },
+                { _, _ -> error("no backtracking expected") },
+                candidateBatchSize = 4,
+            )
+            search.witnesses(WitnessRequest(1, anchors = ends, maxAttempts = 4), Random(seed)).witnesses.single()
+        }
+        assertTrue(samples.any { it.reals[0] > 0.0 && it.reals[0] < 1.0 })
+        assertTrue(samples.all { WitnessValidator(space).valid(it) })
     }
 }

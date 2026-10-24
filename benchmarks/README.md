@@ -25,13 +25,13 @@ regret-versus-cost traces are written to `build/reports/bo-benchmark/*.csv`.
 
 All forest variants use eight trees, five initial observations, 10% interleaved random
 exploration, 32 initial candidates, and at most 64 initial witness attempts per round.
-Local search uses six iterations and twelve attempted neighbors per iteration. Forests
+Local search uses four adaptive starts, six iterations per start, and twelve attempted neighbors per iteration. Forests
 refit against completed history; batching is sequential with pending exclusion and no
 fantasies. Trees discover interactions without explicit product features.
 The guided optimizer uses its current repeat and tie policies: deterministic completed
 points are excluded, noisy replicates remain allowed, and equal scores are ordered
 randomly using the round seed. The two pool-only controls retain their original
-selection policies so they remain stable references. Separate ablations below isolate
+selection policies as policy controls. All variants now use independent model-free exploration; these are current-code controls, not archived executions. Separate ablations below isolate
 the contribution of the repeat and tie changes.
 
 The seeds are 3, 11, 19, 29, 43, and 61. Each algorithm gets 32 external evaluations per
@@ -63,8 +63,8 @@ These are small synthetic regression benchmarks. Six seeds provide variation but
 statistical significance claim. Tests check feasibility, complete budgets, finite
 monotone regret, and reproducibility; they deliberately do not assert an algorithm
 ranking. The shared witness generator is a heuristic and is not a uniform sampler of
-a constrained region. In particular, independent random proposals can miss an affine
-equality's interior; local joint interpolation is intended to cover that case. Forest
+a constrained region. Coordinate-wise random proposals can miss an affine equality's interior; checked joint
+interpolation in shared sampling and local search supplies additional coverage. Forest
 variance remains ensemble disagreement rather than a calibrated Bayesian posterior.
 
 ## Quadratic EI investigation
@@ -81,3 +81,31 @@ fixes, and random search. Discovery uses the original six seeds and target 0.73.
 Validation uses six different seeds and targets 0.17, 0.43, and 0.86. Full traces are
 written to `build/reports/bo-diagnostics/quadratic.csv`; tracing does not add calls to
 the acquisition or consume additional search randomness.
+
+## Pinned SMAC comparison
+
+Run the actual SMAC facade in an isolated Python 3.12 environment, then Combo against
+its published Kumulant dependency:
+
+```sh
+uv venv --python 3.12 build/smac-venv
+uv pip install --python build/smac-venv/bin/python -r benchmarks/smac-requirements.txt
+PYTHONHASHSEED=0 build/smac-venv/bin/python scripts/run_smac_reference.py
+./gradlew compareSmac
+python3 scripts/summarize_smac_comparison.py
+```
+
+The [comparison](smac-comparison.md) reports discovery regret at 8/16/32 calls,
+interquartile ranges, paired outcomes, and final noisy recommendation quality. Raw
+traces are archived in [smac-traces.csv](smac-traces.csv); local state/checkpoints live
+under `build/reports/smac-comparison/`. The Python hash seed is required because
+configuration hashes affect candidate iteration order. Exact timing is not compared.
+
+Both runners use six seeds (3, 11, 19, 29, 43, 61) and a fixed 32-call budget. The
+reference uses SMAC 2.4.1's standard HPO facade with its default design, search, and
+intensifier settings. Combo tests `smacProfile`, the shared feasible random baseline,
+and optional paired racing on the noisy objective. Randomized trees and lognormal EI
+come directly from Kumulant; Combo handles lifecycle, coordinates, and search.
+The legacy negative-reward benchmarks above remain separate from this positive-cost
+log-response comparison. The EI diagnostics explicitly retain one non-adaptive local
+start to isolate repeat/tie policies from the new multi-start search.

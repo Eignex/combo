@@ -68,7 +68,7 @@ internal class SurrogateLearning(
         observations: List<Observation>,
         random: Random,
         bootstrap: Boolean = false,
-        response: ResponseTransform = ResponseTransform.from(observations, outcome.standardize),
+        response: ResponseTransform = ResponseTransform.from(observations, outcome),
     ): FittedSurrogate {
         val rows = if (bootstrap && observations.isNotEmpty()) {
             List(observations.size) {
@@ -83,7 +83,16 @@ internal class SurrogateLearning(
             DenseVector.of(DoubleArray(rows.size) { transform.encode(rows[it].reward) }),
             DenseVector.of(DoubleArray(rows.size) { rows[it].weight }),
             DenseVector.of(
-                DoubleArray(rows.size) { rows[it].noiseVariance?.div(transform.scale * transform.scale) ?: Double.NaN },
+                DoubleArray(
+                    rows.size,
+                ) {
+                    rows[it].noiseVariance?.let { noise ->
+                        transform.encodeNoise(
+                            rows[it].reward,
+                            noise,
+                        )
+                    } ?: Double.NaN
+                },
             ),
         )
         fitCount++
@@ -105,7 +114,7 @@ internal class SurrogateLearning(
         return fit(
             history.observations + observations,
             random,
-            response = ResponseTransform.from(history.observations, outcome.standardize),
+            response = ResponseTransform.from(history.observations, outcome),
         )
     }
 
@@ -131,6 +140,7 @@ internal class SurrogateLearning(
     }
     private fun valid(reward: Double, weight: Double): Boolean {
         require(reward.isFinite() && weight >= 0.0 && weight.isFinite())
+        require(outcome.responseScale != ResponseScale.Log || reward > 0.0) { "log responses must be positive" }
         return weight > 0.0
     }
 }

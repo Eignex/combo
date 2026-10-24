@@ -70,6 +70,12 @@ interface FittedSurrogate {
     fun drawFunction(random: Random): SampledFunction
 }
 
+/** Optional log-response moments for acquisitions integrating improvement in original positive units. */
+interface LogResponseSurrogate : FittedSurrogate {
+    /** Gaussian log(response) moments after undoing training standardization. */
+    fun predictLog(features: DenseMatrix): PredictiveMoments
+}
+
 /** Optional capability for models that can condition on temporary observations without a full refit. */
 interface ConditionableSurrogate : FittedSurrogate {
     /** Return an independent conditioned model; never change this model or recorded history. */

@@ -5,6 +5,7 @@ import com.eignex.koblas.DenseVector
 import com.eignex.koblas.Vector
 import com.eignex.kumulant.stat.regression.tree.ForestPrediction
 import com.eignex.kumulant.stat.regression.tree.expectedImprovement
+import com.eignex.kumulant.stat.regression.tree.expectedImprovementLogNormal
 import kotlin.random.Random
 
 /** A fixed acquisition objective; its values are always maximized. */
@@ -38,15 +39,30 @@ class ExpectedImprovement(
         require(margin >= 0.0 && margin.isFinite())
     }
     override fun create(context: AcquisitionContext, random: Random): Acquisition = Acquisition { features ->
-        val moments = context.model.predict(features)
+        val logarithmic = context.model is LogResponseSurrogate
+        val moments = if (context.model is LogResponseSurrogate) {
+            context.model.predictLog(features)
+        } else {
+            context.model.predict(features)
+        }
         DenseVector.of(
             DoubleArray(features.rows) { i ->
                 context.incumbent?.let {
-                    ForestPrediction(
-                        moments.means[i],
-                        moments.variances[i],
-                    ).expectedImprovement(it, context.outcome.maximize, margin)
-                } ?: context.outcome.score(moments.means[i])
+                    val prediction = ForestPrediction(moments.means[i], moments.variances[i])
+                    if (logarithmic) {
+                        prediction.expectedImprovementLogNormal(it, context.outcome.maximize, margin)
+                    } else {
+                        prediction.expectedImprovement(it, context.outcome.maximize, margin)
+                    }
+                } ?: context.outcome.score(
+                    if (logarithmic) {
+                        kotlin.math.exp(
+                            moments.means[i] + moments.variances[i] / 2.0,
+                        )
+                    } else {
+                        moments.means[i]
+                    },
+                )
             },
         )
     }

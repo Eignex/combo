@@ -6,6 +6,8 @@ import com.eignex.combo.decisions.FeatureEncoder
 import com.eignex.combo.shared.HybridDescentSession
 import com.eignex.combo.shared.NoFeasibleSampleException
 import com.eignex.combo.shared.PredictionLearner
+import com.eignex.combo.shared.WitnessRequest
+import com.eignex.combo.shared.WitnessSearch
 import com.eignex.combo.shared.WitnessValidator
 import com.eignex.combo.shared.assignmentKey
 import com.eignex.koblas.DenseVector
@@ -39,27 +41,6 @@ data class ObservedBest(
     val observations: Int,
 )
 
-/** Decide whether a round uses random initial/interleaved exploration. */
-fun interface InitialDesign {
-    /** Decide once per frozen batch, before fitting a surrogate. */
-    fun explore(snapshot: StudySnapshot, random: Random): Boolean
-}
-
-/** Initial observations followed by randomly interleaved exploration. */
-class RandomInitialDesign(
-    /** Number of observations before model-driven search. */
-    val observations: Int = 5,
-    /** Exploration probability after initial design. */
-    val probability: Double = 0.1,
-) : InitialDesign {
-    init {
-        require(observations >= 0 && probability in 0.0..1.0)
-    }
-    override fun explore(snapshot: StudySnapshot, random: Random): Boolean =
-        snapshot.history.observations.isEmpty() || snapshot.history.observations.size < observations ||
-            random.nextDouble() < probability
-}
-
 /**
  * Composable history-based Bayesian optimization loop over feasible Klause configurations.
  * One study snapshot, response encoding, and base fitted model are shared by each batch.
@@ -81,6 +62,7 @@ class RandomInitialDesign(
  * @property trainAbsError Optional post-recording prediction error sink.
  * @property testAbsError Optional pre-recording prediction error sink.
  * @property repeatPolicy Whether evaluated assignments remain eligible for another suggestion.
+ * @property exploration Independent feasible proposal source for random exploration rounds.
  */
 open class BayesianOptimizer(
     val projection: FeatureEncoder<Vector>,
@@ -100,6 +82,7 @@ open class BayesianOptimizer(
     override val trainAbsError: SeriesStat<*>? = null,
     override val testAbsError: SeriesStat<*>? = null,
     val repeatPolicy: RepeatPolicy = RepeatPolicy.NoisyOnly,
+    val exploration: WitnessSearch = HybridDescentSession.klause(projection.space),
 ) : PredictionLearner<HistoryData>,
     TrialOptimizer {
     /** Original decision space, used exclusively for feasibility and decoding. */
@@ -174,6 +157,7 @@ open class BayesianOptimizer(
                 scoped.map { it.reward }.maxByOrNull(outcome::score)
             }
         }
+        var offset = 0
         val selector = object : BatchSelector {
             override fun predict(sample: BanditSample, context: Context): Double =
                 base.mean(projection.encode(sample, context))
@@ -181,22 +165,31 @@ open class BayesianOptimizer(
                 temporary: List<Observation>,
                 excluded: List<com.eignex.klause.solver.Sample>,
             ): CandidateSelection {
-                val acquisition = if (explore) {
-                    val scores = mutableMapOf<List<Double>, Double>()
-                    Acquisition { features ->
-                        DenseVector.of(
-                            DoubleArray(features.rows) { i ->
-                                scores.getOrPut(features.rowVector(i).toDoubleArray().toList()) { random.nextDouble() }
-                            },
-                        )
-                    }
-                } else {
+                if (explore) {
+                    val unavailable = excluded + completed
+                    val designed = initialDesign.sample(
+                        InitialDesignRequest(snapshot, context, unavailable, offset++),
+                        random,
+                    )
+                    if (designed != null) return designed
+                    val batch = exploration.witnesses(
+                        WitnessRequest(
+                            1,
+                            space.assumptionsFor(context),
+                            exclude = unavailable,
+                            anchors = scoped.map { it.sample.sample },
+                        ),
+                        random,
+                    )
+                    return CandidateSelection(batch.witnesses.firstOrNull()?.let(::BanditSample), batch.termination, 0)
+                }
+                val acquisition = run {
                     val fitted = when {
                         bootstrapThompson -> learning.fit(
                             snapshot.history.observations + temporary,
                             random,
                             bootstrap = true,
-                            response = ResponseTransform.from(snapshot.history.observations, outcome.standardize),
+                            response = ResponseTransform.from(snapshot.history.observations, outcome),
                         )
 
                         temporary.isNotEmpty() -> learning.temporary(snapshot.history, temporary, random)
@@ -329,5 +322,8 @@ open class BayesianOptimizer(
         noiseVariance: Double? = null,
     ) = learning.update(sample, context, reward, weight, noiseVariance)
     override fun exportData(): HistoryData = study.exportData()
-    override fun importData(data: HistoryData) = study.importData(data)
+    override fun importData(data: HistoryData) {
+        require(outcome.responseScale != ResponseScale.Log || data.history.observations.all { it.reward > 0.0 })
+        study.importData(data)
+    }
 }

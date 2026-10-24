@@ -37,11 +37,11 @@ kotlin {
         for ((sourceSet, modules) in mapOf(
             "jvmMain" to mapOf(
                 "klause-jvm" to "0.0.1-20261023.210726-928",
-                "kumulant-jvm" to "0.3.4-20261023.215019-68",
+                "kumulant-jvm" to "0.3.4-20261024.141016-69",
             ),
             "linuxX64Main" to mapOf(
                 "klause-linuxx64" to "0.0.1-20261023.210726-927",
-                "kumulant-linuxx64" to "0.3.4-20261023.215019-68",
+                "kumulant-linuxx64" to "0.3.4-20261024.141016-69",
             ),
         )) {
             getByName(sourceSet).dependencies {
@@ -87,4 +87,14 @@ dokka {
             remoteLineSuffix.set("#L")
         }
     }
+}
+
+// Optional external comparison; run scripts/run_smac_reference.py first.
+tasks.register<JavaExec>("compareSmac") {
+    dependsOn("jvmTestClasses")
+    val compilation = kotlin.targets.getByName("jvm").compilations.getByName("test")
+    classpath(compilation.output.allOutputs, compilation.runtimeDependencyFiles)
+    mainClass.set("com.eignex.combo.bo.SmacComparisonKt")
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(25)) })
+    jvmArgs("--enable-native-access=ALL-UNNAMED", "--add-modules=jdk.incubator.vector")
 }
