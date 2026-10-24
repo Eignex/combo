@@ -134,3 +134,11 @@ subspace. The noisy runs separately ablate measurement-aware initial design,
 progressive/guarded racing, and a frozen final comparison on unused measurement keys.
 No report asserts a stochastic ranking as a test requirement, and the oracle never
 supplies labels or suggestions to an optimizer.
+
+## Continuous Gaussian-process comparison
+
+Run `./gradlew compareGp` and `python3 scripts/summarize_gp_comparison.py` for
+frozen-history prediction/search diagnostics and equal-budget GP/EI, forest/EI, and
+random search. The [report](gp-comparison/report.md) archives fresh validation seeds,
+paired outcomes, and evaluation traces. `-Pgp.mode=frozen` or `-Pgp.mode=optimize`
+selects one stage; `-Pgp.seeds=91` is an excluded development smoke run.

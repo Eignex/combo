@@ -26,6 +26,9 @@ import kotlin.random.Random
 private class RefinementContinuous : DecisionSpace() {
     val x by floatVar(0.0, 1.0)
 }
+private class RefinementLogarithmic : DecisionSpace() {
+    val x by floatVar(1e-6, 1.0, scale = com.eignex.combo.decisions.Scale.Log)
+}
 private class RefinementNoisy : DecisionSpace() {
     val x by floatVar(0.0, 1.0)
     val y by floatVar(0.0, 1.0)
@@ -38,11 +41,18 @@ private class RefinementConditional : DecisionSpace() {
     val mode by nominal("slow", "fast")
     val child by optionalDecisionSpace(::RefinementChild)
 }
-private class RefinementProblem(val name: String, val model: DecisionSpace, val truth: (BanditSample) -> Double) {
+internal class RefinementProblem(val name: String, val model: DecisionSpace, val truth: (BanditSample) -> Double) {
     val space = model.compileSpace()
 }
 private fun sq(x: Double) = x * x
-private fun refinementProblem(name: String): RefinementProblem {
+internal fun refinementProblem(name: String): RefinementProblem {
+    if (name == "logarithmic") {
+        val model = RefinementLogarithmic()
+        val space = model.compileSpace()
+        return RefinementProblem(name, model) {
+            1.0 + sq((kotlin.math.ln(it.float(model.x, space)) - kotlin.math.ln(1e-6)) / kotlin.math.ln(1e6) - 0.62)
+        }
+    }
     if (name == "conditional") {
         val model = RefinementConditional()
         val space = model.compileSpace()
@@ -68,15 +78,19 @@ private fun refinementProblem(name: String): RefinementProblem {
     val space = model.compileSpace()
     return RefinementProblem(name, model) {
         val x = it.float(model.x, space)
-        1.0 + if (name == "logarithmic") sq((x - 0.5) * 2.0) else sq(x - 0.73)
+        1.0 + if (name == "multimodal") {
+            0.2 * sq(x - 0.31) + 0.1 * sq(sin(6.0 * kotlin.math.PI * (x - 0.31)))
+        } else {
+            sq(x - 0.73)
+        }
     }
 }
-private fun measured(problem: RefinementProblem, point: BanditSample, key: Int): Double {
+internal fun measured(problem: RefinementProblem, point: BanditSample, key: Int): Double {
     val source = point.sample.reals
     val hash = sin(key * 12.9898 + source[0] * 78.233 + source.getOrElse(1) { 0.0 } * 39.425) * 43758.5453
     return problem.truth(point) + if (problem.name == "noisy") 0.05 * (2 * (hash - floor(hash)) - 1) else 0.0
 }
-private fun continuousPoint(values: DoubleArray): BanditSample = BanditSample(
+internal fun continuousPoint(values: DoubleArray): BanditSample = BanditSample(
     Sample(
         booleanArrayOf(),
         longArrayOf(),

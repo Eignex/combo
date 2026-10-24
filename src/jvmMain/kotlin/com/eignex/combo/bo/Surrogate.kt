@@ -56,6 +56,18 @@ class PredictiveMoments(
     }
 }
 
+/** Joint latent means and covariance in the same response coordinates as marginal predictions. */
+class JointPredictiveMoments(
+    /** One latent mean per query row. */
+    val means: Vector,
+    /** Symmetric latent covariance; observation noise is excluded. */
+    val covariance: DenseMatrix,
+) {
+    init {
+        require(covariance.rows == means.size && covariance.cols == means.size)
+    }
+}
+
 /** A fixed function draw. Repeated and reordered evaluations must describe the same sampled function. */
 fun interface SampledFunction {
     /** Score all feature rows using this draw. */
@@ -70,6 +82,9 @@ interface FittedSurrogate {
     /** Evaluate latent moments for all query rows. */
     fun predict(features: DenseMatrix): PredictiveMoments
 
+    /** Joint latent moments when supported; null for models exposing marginal uncertainty only. */
+    fun predictJoint(features: DenseMatrix): JointPredictiveMoments? = null
+
     /** Draw a function once, preserving cross-point dependence throughout its evaluations. */
     fun drawFunction(random: Random): SampledFunction
 }
@@ -78,9 +93,12 @@ interface FittedSurrogate {
 interface LogResponseSurrogate : FittedSurrogate {
     /** Gaussian log(response) moments after undoing training standardization. */
     fun predictLog(features: DenseMatrix): PredictiveMoments
+
+    /** Joint Gaussian log-response moments when the underlying model supports them. */
+    fun predictLogJoint(features: DenseMatrix): JointPredictiveMoments? = null
 }
 
-/** Optional capability for models that can condition on temporary observations without a full refit. */
+/** Optional capability for models that condition on temporary observations with fitted parameters held fixed. */
 interface ConditionableSurrogate : FittedSurrogate {
     /** Return an independent conditioned model; never change this model or recorded history. */
     fun condition(temporary: TrainingData): FittedSurrogate

@@ -32,3 +32,14 @@ if (providers.gradleProperty("dependencies.local").isPresent ||
         }
     }
 }
+
+// Resolve general numerical primitives from a sibling checkout during cross-library development.
+providers.gradleProperty("koblas.local").orNull?.let { requested ->
+    includeBuild(requested.ifBlank { "../koblas" }) {
+        dependencySubstitution {
+            substitute(module("com.eignex:koblas")).using(project(":koblas"))
+            substitute(module("com.eignex:koblas-jvm")).using(project(":koblas"))
+            substitute(module("com.eignex:koblas-linuxx64")).using(project(":koblas"))
+        }
+    }
+}
