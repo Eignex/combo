@@ -3,9 +3,6 @@ package com.eignex.combo.bo
 import com.eignex.koblas.DenseMatrix
 import com.eignex.koblas.DenseVector
 import com.eignex.koblas.Vector
-import com.eignex.kumulant.stat.regression.tree.ForestPrediction
-import com.eignex.kumulant.stat.regression.tree.expectedImprovement
-import com.eignex.kumulant.stat.regression.tree.expectedImprovementLogNormal
 import kotlin.random.Random
 
 /** A fixed acquisition objective; its values are always maximized. */
@@ -30,7 +27,12 @@ fun interface AcquisitionFactory {
     fun create(context: AcquisitionContext, random: Random): Acquisition
 }
 
-/** Analytic Gaussian EI approximation; a missing contextual baseline uses posterior-mean search. */
+/**
+ * Analytic expected improvement from any surrogate's moments; a missing baseline uses posterior-mean search.
+ * Gaussian moments use a normal approximation. [LogResponseSurrogate] moments integrate lognormal
+ * improvement in original response units. The normal CDF uses a polynomial approximation.
+ * Zero variance reduces to deterministic improvement; negative rounding error is clamped to zero.
+ */
 class ExpectedImprovement(
     /** Improvement margin in original reward units. */
     val margin: Double = 0.0,
@@ -48,11 +50,22 @@ class ExpectedImprovement(
         DenseVector.of(
             DoubleArray(features.rows) { i ->
                 context.incumbent?.let {
-                    val prediction = ForestPrediction(moments.means[i], moments.variances[i])
                     if (logarithmic) {
-                        prediction.expectedImprovementLogNormal(it, context.outcome.maximize, margin)
+                        logNormalExpectedImprovement(
+                            moments.means[i],
+                            moments.variances[i],
+                            it,
+                            context.outcome.maximize,
+                            margin,
+                        )
                     } else {
-                        prediction.expectedImprovement(it, context.outcome.maximize, margin)
+                        gaussianExpectedImprovement(
+                            moments.means[i],
+                            moments.variances[i],
+                            it,
+                            context.outcome.maximize,
+                            margin,
+                        )
                     }
                 } ?: context.outcome.score(
                     if (logarithmic) {
