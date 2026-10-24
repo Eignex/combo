@@ -28,6 +28,7 @@ class ForestEiDiagnosticsTest {
             candidateCount = 32,
             maxAttempts = 64,
             localSteps = 6,
+            localPolicy = LocalSearchPolicy(starts = 1, adaptive = false),
             neighbors = 12,
             tieBreak = if (variant in listOf("ties", "both")) AcquisitionTieBreak.Random else AcquisitionTieBreak.First,
         )

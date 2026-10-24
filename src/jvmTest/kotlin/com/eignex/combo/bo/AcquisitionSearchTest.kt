@@ -82,6 +82,73 @@ class AcquisitionSearchTest {
         assertTrue(0.0 in searched && 1.0 in searched)
     }
 
+    @Test
+    fun `multiple starts escape a better initial local peak`() {
+        val projection = SearchTransform(Rate().compileSpace())
+        val backend = WitnessSearch { _, _ ->
+            WitnessBatch(listOf(point(0.2), point(0.8)), WitnessTermination.CountReached)
+        }
+        val acquisition = Acquisition { rows ->
+            DenseVector.of(
+                DoubleArray(rows.rows) {
+                    val x = rows[it, 0]
+                    maxOf(
+                        1.0 - 100.0 * (x - 0.2) * (x - 0.2),
+                        2.0 - 1000.0 * (x - 0.9) * (x - 0.9),
+                    )
+                },
+            )
+        }
+        fun select(starts: Int) = LocalAndRandomSearch(
+            projection,
+            backend,
+            localSteps = 8,
+            neighbors = 64,
+            localPolicy = LocalSearchPolicy(starts = starts, initialRadius = 0.12),
+        ).maximize(
+            acquisition,
+            AcquisitionRequest(Context.Empty, emptyList(), emptyList()),
+            Random(7),
+        )
+        val single = select(1).sample!!.sample.reals[0]
+        val multiple = select(2).sample!!.sample.reals[0]
+        assertTrue(kotlin.math.abs(single - 0.2) < 0.01)
+        assertTrue(kotlin.math.abs(multiple - 0.9) < 0.01)
+    }
+
+    private class IntegerRate : DecisionSpace() {
+        val x by intVar(
+            1,
+            128,
+            scale = com.eignex.combo.decisions.Scale.Log,
+        )
+    }
+
+    @Test
+    fun `integer neighborhoods move in declared logarithmic geometry`() {
+        val model = IntegerRate()
+        val space = model.compileSpace()
+        val projection = SearchTransform(space)
+        val backend = WitnessSearch { _, _ ->
+            com.eignex.combo.shared.HybridDescentSession.klause(space).witnesses(
+                com.eignex.combo.shared.WitnessRequest(
+                    1,
+                    com.eignex.klause.propagation.Assumptions(
+                        ints = mapOf(space.compiled.intVarIdByName.getValue(model.x.name) to 1L),
+                    ),
+                ),
+                Random(1),
+            )
+        }
+        val selected = LocalAndRandomSearch(projection, backend, localSteps = 12, neighbors = 32).maximize(
+            Acquisition { rows -> DenseVector.of(DoubleArray(rows.rows) { rows[it, 0] }) },
+            AcquisitionRequest(Context.Empty, emptyList(), emptyList()),
+            Random(5),
+        )
+        assertEquals(128L, space.compiled.decode(model.x, selected.sample!!.sample))
+        assertTrue(com.eignex.combo.shared.WitnessValidator(space).valid(selected.sample.sample))
+    }
+
     private class Fixed : DecisionSpace() {
         val flag by boolVar()
         val fixed by constraint { !flag }

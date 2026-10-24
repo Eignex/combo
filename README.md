@@ -235,7 +235,8 @@ thresholds from the observed data. Continuous values retain their declared units
   It models the distribution of tree predictions as Gaussian and maximizes expected
   improvement. This implements the forest/EI pattern described in
   [SMAC](https://www.jmlr.org/papers/v23/21-0888.html), using Klause's feasible candidate
-  search. It does not implement SMAC's racing, censored trials, or multi-fidelity scheduler.
+  search. The optional intensifier below supplies paired racing; censored trials and
+  multi-fidelity scheduling remain unimplemented.
 - **Bootstrap Thompson sampling** resamples the full evaluation history with
   replacement and fits a fresh random forest for each exploratory choice. The sampled
   model stays fixed throughout that choice. This follows the bootstrap-model sampling
@@ -304,6 +305,81 @@ snapshots. `exportData`/`importData` transfers history, reservations, and the al
 round counter. Persisting only an `ObservationStore` does not preserve reservations.
 Calls remain single-threaded even when external evaluations run concurrently.
 
+## SMAC-inspired profile and paired racing
+
+The compact `smac` factory retains its original signed-response defaults. For positive
+costs, the budget-aware profile combines ten randomized all-feature Kumulant trees,
+log-response EI, a continuous Latin hypercube, 20% independent exploration, and ten
+adaptive local-search starts:
+
+```kotlin
+val optimizer = RandomForestOptimizer.smacProfile(
+    space, evaluationBudget = 100, randomSeed = 42,
+)
+// Minimize strictly positive costs. For signed responses use responseScale = ResponseScale.Identity.
+val trial = optimizer.suggest(1)[0]
+optimizer.complete(trial.id, cost)
+```
+
+Here `evaluationBudget` sizes the initial design; the caller still controls when to
+stop ordinary suggestions. `LatinHypercubeInitialDesign` allocates ten configurations
+per independent dimension, capped at 25% of the intended budget. Hard contexts are
+pinned, categories select one label, and numeric draws follow the declared scale.
+Constrained draws may be rejected and replaced by feasible witnesses, so coverage is
+not a uniform constrained Latin hypercube. No variable grid is introduced. Plan slots
+count issued configurations, including pending and unsuccessful ones; repeated
+measurements of a configuration do not consume extra design slots. An oversized
+initial batch finishes with independent feasible random proposals. Exploration bypasses
+surrogate fitting and acquisition optimization entirely.
+
+For noisy measurements, a separate `RacingOptimizer` owns external worker requests:
+
+```kotlin
+val base = RandomForestOptimizer.smacProfile(
+    space, evaluationBudget = 100, randomSeed = 42,
+    noise = ObservationNoise.Noisy, repeatPolicy = RepeatPolicy.Never,
+)
+val race = RacingOptimizer(
+    base,
+    keys = listOf(11, 23, 37).map { EvaluationKey(instance = "validation", seed = it) },
+    evaluationBudget = 100,
+)
+for (task in race.ask(4).tasks) {
+    // Dispatch task.sample with task.key.instance, seed, and optional fixed budget.
+    // Later: race.complete(task.id, reward = measuredCost, cost = workerCost).
+}
+val confirmed = race.incumbent // Null until the first configuration finishes its plan.
+```
+
+The first incumbent completes the entire measurement plan. A challenger begins with
+one matched instance/seed measurement, then doubles its stage while competitive.
+Each challenger has a reproducibly shuffled measurement order to avoid favoring the
+same first seed or instance in every early comparison.
+Worse paired means trigger early rejection; a fully measured winner becomes the
+incumbent. `RacingPolicy` controls stage growth, rejection slack, concurrency, and
+retries. This is a paired-mean heuristic without a statistical confidence guarantee.
+Each successful worker result trains the surrogate once in raw response units;
+stage means never become additional observations. `fail` records unsuccessful cost
+without a response, and `cancel` releases the key. Already-issued workers may finish
+in any order. Attempt limits include failures and cancellations, and short batches
+explicitly distinguish waiting, budget exhaustion, and unsuccessful configuration search.
+
+`EvaluationStore` persists closed worker outcomes separately from `ObservationStore`.
+Use `race.exportData()`/`importData()` with a fresh compatible race to retain pending
+workers, IDs, stages, and the paired plan. Restore the same policies and hard context.
+Calls remain single-threaded. Independent storage backends are not a distributed
+transaction: after a committed model update, a failed evaluation-store append leaves
+the worker closed to prevent duplicate training; the exported race state retains its
+outcome for recovery. Instances and seeds identify paired measurements; they do not
+supply learned instance features. Uneven instance coverage can therefore affect the
+pooled surrogate. All keys use one fixed fidelity; budget promotions, censored costs,
+and automatic multi-fidelity scheduling are future work.
+
+The [pinned SMAC comparison](benchmarks/smac-comparison.md) runs the actual SMAC 2.4.1
+HPO facade alongside this profile and feasible random search. This profile is inspired
+by SMAC, with different forest statistics, initialization, search, and race scheduling;
+it is not an implementation-equivalent port.
+
 ## Composing a Bayesian optimizer
 
 `RandomForestOptimizer` is a convenience facade over `BayesianOptimizer`. The components
@@ -335,8 +411,13 @@ val optimizer = BayesianOptimizer(
   searches neighborhoods of promising points. Klause checks or repairs each move
   under the caller's hard context. Joint real moves interpolate verified seeds with
   identical discrete coordinates, retaining exact rational authority for affine
-  equalities. Search limits bound initial attempts, local
-  iterations, and neighbors; this remains a heuristic acquisition maximizer.
+  equalities. Shared random witness sampling also tries checked joint interpolation
+  when coordinate proposals stall, without fitting or scoring a model. Search limits
+  bound initial attempts, local
+  iterations per start, and neighbors. `LocalSearchPolicy` controls multi-start walks,
+  bounded plateau exploration, and shrinking/expanding radii in normalized geometry.
+  `LocalSearchPolicy(starts = 1, adaptive = false)` retains the previous fixed-radius
+  schedule. This remains a heuristic acquisition maximizer.
   Exact acquisition ties use seeded random ordering to explore tree-model plateaus;
   `AcquisitionTieBreak.First` retains candidate order for reproducing earlier searches.
   Verified excluded anchors still seed local geometry, but cannot be selected for
@@ -359,7 +440,14 @@ For spaces declaring interactions, default BO inputs now have fewer columns. Ref
 models trained on the previous expanded vectors, or use `InteractionFeatureProjection`
 to retain those products. Exported original-coordinate observation history can be reused.
 
-`OutcomeSpec` centralizes objective direction and optional response standardization.
+`OutcomeSpec` centralizes objective direction, response scale, and optional standardization.
+`ResponseScale.Log` requires positive observations before recording them. Predictions
+use lognormal moments in original units, EI integrates improvement in those units, and
+sampled functions exponentiate one coherent log-response draw. Optional standardization
+is undone before lognormal prediction or acquisition. Known measurement variances use
+a first-order delta approximation under the log transform; they are not exact transformed
+noise distributions. A conditionable model receives consistently transformed fantasy
+labels and noise. Forest uncertainty remains approximate ensemble disagreement.
 Predictions, EI margins, recorded metrics, and fantasy labels stay in original reward
 units. `Observation.noiseVariance` / `complete(..., noiseVariance = ...)` describe known
 noise separately from statistical weight. Under `ObservationNoise.Noisy`, improvement
@@ -393,7 +481,7 @@ matrix construction use Koblas APIs rather than parallel numerical helpers.
 
 The build uses Kbuild 1.3.3, Kotlin 2.4.10, Gradle 9.7.0, and a JDK 25 toolchain
 that Gradle provisions automatically. Klause and Kumulant use their latest published
-snapshots from October 23, 2026. Exact platform artifact versions are pinned in
+snapshots from October 23–24, 2026. Exact platform artifact versions are pinned in
 `build.gradle.kts`, alongside a shared Koblas version that resolves their conflicting
 backend pins. The configured targets are JVM and Linux
 x64, matching Klause's available snapshots; Combo's implementation is currently JVM.

@@ -10,6 +10,7 @@ import com.eignex.combo.shared.WitnessSearch
 import com.eignex.combo.shared.WitnessTermination
 import com.eignex.combo.shared.WitnessValidator
 import com.eignex.combo.shared.assignmentKey
+import com.eignex.combo.shared.interpolateWitness
 import com.eignex.klause.backtrack.BacktrackParams
 import com.eignex.klause.backtrack.BacktrackSolver
 import com.eignex.klause.propagation.Assumptions
@@ -55,6 +56,29 @@ enum class AcquisitionTieBreak {
     Random,
 }
 
+/** Bounded multi-start neighborhood policy in normalized decision geometry. */
+data class LocalSearchPolicy(
+    /** Number of independently refined initial points. */
+    val starts: Int = 4,
+    /** Consecutive non-improving steps allowed before ending a walk. */
+    val plateauSteps: Int = 5,
+    /** Initial normalized proposal radius. */
+    val initialRadius: Double = 0.25,
+    /** Minimum adaptive radius. */
+    val minRadius: Double = 0.005,
+    /** Maximum adaptive radius after consecutive improvements. */
+    val maxRadius: Double = 0.5,
+    /** False with one start retains the fixed shrinking-radius search. */
+    val adaptive: Boolean = true,
+) {
+    init {
+        require(starts > 0 && plateauSteps > 0)
+        require(minRadius > 0.0 && minRadius <= initialRadius && initialRadius <= maxRadius && maxRadius <= 1.0)
+    }
+}
+
+private data class ScoredPoint(val sample: Sample, val score: Double)
+
 /**
  * Random initialization followed by score-guided feasible neighborhood search.
  * Every accepted neighbor is checked against the original Klause problem. Integer and Boolean
@@ -67,6 +91,7 @@ enum class AcquisitionTieBreak {
  * @property localSteps Number of successive neighborhood searches.
  * @property neighbors Number of attempted neighbors per local step.
  * @property tieBreak Ordering of exactly equal acquisition scores.
+ * @property localPolicy Multi-start, plateau, and adaptive-radius limits.
  */
 class LocalAndRandomSearch(
     val projection: FeatureEncoder<com.eignex.koblas.Vector>,
@@ -76,6 +101,7 @@ class LocalAndRandomSearch(
     val localSteps: Int = 8,
     val neighbors: Int = 12,
     val tieBreak: AcquisitionTieBreak = AcquisitionTieBreak.Random,
+    val localPolicy: LocalSearchPolicy = LocalSearchPolicy(),
 ) : AcquisitionOptimizer {
     private val space = projection.space
     private val validator = WitnessValidator(space)
@@ -99,6 +125,7 @@ class LocalAndRandomSearch(
             random,
         )
         val explored = linkedMapOf<com.eignex.combo.shared.AssignmentKey, Sample>()
+        val scored = linkedMapOf<com.eignex.combo.shared.AssignmentKey, ScoredPoint>()
         var evaluations = 0
         var best: Sample? = null
         var bestScore = Double.NEGATIVE_INFINITY
@@ -120,6 +147,7 @@ class LocalAndRandomSearch(
             evaluations += valid.size
             valid.forEachIndexed { i, point ->
                 require(scores[i].isFinite()) { "acquisition returned a nonfinite score" }
+                scored[point.assignmentKey()] = ScoredPoint(point, scores[i])
                 if (guide == null || scores[i] > guideScore) {
                     guide = point
                     guideScore = scores[i]
@@ -140,23 +168,75 @@ class LocalAndRandomSearch(
             }
         }
         evaluate(anchors + generated.witnesses)
-        repeat(localSteps) { step ->
-            // An excluded maximizer may have no usable neighborhood; restart from other verified anchors.
-            val anchor = if (best == null && step > 0 && anchors.isNotEmpty()) {
-                anchors[(step - 1) % anchors.size]
-            } else {
-                guide ?: return@repeat
+        if (!localPolicy.adaptive && localPolicy.starts == 1) {
+            repeat(localSteps) { step ->
+                // An excluded maximizer may have no usable neighborhood; restart from other verified anchors.
+                val anchor = if (best == null && step > 0 && anchors.isNotEmpty()) {
+                    anchors[(step - 1) % anchors.size]
+                } else {
+                    guide ?: return@repeat
+                }
+                evaluate(
+                    neighborhood.around(
+                        anchor,
+                        assumptions,
+                        random,
+                        0.25 / (1.0 + step),
+                        neighbors,
+                        explored.values.toList(),
+                    ),
+                )
             }
-            evaluate(
-                neighborhood.around(
-                    anchor,
-                    assumptions,
+        } else if (localSteps > 0) {
+            val initial = if (tieBreak == AcquisitionTieBreak.Random) {
+                scored.values.shuffled(
                     random,
-                    0.25 / (1.0 + step),
-                    neighbors,
-                    explored.values.toList(),
-                ),
-            )
+                )
+            } else {
+                scored.values.toList()
+            }
+            val starters = initial.sortedByDescending { it.score }.take(localPolicy.starts)
+            for (start in starters) {
+                var current = start
+                var radius = localPolicy.initialRadius
+                var plateau = 0
+                var improvements = 0
+                val visited = mutableSetOf(current.sample.assignmentKey())
+                for (step in 0 until localSteps) {
+                    val proposals = neighborhood.around(
+                        current.sample,
+                        assumptions,
+                        random,
+                        radius,
+                        neighbors,
+                        explored.values.toList(),
+                    )
+                    evaluate(proposals)
+                    val available = proposals.mapNotNull { scored[it.assignmentKey()] }
+                        .filter { it.sample.assignmentKey() !in visited }
+                    val ordered = if (tieBreak == AcquisitionTieBreak.Random) available.shuffled(random) else available
+                    val next = ordered.maxByOrNull { it.score }
+                    if (next != null && next.score > current.score) {
+                        current = next
+                        visited += next.sample.assignmentKey()
+                        plateau = 0
+                        improvements++
+                        if (improvements >= 3) {
+                            radius = minOf(localPolicy.maxRadius, radius * 2.0)
+                            improvements = 0
+                        }
+                    } else {
+                        plateau++
+                        improvements = 0
+                        if (next != null && next.score == current.score) {
+                            current = next
+                            visited += next.sample.assignmentKey()
+                        }
+                        if (plateau % 2 == 0) radius = maxOf(localPolicy.minRadius, radius * 0.5)
+                        if (plateau >= localPolicy.plateauSteps) break
+                    }
+                }
+            }
         }
         val termination = if (best == null && generated.termination == WitnessTermination.CountReached) {
             WitnessTermination.BudgetExhausted
@@ -170,7 +250,8 @@ class LocalAndRandomSearch(
 private class FeasibleNeighborhood(private val space: CompiledDecisionSpace) {
     private val validator = WitnessValidator(space)
     private val solver by lazy { BacktrackSolver(space.compiled.problem.bake()) }
-    private val realIds = SolverCoordinateLayout(space).realHandles
+    private val coordinates = SolverCoordinateLayout(space)
+    private val realIds = coordinates.realHandles
     private val names = (space.compiled.boolVarIdByName.keys + space.numericDomains.keys).distinct()
 
     fun around(
@@ -195,7 +276,7 @@ private class FeasibleNeighborhood(private val space: CompiledDecisionSpace) {
             if (peers.isNotEmpty() && index % 2 == 0) {
                 val peer = peers[random.nextInt(peers.size)]
                 val fraction = if (index == 0) 0.5 else random.nextDouble()
-                return@List between(anchor, peer, fraction)?.takeIf {
+                return@List interpolateWitness(anchor, peer, fraction)?.takeIf {
                     space.matches(it, assumptions) && validator.valid(it)
                 }
             }
@@ -213,14 +294,23 @@ private class FeasibleNeighborhood(private val space: CompiledDecisionSpace) {
                         ),
                     ),
                 ).assignment
-            } else if (intId != null && intId !in assumptions.ints && name !in space.compiled.floatDecoders) {
+            } else if (intId != null && intId !in assumptions.ints) {
                 val domain = space.numericDomains.getValue(name)
                 val lo = domain.feature(domain.min)
                 val hi = domain.feature(domain.max)
-                val unit = if (lo == hi) 0.0 else (domain.feature(anchor.intValue(intId).toDouble()) - lo) / (hi - lo)
-                val value = domain.fromUnit(
-                    (unit + random.nextDouble(-radius, radius)).coerceIn(0.0, 1.0),
-                ).roundToLong()
+                val spec = coordinates.floatSpecs[intId]
+                val sourceValue = spec?.realValue(
+                    Math.toIntExact(anchor.intValue(intId)),
+                ) ?: anchor.intValue(intId).toDouble()
+                val unit = if (lo == hi) 0.0 else (domain.feature(sourceValue) - lo) / (hi - lo)
+                val proposed = domain.fromUnit((unit + random.nextDouble(-radius, radius)).coerceIn(0.0, 1.0))
+                val value = if (spec == null) {
+                    proposed.roundToLong()
+                } else if (spec.scale == 0.0) {
+                    0L
+                } else {
+                    ((proposed - spec.min) / spec.scale).roundToLong()
+                }
                 solver.sample(
                     BacktrackParams(
                         maxDecisions = 256L,
@@ -248,18 +338,5 @@ private class FeasibleNeighborhood(private val space: CompiledDecisionSpace) {
                 null
             }
         }.filterNotNull()
-    }
-    private fun between(left: Sample, right: Sample, fraction: Double): Sample? {
-        val a = left.exactReals ?: left.reals.map { BigFraction.ofDouble(it) ?: return null }
-        val b = right.exactReals ?: right.reals.map { BigFraction.ofDouble(it) ?: return null }
-        val weight = BigFraction.ofDouble(fraction) ?: return null
-        // Rational arithmetic preserves affine equalities; doubles must match the exact projections.
-        val exact = a.indices.map { a[it] * (BigFraction.ONE - weight) + b[it] * weight }
-        val coordinates = DoubleArray(exact.size) { index ->
-            val projected = exact[index].toDouble()
-            if (!projected.isFinite() || (projected == 0.0 && !exact[index].isZero)) return null
-            projected
-        }
-        return Sample(left.bools, left.ints, coordinates, exactReals = exact)
     }
 }

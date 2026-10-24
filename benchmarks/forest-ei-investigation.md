@@ -19,15 +19,16 @@ SMAC also handles forest plateaus explicitly and randomizes equal-valued configu
 ## Ablation
 
 Every run evaluates `-(x - target)^2` on [0, 1] exactly 32 times. Forest configuration is
-unchanged: eight trees, five initial observations, 10% random exploration, 32 initial
-candidates, six local steps, and twelve neighbors. The trace wrapper only records existing
+eight trees, five initial observations, 10% independent random exploration, 32 initial
+candidates, one non-adaptive start, six local steps, and twelve neighbors. These are
+current-code policy controls, not archived executions. The trace wrapper records existing
 scores; it does not consume randomness or add acquisition calls.
 
 - `baseline`: completed-point repeats allowed, first-candidate ties (previous behavior).
 - `novel`: exclude completed points, first-candidate ties.
 - `ties`: repeats allowed, seeded random ties.
 - `both`: exclude completed points and randomize ties (current deterministic defaults).
-- `random`: unchanged feasible random-search baseline.
+- `random`: shared feasible random-search baseline.
 
 Discovery uses target 0.73 and seeds 3, 11, 19, 29, 43, 61. Validation uses targets
 0.17, 0.43, 0.86 and different seeds 2, 5, 7, 13, 23, 37 (18 runs per variant).
@@ -35,16 +36,16 @@ Lower regret is better. IQR uses inclusive 25th–75th percentiles.
 
 | Cases | Variant | Median final regret | IQR | Repeated evaluations / total | Median ties at scored model maximum |
 |---|---|---:|---:|---:|---:|
-| discovery | baseline | 0.000648878 | 0.000144133–0.00661789 | 59 / 192 | 11 |
-| discovery | novel | 6.98345e-06 | 4.12151e-06–5.40957e-05 | 0 / 192 | 8 |
-| discovery | ties | 1.61595e-05 | 8.99921e-06–0.000175548 | 8 / 192 | 9 |
-| discovery | both | 1.86483e-05 | 7.36987e-06–2.85398e-05 | 0 / 192 | 6 |
-| discovery | random | 0.000114772 | 6.25047e-05–0.000320511 | 4 / 192 | — |
-| validation | baseline | 0.000537501 | 7.49054e-05–0.00310965 | 169 / 576 | 11 |
-| validation | novel | 8.05766e-05 | 2.59871e-05–0.000196778 | 0 / 576 | 8.5 |
-| validation | ties | 4.10147e-05 | 2.05891e-05–0.000112923 | 30 / 576 | 7 |
-| validation | both | 4.8597e-05 | 1.13164e-05–8.22297e-05 | 0 / 576 | 8 |
-| validation | random | 8.96061e-05 | 2.59216e-05–0.000213664 | 9 / 576 | — |
+| discovery | baseline | 0.00187856 | 0.000562357–0.0118754 | 62 / 192 | 10 |
+| discovery | novel | 6.88114e-05 | 6.3211e-05–8.92399e-05 | 0 / 192 | 8 |
+| discovery | ties | 0.000103208 | 6.55794e-05–0.000248469 | 15 / 192 | 9 |
+| discovery | both | 3.37057e-05 | 4.08369e-06–7.72052e-05 | 0 / 192 | 9 |
+| discovery | random | 0.00014997 | 9.10216e-05–0.000190237 | 6 / 192 | — |
+| validation | baseline | 0.000129729 | 1.8573e-05–0.000527022 | 172 / 576 | 11 |
+| validation | novel | 7.96805e-05 | 3.91882e-05–0.000140787 | 0 / 576 | 9 |
+| validation | ties | 7.45113e-05 | 3.18459e-05–0.000148269 | 47 / 576 | 8 |
+| validation | both | 5.09677e-05 | 2.18812e-05–0.00010546 | 0 / 576 | 8 |
+| validation | random | 0.000163779 | 5.74846e-05–0.00119712 | 6 / 576 | — |
 
 Model maxima include excluded geometric anchors. Random-design rounds are not labeled EI rounds.
 
@@ -52,15 +53,15 @@ Model maxima include excluded geometric anchors. Random-design rounds are not la
 
 | Cases | Both versus baseline (wins / ties / losses) | Both versus random |
 |---|---:|---:|
-| discovery | 4 / 0 / 2 | 5 / 0 / 1 |
-| validation | 14 / 0 / 4 | 12 / 0 / 6 |
+| discovery | 5 / 0 / 1 | 5 / 0 / 1 |
+| validation | 11 / 0 / 7 | 15 / 0 / 3 |
 
 ## What remains
 
 These changes remove demonstrated selection waste; they do not turn forest disagreement
 into a calibrated posterior or give CART a smooth-function prior. Individual losses remain.
 The broader [five-objective results](bo-regret.md) remain part of validation, including the
-noisy case. Its paired outcomes still include losses to random search even with a lower median.
+noisy case. Neither the median nor paired rankings are guaranteed to beat random search.
 No objective-specific optimum, variance floor, or quadratic interpolation was
 added to the algorithm. These small synthetic samples do not establish statistical significance.
 

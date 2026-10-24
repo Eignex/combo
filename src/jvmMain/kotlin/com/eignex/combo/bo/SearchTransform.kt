@@ -38,6 +38,70 @@ class SearchTransform(override val space: CompiledDecisionSpace) : FeatureEncode
         slot?.let { Triple(name, it, domain) }
     }
 
+    /** Number of nonconstant independent decision variables, excluding pinned contexts and category indicators. */
+    val dimension: Int get() {
+        val contexts = (
+            space.contextBools.map { it.name } + space.contextInts.map { it.name } +
+                space.contextBools.mapNotNull { it.isKnownGate?.name } +
+                space.contextInts.mapNotNull { it.isKnownGate?.name }
+            ).toSet()
+        val indicators = space.compiled.nominalIndicators.values.flatMap { it.values }.toSet()
+        return space.numericDomains.count { (name, domain) -> name !in contexts && domain.min < domain.max } +
+            space.compiled.boolVarIdByName.count { (name, id) -> name !in contexts && id !in indicators } +
+            space.compiled.nominalIndicators.count { it.value.size > 1 }
+    }
+
+    /**
+     * Map continuous unit draws to primitive decisions, retaining hard context and canonical inactive values.
+     * Categories select one label; constraints are checked in original coordinates. A rejected proposal is null.
+     */
+    fun sampleUnit(units: Vector, anchor: BanditSample, context: Context = Context.Empty): BanditSample? {
+        require(units.size == featureSize && units.toDoubleArray().all { it >= 0.0 && it < 1.0 })
+        val assumptions = space.assumptionsFor(context)
+        val bools = anchor.sample.bools
+        val ints = anchor.sample.ints
+        val reals = anchor.sample.reals
+        val exact = (anchor.sample.exactReals ?: reals.map { BigFraction.ofDouble(it)!! }).toMutableList()
+        for (id in bools.indices) bools[id] = assumptions.bools[id] ?: (units[id] >= 0.5)
+        for ((_, indicators) in space.compiled.nominalIndicators) {
+            val ids = indicators.values.toList()
+            val chosen = (units[ids.first()] * ids.size).toInt()
+            ids.forEachIndexed { index, id -> bools[id] = index == chosen }
+        }
+        val activation = Sample(bools, ints, reals, exactReals = exact)
+        for ((id, name) in boolNames) {
+            if (!active(name, activation) && name !in space.compiled.nominalIndicators) bools[id] = false
+        }
+        for ((name, indicators) in space.compiled.nominalIndicators) {
+            if (!active(name, activation)) indicators.values.forEachIndexed { index, id -> bools[id] = index == 0 }
+        }
+        for ((name, slot, domain) in slots) {
+            val intId = space.compiled.intVarIdByName[name]
+            if (intId != null && intId in assumptions.ints) {
+                ints[intId] = assumptions.ints.getValue(intId)
+                continue
+            }
+            val value = domain.fromUnit(if (active(name, activation)) units[slot] else 0.0)
+            if (intId != null) {
+                val spec = layout.floatSpecs[intId]
+                ints[intId] = if (spec == null) {
+                    value.roundToLong()
+                } else if (spec.scale == 0.0) {
+                    0L
+                } else {
+                    ((value - spec.min) / spec.scale).roundToLong()
+                }
+            } else {
+                val id = layout.realHandles.entries.first { it.value.name == name }.key
+                if (value == reals[id]) continue
+                exact[id] = BigFraction.ofDouble(value)!!
+                reals[id] = value
+            }
+        }
+        val proposed = Sample(bools, ints, reals, exactReals = exact)
+        return proposed.takeIf { space.matches(it, assumptions) && validator.valid(it) }?.let(::BanditSample)
+    }
+
     /**
      * Decode normalized base coordinates against an anchor, returning only a checked feasible assignment.
      * Categorical indicators must be discrete; this accepts base coordinates only.
@@ -74,8 +138,8 @@ class SearchTransform(override val space: CompiledDecisionSpace) : FeatureEncode
                 }
             } else {
                 val id = layout.realHandles.entries.first { it.value.name == name }.key
+                if (value != reals[id]) exact[id] = BigFraction.ofDouble(value)!!
                 reals[id] = value
-                exact[id] = BigFraction.ofDouble(value)!!
             }
         }
         val sample = Sample(bools, ints, reals, exactReals = exact)

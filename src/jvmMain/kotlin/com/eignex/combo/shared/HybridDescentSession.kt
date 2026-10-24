@@ -130,8 +130,35 @@ class HybridDescentSession(
         }
         for (sample in pool) capture(sample)
         var attempts = 0
+        var missed = false
         while ((found.size < request.count || attempts < candidateBatchSize) && attempts < request.maxAttempts) {
             attempts++
+            // A stalled coordinate proposal may lie on an affine equality. Spend a bounded
+            // attempt on joint geometry before asking the solver for the same endpoints again.
+            if (missed && attempts % 2 == 0 && space.compiled.problem.numRealVars > 0) {
+                val candidates = pool.filter { space.matches(it, request.assumptions) }
+                val left = candidates.randomOrNull(random)
+                val peers = if (left == null) {
+                    emptyList()
+                } else {
+                    candidates.filter {
+                        it.assignmentKey() != left.assignmentKey() && it.bools.contentEquals(left.bools) &&
+                            it.ints.contentEquals(left.ints)
+                    }
+                }
+                val right = peers.randomOrNull(random)
+                val point = if (left == null || right == null) {
+                    null
+                } else {
+                    interpolateWitness(left, right, random.nextDouble())
+                }
+                if (point != null && space.matches(point, request.assumptions) && validator.valid(point)) {
+                    remember(point, request.assumptions)
+                    capture(point)
+                    lastResult = SampleResult.Found(point)
+                }
+                if (right != null) continue
+            }
             proposalCalls++
             var result = propose(random, request.assumptions, null)
             if (result is SampleResult.Unknown && attempts < request.maxAttempts) {
@@ -143,7 +170,9 @@ class HybridDescentSession(
             when (result) {
                 is SampleResult.Found -> {
                     remember(result.sample, request.assumptions)
+                    val before = found.size
                     capture(result.sample)
+                    missed = found.size == before
                 }
 
                 is SampleResult.Infeasible -> if (found.isEmpty()) {

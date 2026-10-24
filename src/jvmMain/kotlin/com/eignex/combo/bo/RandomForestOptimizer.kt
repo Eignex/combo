@@ -10,6 +10,7 @@ import com.eignex.combo.shared.WitnessSearch
 import com.eignex.koblas.Vector
 import com.eignex.kumulant.core.SeriesStat
 import com.eignex.kumulant.stat.regression.tree.BatchForestConfig
+import com.eignex.kumulant.stat.regression.tree.BatchSplitStrategy
 
 /** Acquisition rules for a history-fitted random forest. */
 enum class ForestAcquisition {
@@ -44,6 +45,8 @@ data class ForestOptimizerConfig(
     val repeatPolicy: RepeatPolicy = RepeatPolicy.NoisyOnly,
     /** Exactly equal forest acquisition values use seeded random tie-breaking. */
     val tieBreak: AcquisitionTieBreak = AcquisitionTieBreak.Random,
+    /** Multi-start acquisition search and adaptive radius policy. */
+    val localSearch: LocalSearchPolicy = LocalSearchPolicy(),
 ) {
     init {
         require(
@@ -70,6 +73,7 @@ data class ForestOptimizerConfig(
  * @param testAbsError Optional pre-fit error sink.
  * @param batchPolicy Pending exclusion or temporary fantasy batching.
  * @param outcome Objective noise and response normalization policy.
+ * @param initialDesign Structured design or initial/interleaved exploration schedule.
  */
 class RandomForestOptimizer(
     projection: FeatureEncoder<Vector>,
@@ -87,6 +91,7 @@ class RandomForestOptimizer(
     testAbsError: SeriesStat<*>? = null,
     batchPolicy: BatchPolicy = SequentialBatchPolicy(),
     outcome: OutcomeSpec = OutcomeSpec(maximize = maximize),
+    initialDesign: InitialDesign = RandomInitialDesign(config.initialRandomObservations, config.randomExploration),
 ) : BayesianOptimizer(
     projection = projection,
     surrogate = ForestSurrogate(config.forest),
@@ -100,10 +105,11 @@ class RandomForestOptimizer(
         config.localSteps,
         config.neighbors,
         config.tieBreak,
+        config.localSearch,
     ),
     batchPolicy = batchPolicy,
     outcome = outcome,
-    initialDesign = RandomInitialDesign(config.initialRandomObservations, config.randomExploration),
+    initialDesign = initialDesign,
     bootstrapThompson = config.acquisition == ForestAcquisition.BootstrapThompson,
     randomSeed = randomSeed,
     rewards = rewards,
@@ -131,6 +137,43 @@ class RandomForestOptimizer(
             randomSeed = randomSeed,
             maximize = maximize,
         )
+
+        /**
+         * SMAC-inspired configuration with randomized all-feature trees, a budgeted Latin hypercube,
+         * independent exploration, and multi-start acquisition search. This is not a bitwise SMAC port.
+         */
+        fun smacProfile(
+            space: CompiledDecisionSpace,
+            evaluationBudget: Int,
+            randomSeed: Int = 0,
+            maximize: Boolean = false,
+            responseScale: ResponseScale = ResponseScale.Log,
+            candidateCount: Int = 256,
+            store: ObservationStore = InMemoryObservationStore(),
+            noise: ObservationNoise = ObservationNoise.Deterministic,
+            repeatPolicy: RepeatPolicy = RepeatPolicy.NoisyOnly,
+        ): RandomForestOptimizer {
+            val projection = SearchTransform(space)
+            return RandomForestOptimizer(
+                projection,
+                store,
+                config = ForestOptimizerConfig(
+                    forest = BatchForestConfig(
+                        splitStrategy = BatchSplitStrategy.Random,
+                        mtry = maxOf(1, projection.featureSize),
+                    ),
+                    randomExploration = 0.2,
+                    candidateCount = candidateCount,
+                    repeatPolicy = repeatPolicy,
+                    maxWitnessAttempts = maxOf(128, candidateCount * 2),
+                    localSearch = LocalSearchPolicy(starts = 10),
+                ),
+                randomSeed = randomSeed,
+                maximize = maximize,
+                outcome = OutcomeSpec(maximize = maximize, noise = noise, responseScale = responseScale),
+                initialDesign = LatinHypercubeInitialDesign(space, evaluationBudget, seed = randomSeed),
+            )
+        }
 
         /** Construct independent history-bootstrap Thompson models per suggested batch slot. */
         fun bootstrapThompson(
