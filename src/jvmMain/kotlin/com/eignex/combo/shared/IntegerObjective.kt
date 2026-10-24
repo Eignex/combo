@@ -2,6 +2,11 @@ package com.eignex.combo.shared
 
 import com.eignex.klause.ir.Problem
 import com.eignex.klause.solver.objective.LinearObjective
+import com.eignex.koblas.DenseVector
+import com.eignex.koblas.asum
+import com.eignex.koblas.dot
+import com.eignex.koblas.scale
+import com.eignex.koblas.sum
 import kotlin.math.abs
 import kotlin.math.roundToLong
 
@@ -38,16 +43,26 @@ internal fun integerObjective(
             realCoefficients = realCoefficients,
         )
     }
-    var magnitude = boolWeights.sumOf { abs(it / largest) }
-    var roundingMagnitude = boolWeights.size.toDouble()
-    for (i in intCoefficients.indices) {
-        if (intCoefficients[i] == 0.0) continue
-        val bounds = problem.intBounds
-        require(bounds.hasLower(i) && bounds.hasUpper(i)) { "bandit objectives require bounded integers" }
-        val extent = maxOf(abs(bounds.lower(i).toDouble()), abs(bounds.upper(i).toDouble()))
-        magnitude += abs(intCoefficients[i] / largest) * extent
-        roundingMagnitude += extent
+    val normalized = DenseVector.of(boolWeights)
+    if ((1.0 / largest).isFinite()) {
+        normalized.scale(1.0 / largest)
+    } else {
+        for (i in boolWeights.indices) normalized[i] = boolWeights[i] / largest
     }
+    val extents = DenseVector.of(
+        DoubleArray(intCoefficients.size) { i ->
+            if (intCoefficients[i] == 0.0) {
+                0.0
+            } else {
+                val bounds = problem.intBounds
+                require(bounds.hasLower(i) && bounds.hasUpper(i)) { "bandit objectives require bounded integers" }
+                maxOf(abs(bounds.lower(i).toDouble()), abs(bounds.upper(i).toDouble()))
+            }
+        },
+    )
+    val integerMagnitudes = DenseVector.of(DoubleArray(intCoefficients.size) { abs(intCoefficients[it] / largest) })
+    val magnitude = normalized.asum() + (integerMagnitudes dot extents)
+    val roundingMagnitude = boolWeights.size.toDouble() + extents.sum()
     val budget = (1L shl 50).toDouble()
     require(roundingMagnitude < budget) { "integer domains exceed the objective precision budget" }
     val scale = if (magnitude == 0.0) 1.0 else minOf(1e9, (budget - roundingMagnitude) / magnitude)

@@ -280,18 +280,93 @@ cancellation release a reservation for future suggestions. Zero/nonfinite weight
 and repeated or unknown trial completions are rejected. A trial is closed immediately
 after its observation commits, even if a later metrics callback fails.
 
-SMAC-style batches select sequentially while excluding pending assignments. Bootstrap
-Thompson sampling fits a fresh bootstrap model for each selected slot. These policies
-do not implement joint batch EI or pending-outcome fantasization. Streaming learners
-keep their `choose/update` interface without trial tracking.
+The default batch policy selects sequentially with pending assignments excluded.
+`SequentialBatchPolicy(FantasyPolicy.ConstantLiar(value))` and
+`SequentialBatchPolicy(FantasyPolicy.PosteriorMean)` add temporary outcomes when
+constructing a batch. Conditionable surrogates can condition on those observations;
+other surrogates refit temporary datasets. Neither path writes fantasies into the
+observation store. Bootstrap Thompson fits a fresh history-bootstrap model per slot.
+Joint batch EI is not implemented. Streaming learners retain `choose/update`.
 
-`trials` and `pendingTrials` return immutable snapshots. Observation storage and
-reservation tracking have separate lifetimes: `exportData`/`importData` transfers
-both history and trial state, including outstanding IDs; persisting only an
-`ObservationStore` does not preserve reservations. Calls remain single-threaded,
-even when external evaluations run concurrently.
+`Study` owns observations, IDs, reservations, and completion independently of the
+suggestion algorithm. A `StudySnapshot` captures history and pending evaluations
+once per batch. All proposals are validated before their reservations commit, and
+stale or foreign snapshots are rejected. `trials` and `pendingTrials` are immutable
+snapshots. `exportData`/`importData` transfers history, reservations, and the algorithm
+round counter. Persisting only an `ObservationStore` does not preserve reservations.
+Calls remain single-threaded even when external evaluations run concurrently.
+
+## Composing a Bayesian optimizer
+
+`RandomForestOptimizer` is a convenience facade over `BayesianOptimizer`. The components
+can also be supplied directly:
+
+```kotlin
+val optimizer = BayesianOptimizer(
+    projection = SearchTransform(space),
+    surrogate = ForestSurrogate(),
+    acquisitionFactory = ExpectedImprovement(),
+    batchPolicy = SequentialBatchPolicy(FantasyPolicy.PosteriorMean),
+    outcome = OutcomeSpec(noise = ObservationNoise.Noisy, standardize = true),
+    randomSeed = 42,
+)
+```
+
+- `Surrogate.fit(TrainingData, random)` produces an immutable `FittedSurrogate`.
+  Feature batches are Koblas `DenseMatrix` rows; responses, weights, and known
+  observation variances are separate Koblas vectors. Models expose latent moments
+  and coherent function draws. Forest variance is ensemble disagreement, not a
+  calibrated posterior variance; the forest fitter does not model known observation
+  noise. `ConditionableSurrogate` is an optional capability for temporary conditioning.
+- `AcquisitionFactory` binds a fixed model, improvement baseline, and outcome policy.
+  EI, posterior mean, and coherent posterior Thompson acquisitions use the same
+  batch scoring interface. A context with no evaluated baseline uses model-mean
+  search rather than inventing an observed reward.
+- `AcquisitionOptimizer` controls search independently of scoring. The default
+  `LocalAndRandomSearch` starts from feasible candidates and observations, then
+  searches neighborhoods of promising points. Klause checks or repairs each move
+  under the caller's hard context. Joint real moves interpolate verified seeds with
+  identical discrete coordinates, retaining exact rational authority for affine
+  equalities. Search limits bound initial attempts, local
+  iterations, and neighbors; this remains a heuristic acquisition maximizer.
+- `BatchPolicy` selects all proposals against a frozen study snapshot. `InitialDesign`
+  independently controls initial and interleaved random exploration. A custom
+  `SuggestionPolicy` can bypass modeling entirely; `StudyRunner` and
+  `RandomSuggestionPolicy` provide a feasible random-search baseline.
+
+`SearchTransform` normalizes numeric base coordinates into [0, 1] using declared
+scale geometry. Presence and nominal indicators retain their Boolean slots, and
+interactions are recomputed from normalized scalars. `decode` maps base coordinates
+back into a checked original assignment; invalid categorical combinations, contexts,
+and constrained points return null. Constraints are never rewritten into feature space.
+Custom feature encoders remain supported and are fixed for an optimizer's lifetime.
+
+`OutcomeSpec` centralizes objective direction and optional response standardization.
+Predictions, EI margins, recorded metrics, and fantasy labels stay in original reward
+units. `Observation.noiseVariance` / `complete(..., noiseVariance = ...)` describe known
+noise separately from statistical weight. Under `ObservationNoise.Noisy`, improvement
+baselines use model means at evaluated points, and `bestObserved` aggregates replicate
+measurements by weight. `recommendOrThrow` searches the model mean and can recommend
+an unevaluated point; `optimalOrThrow` remains its compatibility alias.
+
+`lastSuggestion` reports the study round, frozen history revision, random seed, full
+model fit count, and acquisition evaluations. Model fitting is revision-cached with
+content-derived seeds; metric predictions do not advance suggestion random streams.
+Study round counters survive export. Solver witness caches are ephemeral and are not
+exported, so replaying an entire run requires the same initial state and search setup.
+
+`OptimizationBenchmark.run` records best evaluated values, cumulative evaluation cost,
+and simple regret when a known optimum is supplied. Synthetic noisy objectives can
+provide a separate noiseless reference value. The component tests compare seeded
+forest/EI and random search on a bounded continuous quadratic, verify replay from a
+fresh study, and check that local acquisition search improves beyond an initial pool.
+This is a small regression benchmark, not a claim of universal algorithm superiority.
 
 ## Building
+
+Koblas is a direct public dependency, with platform artifacts pinned independently
+of Klause and Kumulant. Vector dot products, scaling, weighted reductions, and batch
+matrix construction use Koblas APIs rather than parallel numerical helpers.
 
 The build uses Kbuild 1.3.3, Kotlin 2.4.10, Gradle 9.7.0, and a JDK 25 toolchain
 that Gradle provisions automatically. Klause and Kumulant use their latest published
