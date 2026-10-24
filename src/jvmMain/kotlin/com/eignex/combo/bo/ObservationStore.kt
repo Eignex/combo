@@ -10,9 +10,17 @@ import com.eignex.combo.decisions.Context
  * @property context Context supplied when evaluating the assignment.
  * @property reward Finite observed response.
  * @property weight Positive finite observation weight.
+ * @property noiseVariance Optional known observation variance in squared reward units.
  */
-data class Observation(val sample: BanditSample, val context: Context, val reward: Double, val weight: Double = 1.0) {
+data class Observation(
+    val sample: BanditSample,
+    val context: Context,
+    val reward: Double,
+    val weight: Double = 1.0,
+    val noiseVariance: Double? = null,
+) {
     init {
+        require(noiseVariance == null || (noiseVariance >= 0.0 && noiseVariance.isFinite()))
         require(reward.isFinite()) { "reward must be finite" }
         require(weight > 0.0 && weight.isFinite()) { "observation weight must be positive and finite" }
     }

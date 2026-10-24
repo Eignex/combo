@@ -29,6 +29,7 @@ enum class TrialStatus {
  * @property reward Observed outcome, present only after successful completion.
  * @property weight Observation weight, present only after successful completion.
  * @property reason Optional failure or cancellation explanation.
+ * @property noiseVariance Optional known observation variance, separate from weight.
  */
 @ConsistentCopyVisibility
 data class Trial internal constructor(
@@ -39,6 +40,7 @@ data class Trial internal constructor(
     val reward: Double? = null,
     val weight: Double? = null,
     val reason: String? = null,
+    val noiseVariance: Double? = null,
 )
 
 /**
@@ -71,7 +73,7 @@ interface TrialOptimizer {
     fun suggest(count: Int = 1, context: Context = Context.Empty): TrialBatch
 
     /** Record one pending trial exactly once; completion order need not match suggestion order. */
-    fun complete(id: Long, reward: Double, weight: Double = 1.0)
+    fun complete(id: Long, reward: Double, weight: Double = 1.0, noiseVariance: Double? = null)
 
     /** Close a pending trial without adding a training observation. */
     fun fail(id: Long, reason: String)

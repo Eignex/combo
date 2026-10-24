@@ -13,6 +13,7 @@ import com.eignex.klause.propagation.Assumptions
 import com.eignex.klause.solver.Sample
 import com.eignex.klause.solver.objective.LinearObjective
 import com.eignex.koblas.Vector
+import com.eignex.koblas.dot
 import com.eignex.kumulant.core.RegressionStat
 import com.eignex.kumulant.core.SeriesStat
 import com.eignex.kumulant.stat.regression.glm.LinearPosterior
@@ -64,7 +65,7 @@ class LinearBandit<R : LinearRegressionResult>(
         val sign = if (maximize) 1.0 else -1.0
         val sample = batch.witnesses.maxByOrNull { raw ->
             val features = projection.encode(BanditSample(raw), context)
-            sign * (0 until weights.size).sumOf { weights[it] * features[it] }
+            sign * (weights dot features)
         } ?: throw NoFeasibleSampleException("scaled candidate search returned no feasible witness")
         return BanditSample(sample)
     }

@@ -17,6 +17,7 @@ import com.eignex.klause.solver.Sample
 import com.eignex.klause.solver.objective.LinearObjective
 import com.eignex.koblas.DenseVector
 import com.eignex.koblas.Vector
+import com.eignex.koblas.scale
 
 /**
  * Linear bandit's view of a [CompiledDecisionSpace]: projects a [Sample] into a dense
@@ -198,8 +199,8 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
         for (interaction in layout.interactions) {
             foldInteraction(interaction, weights, context, boolWeights, intCoefficients)
         }
-        for (i in boolWeights.indices) boolWeights[i] *= sign
-        for (i in intCoefficients.indices) intCoefficients[i] *= sign
+        DenseVector.wrap(boolWeights).scale(sign)
+        DenseVector.wrap(intCoefficients).scale(sign)
         val realCoefficients = DoubleArray(layout.numRealVars) { sign * weights[layout.realStart + it] }
         return integerObjective(space.compiled.problem, boolWeights, intCoefficients, realCoefficients)
     }

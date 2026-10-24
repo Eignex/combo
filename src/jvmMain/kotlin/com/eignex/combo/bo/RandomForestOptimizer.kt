@@ -1,30 +1,15 @@
 package com.eignex.combo.bo
 
-import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.CompiledDecisionSpace
-import com.eignex.combo.decisions.Context
 import com.eignex.combo.decisions.DecisionSpaceDef
 import com.eignex.combo.decisions.FeatureEncoder
 import com.eignex.combo.shared.HybridDescentSession
 import com.eignex.combo.shared.LearnerData
-import com.eignex.combo.shared.LinearFeatureProjection
-import com.eignex.combo.shared.NoFeasibleSampleException
-import com.eignex.combo.shared.PredictionLearner
 import com.eignex.combo.shared.SlotRemap
-import com.eignex.combo.shared.WitnessRequest
 import com.eignex.combo.shared.WitnessSearch
-import com.eignex.combo.shared.WitnessTermination
-import com.eignex.combo.util.RandomSequence
-import com.eignex.klause.propagation.Assumptions
-import com.eignex.klause.solver.Sample
 import com.eignex.koblas.Vector
 import com.eignex.kumulant.core.SeriesStat
 import com.eignex.kumulant.stat.regression.tree.BatchForestConfig
-import com.eignex.kumulant.stat.regression.tree.BatchRandomForest
-import com.eignex.kumulant.stat.regression.tree.ForestRegressionResult
-import com.eignex.kumulant.stat.regression.tree.expectedImprovement
-import com.eignex.kumulant.stat.regression.tree.predictDistribution
-import kotlin.random.Random
 
 /** Acquisition rules for a history-fitted random forest. */
 enum class ForestAcquisition {
@@ -51,9 +36,15 @@ data class ForestOptimizerConfig(
     val candidateCount: Int = 64,
     /** Maximum proposal and fallback calls per acquisition search. */
     val maxWitnessAttempts: Int = 128,
+    /** Acquisition-guided neighborhood iterations after random initialization. */
+    val localSteps: Int = 8,
+    /** Candidate neighbors attempted per iteration. */
+    val neighbors: Int = 12,
 ) {
     init {
-        require(candidateCount > 0 && maxWitnessAttempts >= 0) { "invalid witness search limits" }
+        require(
+            candidateCount > 0 && maxWitnessAttempts >= 0 && localSteps >= 0 && neighbors > 0,
+        ) { "invalid witness search limits" }
         require(initialRandomObservations >= 0) { "initialRandomObservations must be nonnegative" }
         require(randomExploration in 0.0..1.0) { "randomExploration must be a probability" }
         require(improvementMargin >= 0.0 && improvementMargin.isFinite()) { "invalid improvement margin" }
@@ -61,252 +52,66 @@ data class ForestOptimizerConfig(
 }
 
 /**
- * History-based forest optimization over feasible Klause configurations.
+ * Forest convenience facade for the composable Bayesian optimization loop.
+ * Kumulant supplies numeric CART fitting; Combo's generic components own lifecycle and search.
  *
- * [ForestAcquisition.ExpectedImprovement] refits on the full history when the store
- * revision changes, then ranks candidates by Gaussian expected improvement. This is
- * the SMAC model/acquisition pattern with Klause candidate search; racing, censored
- * trials, multi-fidelity scheduling, and SMAC's reference acquisition maximizer are
- * outside this optimizer. [ForestAcquisition.BootstrapThompson] instead bootstraps
- * the history and fits a fresh forest per choice, keeping that reward model fixed
- * throughout the candidate search.
- *
- * Initial and randomly interleaved exploration protects against collapsed empirical
- * forest uncertainty. Context is fixed during search and all evaluated contexts remain
- * in the training history. Calls are single-threaded. The store is bound to one schema.
- *
- * [suggest] reserves distinct pending evaluations across requests. Expected-improvement
- * batches use sequential exclusion; bootstrap Thompson draws a fresh model per slot.
- * This is not joint batch expected improvement or pending-outcome fantasization.
- * Trial lifecycle state is held in memory and included in [exportData]. ObservationStore
- * persistence alone does not persist reservations. Calls are single-threaded.
- *
- * @property projection Numeric feature encoder, including declared scale transforms.
- * @property store Complete observation history, including off-policy training evaluations.
- * @property config Forest and acquisition configuration.
- * @property search Batch feasibility provider; the default shares witness caching and repair.
- * @property randomSeed Reproducible fitting and candidate-search seed.
- * @property maximize True for reward maximization; false for cost minimization.
- * @property rewards Optional sink for observed rewards.
- * @property trainAbsError Optional absolute-error sink evaluated after recording each evaluation.
- * @property testAbsError Optional absolute-error sink evaluated before recording each evaluation.
+ * @param projection Fixed model feature encoder.
+ * @param store Observation store owned by the new study.
+ * @property config Forest, exploration, and acquisition search configuration.
+ * @property search Batch witness initialization provider.
+ * @param randomSeed Reproducible fitting and round seed.
+ * @param maximize Reward maximization or cost minimization.
+ * @param rewards Optional weighted reward sink.
+ * @param trainAbsError Optional post-fit error sink.
+ * @param testAbsError Optional pre-fit error sink.
+ * @param batchPolicy Pending exclusion or temporary fantasy batching.
+ * @param outcome Objective noise and response normalization policy.
  */
 class RandomForestOptimizer(
-    val projection: FeatureEncoder<Vector>,
-    val store: ObservationStore = InMemoryObservationStore(),
+    projection: FeatureEncoder<Vector>,
+    store: ObservationStore = InMemoryObservationStore(),
     val config: ForestOptimizerConfig = ForestOptimizerConfig(),
     val search: WitnessSearch = HybridDescentSession.klause(
         projection.space,
         candidateBatchSize = 64,
         poolCapacity = 256,
     ),
-    override val randomSeed: Int = 0,
-    override val maximize: Boolean = true,
-    override val rewards: SeriesStat<*>? = null,
-    override val trainAbsError: SeriesStat<*>? = null,
-    override val testAbsError: SeriesStat<*>? = null,
-) : PredictionLearner<HistoryData>,
-    TrialOptimizer {
-    /** Decision space whose contextual variables are pinned during selection. */
-    val space: CompiledDecisionSpace get() = projection.space
-
-    private val issued = linkedMapOf<Long, Trial>()
-    private var nextTrialId = 1L
-    private var lastTermination = WitnessTermination.BudgetExhausted
-
-    override val trials: List<Trial> get() = issued.values.toList()
-
-    override fun suggest(count: Int, context: Context): TrialBatch {
-        require(count > 0) { "count must be positive" }
-        val batch = mutableListOf<Trial>()
-        repeat(count) {
-            check(nextTrialId < Long.MAX_VALUE) { "trial identifiers exhausted" }
-            val sample = try {
-                chooseOrThrow(context)
-            } catch (_: NoFeasibleSampleException) {
-                return TrialBatch(batch, lastTermination)
-            }
-            val trial = Trial(nextTrialId++, sample, context)
-            issued[trial.id] = trial
-            batch += trial
-        }
-        return TrialBatch(batch, WitnessTermination.CountReached)
-    }
-
-    override fun complete(id: Long, reward: Double, weight: Double) {
-        val trial = pending(id)
-        require(reward.isFinite() && weight > 0.0 && weight.isFinite()) { "invalid trial outcome or weight" }
-        learning.update(trial.sample, trial.context, reward, weight) {
-            issued[id] = trial.copy(status = TrialStatus.Completed, reward = reward, weight = weight)
-        }
-    }
-
-    override fun fail(id: Long, reason: String) {
-        issued[id] = pending(id).copy(status = TrialStatus.Failed, reason = reason)
-    }
-
-    override fun cancel(id: Long, reason: String?) {
-        issued[id] = pending(id).copy(status = TrialStatus.Cancelled, reason = reason)
-    }
-
-    private fun pending(id: Long): Trial {
-        val trial = requireNotNull(issued[id]) { "unknown trial $id" }
-        require(trial.status == TrialStatus.Pending) { "trial $id is already closed" }
-        return trial
-    }
-
-    private val fitter = BatchRandomForest(projection.featureSize, config.forest)
-    private val random = RandomSequence(randomSeed)
-    private val candidates = HistoryCandidates(space)
-    private val learning = HistoryLearning(
+    randomSeed: Int = 0,
+    maximize: Boolean = true,
+    rewards: SeriesStat<*>? = null,
+    trainAbsError: SeriesStat<*>? = null,
+    testAbsError: SeriesStat<*>? = null,
+    batchPolicy: BatchPolicy = SequentialBatchPolicy(),
+    outcome: OutcomeSpec = OutcomeSpec(maximize = maximize),
+) : BayesianOptimizer(
+    projection = projection,
+    surrogate = ForestSurrogate(config.forest),
+    study = Study(projection.space, store),
+    acquisitionFactory = ExpectedImprovement(config.improvementMargin),
+    acquisitionOptimizer = LocalAndRandomSearch(
         projection,
-        store,
-        fitter::fit,
-        { model, features -> model.predictDistribution(features).mean },
-        randomSeed,
-        rewards,
-        trainAbsError,
-        testAbsError,
-    )
-
-    /** Number of full forest fits, including bootstrap draws. */
-    val fitCount: Long get() = learning.fitCount
-
-    override fun chooseOrThrow(): BanditSample = chooseOrThrow(Context.Empty)
-    override fun optimalOrThrow(): BanditSample = optimalOrThrow(Context.Empty)
-    override fun predict(sample: BanditSample): Double = predict(sample, Context.Empty)
-    override fun train(sample: BanditSample, reward: Double, weight: Double) = train(
-        sample,
-        Context.Empty,
-        reward,
-        weight,
-    )
-    override fun update(sample: BanditSample, reward: Double, weight: Double) = update(
-        sample,
-        Context.Empty,
-        reward,
-        weight,
-    )
-
-    /** Choose a feasible configuration under the supplied context using the configured acquisition. */
-    fun chooseOrThrow(context: Context): BanditSample {
-        val assumptions = space.assumptionsFor(context)
-        val rng = random.next()
-        val history = store.snapshot()
-        val excluded = pendingTrials.map { it.sample.sample }
-        if (history.observations.isEmpty() || history.observations.size < config.initialRandomObservations ||
-            rng.nextDouble() < config.randomExploration
-        ) {
-            return select(rng, assumptions, excluded, randomScores(rng))
-        }
-        if (config.acquisition == ForestAcquisition.BootstrapThompson) {
-            val model = learning.fit(history, rng, bootstrap = true)
-            return select(rng, assumptions, excluded) { signed(prediction(model, it, context)) }
-        }
-        val model = learning.model(history)
-        val incumbent = incumbent(model, history, context, assumptions, rng)
-        return select(rng, assumptions, excluded) { sample ->
-            model.predictDistribution(projection.encode(BanditSample(sample), context))
-                .expectedImprovement(incumbent, maximize, config.improvementMargin)
-        }
+        search,
+        config.candidateCount,
+        config.maxWitnessAttempts,
+        config.localSteps,
+        config.neighbors,
+    ),
+    batchPolicy = batchPolicy,
+    outcome = outcome,
+    initialDesign = RandomInitialDesign(config.initialRandomObservations, config.randomExploration),
+    bootstrapThompson = config.acquisition == ForestAcquisition.BootstrapThompson,
+    randomSeed = randomSeed,
+    rewards = rewards,
+    trainAbsError = trainAbsError,
+    testAbsError = testAbsError,
+) {
+    init {
+        require(outcome.maximize == maximize) { "objective directions differ" }
     }
 
-    /** Choose with context, returning null if candidate search yields no feasible witness. */
-    fun choose(context: Context): BanditSample? = try {
-        chooseOrThrow(context)
-    } catch (_: NoFeasibleSampleException) {
-        null
-    }
-
-    /** Recommend using a forest fitted to the full history and its mean prediction. */
-    fun optimalOrThrow(context: Context): BanditSample {
-        val model = learning.model()
-        return select(random.next(), space.assumptionsFor(context)) { signed(prediction(model, it, context)) }
-    }
-
-    /** Recommend with context, returning null when no witness is found within the budgets. */
-    fun optimal(context: Context): BanditSample? = try {
-        optimalOrThrow(context)
-    } catch (_: NoFeasibleSampleException) {
-        null
-    }
-
-    /** Predict the mean from a forest fitted on the complete current history. */
-    fun predict(sample: BanditSample, context: Context): Double = learning.predict(sample, context)
-
-    /** Append an off-policy evaluation without updating reward or error sinks. */
-    fun train(sample: BanditSample, context: Context, reward: Double, weight: Double = 1.0) =
-        learning.train(sample, context, reward, weight)
-
-    /** Append an evaluation and record the weighted reward and pre/post-fit errors. */
-    fun update(sample: BanditSample, context: Context, reward: Double, weight: Double = 1.0) =
-        learning.update(sample, context, reward, weight)
-
-    override fun exportData(): HistoryData = HistoryData(space.definition, store.snapshot(), trials, nextTrialId)
-
-    override fun importData(data: HistoryData) {
-        require(data.definition === space.definition) { "history belongs to a different decision-space definition" }
-        require(data.trials.none { it.id in issued }) { "imported trial identifiers already exist" }
-        for (observation in data.history.observations) store.append(observation)
-        for (trial in data.trials) issued[trial.id] = trial
-        nextTrialId = maxOf(nextTrialId, data.nextTrialId)
-    }
-
-    private fun incumbent(
-        model: ForestRegressionResult,
-        history: ObservationHistory,
-        context: Context,
-        assumptions: Assumptions,
-        rng: Random,
-    ): Double {
-        val matching = history.observations.filter {
-            space.matches(
-                it.sample.sample,
-                assumptions,
-            ) && candidates.valid(it.sample.sample)
-        }
-        if (matching.isNotEmpty()) {
-            return if (maximize) matching.maxOf { it.reward } else matching.minOf { it.reward }
-        }
-        val reference = select(rng, assumptions) { signed(prediction(model, it, context)) }
-        return prediction(model, reference.sample, context)
-    }
-
-    private fun prediction(model: ForestRegressionResult, sample: Sample, context: Context): Double =
-        model.predictDistribution(projection.encode(BanditSample(sample), context)).mean
-
-    private fun select(
-        rng: Random,
-        assumptions: Assumptions,
-        excluded: List<Sample> = emptyList(),
-        score: (Sample) -> Double,
-    ): BanditSample {
-        val generated = search.witnesses(
-            WitnessRequest(
-                config.candidateCount,
-                assumptions,
-                exclude = excluded,
-                maxAttempts = config.maxWitnessAttempts,
-            ),
-            rng,
-        )
-        lastTermination = generated.termination
-        val observed = candidates.best(store.snapshot(), assumptions, excluded, score)
-        val sample = (listOfNotNull(observed) + generated.witnesses).maxByOrNull(score)
-            ?: throw NoFeasibleSampleException("candidate search returned no feasible witness within its budgets")
-        return BanditSample(sample)
-    }
-
-    private fun randomScores(rng: Random): (Sample) -> Double {
-        val scores = mutableMapOf<Sample, Double>()
-        return { sample -> scores.getOrPut(sample) { rng.nextDouble() } }
-    }
-
-    private fun signed(value: Double): Double = if (maximize) value else -value
-
-    /** Factories for the two history-based forest acquisition rules. */
+    /** Factories retaining the compact forest API while using generic BO components. */
     companion object {
-        /** Construct a SMAC-style forest optimizer with expected improvement. */
+        /** Construct a forest/EI optimizer with normalized BO features. */
         fun smac(
             space: CompiledDecisionSpace,
             store: ObservationStore = InMemoryObservationStore(),
@@ -314,14 +119,14 @@ class RandomForestOptimizer(
             randomSeed: Int = 0,
             maximize: Boolean = true,
         ): RandomForestOptimizer = RandomForestOptimizer(
-            LinearFeatureProjection(space),
+            SearchTransform(space),
             store,
             config.copy(acquisition = ForestAcquisition.ExpectedImprovement),
             randomSeed = randomSeed,
             maximize = maximize,
         )
 
-        /** Construct bootstrap Thompson sampling using a freshly rebuilt forest for each choice. */
+        /** Construct independent history-bootstrap Thompson models per suggested batch slot. */
         fun bootstrapThompson(
             space: CompiledDecisionSpace,
             store: ObservationStore = InMemoryObservationStore(),
@@ -329,7 +134,7 @@ class RandomForestOptimizer(
             randomSeed: Int = 0,
             maximize: Boolean = true,
         ): RandomForestOptimizer = RandomForestOptimizer(
-            LinearFeatureProjection(space),
+            SearchTransform(space),
             store,
             config.copy(acquisition = ForestAcquisition.BootstrapThompson),
             randomSeed = randomSeed,
@@ -345,6 +150,7 @@ class RandomForestOptimizer(
  * @property history Stable snapshot of the stored evaluations.
  * @property trials Trial snapshots including pending reservations.
  * @property nextTrialId Next reservation identifier.
+ * @property round Persisted suggestion random-stream position.
  */
 class HistoryData internal constructor(
     val definition: DecisionSpaceDef,
@@ -353,6 +159,7 @@ class HistoryData internal constructor(
     val trials: List<Trial> = emptyList(),
     /** Next reservation identifier, preserved across state transfer. */
     val nextTrialId: Long = 1L,
+    val round: Long = 0L,
 ) : LearnerData {
     override fun remap(slots: SlotRemap): LearnerData = throw UnsupportedOperationException(
         "History coordinates cannot be remapped; re-encode evaluations against the new schema.",

@@ -19,7 +19,10 @@ internal class LearningFeedback<Input>(
         record(encode(sample, context), reward, weight)
 
     fun update(sample: BanditSample, context: Context, reward: Double, weight: Double, onRecorded: () -> Unit = {}) {
-        val input = encode(sample, context)
+        updateEncoded(encode(sample, context), reward, weight, onRecorded)
+    }
+
+    fun updateEncoded(input: Input, reward: Double, weight: Double, onRecorded: () -> Unit = {}) {
         rewards?.update(reward, 0L, weight)
         testAbsError?.update(abs(reward - mean(input)), 0L, weight)
         record(input, reward, weight)

@@ -16,7 +16,7 @@ class IntegerObjectiveTest {
     @Test
     fun `fractional scores retain their ordering at tiny and huge magnitudes`() {
         val problem = Space().compileSpace().compiled.problem
-        for (magnitude in listOf(1e-200, 1.0, 1e200)) {
+        for (magnitude in listOf(1e-320, 1e-200, 1.0, 1e200)) {
             val objective = integerObjective(problem, doubleArrayOf(0.25 * magnitude, -0.75 * magnitude))
             val costs = (0..3).map { bits ->
                 objective.evaluateLong(Sample(booleanArrayOf(bits and 1 != 0, bits and 2 != 0), longArrayOf(0)))
