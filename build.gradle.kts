@@ -37,11 +37,11 @@ kotlin {
         for ((sourceSet, modules) in mapOf(
             "jvmMain" to mapOf(
                 "klause-jvm" to "0.0.1-20261023.210726-928",
-                "kumulant-jvm" to "0.3.4-20261024.141016-69",
+                "kumulant-jvm" to "0.3.4-20261024.173533-70",
             ),
             "linuxX64Main" to mapOf(
                 "klause-linuxx64" to "0.0.1-20261023.210726-927",
-                "kumulant-linuxx64" to "0.3.4-20261024.141016-69",
+                "kumulant-linuxx64" to "0.3.4-20261024.173533-70",
             ),
         )) {
             getByName(sourceSet).dependencies {
@@ -95,6 +95,18 @@ tasks.register<JavaExec>("compareSmac") {
     val compilation = kotlin.targets.getByName("jvm").compilations.getByName("test")
     classpath(compilation.output.allOutputs, compilation.runtimeDependencyFiles)
     mainClass.set("com.eignex.combo.bo.SmacComparisonKt")
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(25)) })
+    jvmArgs("--enable-native-access=ALL-UNNAMED", "--add-modules=jdk.incubator.vector")
+}
+
+// Optional frozen-history and whole-loop refinement experiments.
+tasks.register<JavaExec>("refineBo") {
+    dependsOn("jvmTestClasses")
+    val compilation = kotlin.targets.getByName("jvm").compilations.getByName("test")
+    classpath(compilation.output.allOutputs, compilation.runtimeDependencyFiles)
+    mainClass.set("com.eignex.combo.bo.RefinementBenchmarkKt")
+    args(providers.gradleProperty("refinement.mode").orElse("all").get(),
+        providers.gradleProperty("refinement.seeds").orElse("").get())
     javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(25)) })
     jvmArgs("--enable-native-access=ALL-UNNAMED", "--add-modules=jdk.incubator.vector")
 }

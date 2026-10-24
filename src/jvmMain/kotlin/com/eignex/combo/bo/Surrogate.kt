@@ -6,6 +6,7 @@ import com.eignex.koblas.Vector
 import com.eignex.kumulant.stat.regression.tree.BatchForestConfig
 import com.eignex.kumulant.stat.regression.tree.BatchRandomForest
 import com.eignex.kumulant.stat.regression.tree.RegressionObservation
+import com.eignex.kumulant.stat.regression.tree.fitModel
 import com.eignex.kumulant.stat.regression.tree.predictDistribution
 import kotlin.random.Random
 
@@ -38,6 +39,9 @@ enum class UncertaintyKind {
 
     /** A model's probabilistic uncertainty about its latent function. */
     LatentPosterior,
+
+    /** Ensemble disagreement plus estimated leaf-mean sampling variance; not a calibrated posterior. */
+    EstimatedMean,
 }
 
 /** Batch latent-function moments, in original reward units. Observation noise is not added to variance. */
@@ -88,31 +92,77 @@ fun interface Surrogate {
     fun fit(data: TrainingData, random: Random): FittedSurrogate
 }
 
+/** Variance approximation supplied to forest acquisitions. */
+enum class ForestUncertainty {
+    /** Dispersion between randomized tree predictions. */
+    Disagreement,
+
+    /** Disagreement plus estimated sampling variance of leaf means, with propagated known noise. */
+    LeafMean,
+}
+
 /**
  * Batch CART forest adapter; between-tree variance is explicitly ensemble disagreement.
- * Known observation noise is retained in the dataset but is not modeled by this forest fitter.
+ * Leaf-mean mode estimates additional uncertainty on unbootstrapped observations in Kumulant.
+ * Response dispersion is separate and never directly substituted for function uncertainty.
  */
 class ForestSurrogate(
     /** Kumulant's numeric forest configuration. */
     val config: BatchForestConfig = BatchForestConfig(),
+    /** Optional leaf-mean uncertainty; disagreement retains the original fitting behavior. */
+    val uncertainty: ForestUncertainty = ForestUncertainty.Disagreement,
 ) : Surrogate {
     override fun fit(data: TrainingData, random: Random): FittedSurrogate {
         val featureSize = data.features.cols
         val rows = List(data.features.rows) { i ->
             RegressionObservation(data.features.rowVector(i), data.responses[i], data.weights[i])
         }
-        val forest = BatchRandomForest(data.features.cols, config).fit(rows, random)
+        val fitter = BatchRandomForest(data.features.cols, config)
+        val estimated = if (uncertainty == ForestUncertainty.LeafMean) {
+            fitter.fitModel(
+                rows,
+                random,
+                data.noiseVariances,
+            )
+        } else {
+            null
+        }
+        val forest = estimated?.forest ?: fitter.fit(rows, random)
         return object : FittedSurrogate {
-            override val uncertaintyKind = UncertaintyKind.EnsembleDisagreement
+            override val uncertaintyKind = if (estimated ==
+                null
+            ) {
+                UncertaintyKind.EnsembleDisagreement
+            } else {
+                UncertaintyKind.EstimatedMean
+            }
             override fun predict(features: DenseMatrix): PredictiveMoments {
                 require(features.cols == featureSize)
+                if (estimated != null) {
+                    val moments = List(features.rows) { estimated.predictMoments(features.rowVector(it)) }
+                    return PredictiveMoments(
+                        DenseVector.of(DoubleArray(features.rows) { moments[it].mean }),
+                        DenseVector.of(DoubleArray(features.rows) { moments[it].latentVariance }),
+                    )
+                }
                 val moments = List(features.rows) { forest.predictDistribution(features.rowVector(it)) }
                 return PredictiveMoments(
                     DenseVector.of(DoubleArray(features.rows) { moments[it].mean }),
-                    DenseVector.of(DoubleArray(features.rows) { moments[it].variance }),
+                    DenseVector.of(
+                        DoubleArray(features.rows) {
+                            moments[it].variance
+                        },
+                    ),
                 )
             }
             override fun drawFunction(random: Random): SampledFunction {
+                if (estimated != null) {
+                    val draw = estimated.drawFunction(random)
+                    return SampledFunction { features ->
+                        require(features.cols == featureSize)
+                        DenseVector.of(DoubleArray(features.rows) { draw.predict(features.rowVector(it)) })
+                    }
+                }
                 val tree = forest.trees[random.nextInt(forest.trees.size)]
                 return SampledFunction { features ->
                     require(features.cols == featureSize)

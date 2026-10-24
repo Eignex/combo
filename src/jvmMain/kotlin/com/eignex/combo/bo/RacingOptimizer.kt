@@ -5,7 +5,8 @@ import com.eignex.combo.decisions.Context
 import com.eignex.combo.shared.AssignmentKey
 import com.eignex.combo.shared.assignmentKey
 import com.eignex.koblas.DenseVector
-import com.eignex.koblas.sum
+import com.eignex.kumulant.stat.summary.estimateMean
+import com.eignex.kumulant.stat.summary.pairedMeanDifference
 import kotlin.random.Random
 
 /** Paired mean racing limits; early rejection is a heuristic, not a statistical confidence guarantee. */
@@ -22,10 +23,16 @@ data class RacingPolicy(
     val retries: Int = 0,
     /** Reproducible challenger measurement order, independent of worker completion order. */
     val randomSeed: Int = 0,
+    /** Initial incumbent measurements; null completes the full plan before racing. */
+    val initialIncumbentMeasurements: Int? = null,
+    /** Standard-error allowance before early rejection; zero retains paired-mean rejection. */
+    val rejectionStandardErrors: Double = 0.0,
 ) {
     init {
         require(minMeasurements > 0 && growth >= 2 && maxActive > 0 && retries >= 0)
         require(rejectionSlack >= 0.0 && rejectionSlack.isFinite())
+        require(initialIncumbentMeasurements == null || initialIncumbentMeasurements > 0)
+        require(rejectionStandardErrors >= 0.0 && rejectionStandardErrors.isFinite())
     }
 }
 
@@ -34,13 +41,13 @@ enum class RaceStatus {
     /** Collecting the current paired stage. */
     Active,
 
-    /** Confirmed incumbent with all planned measurements. */
+    /** Current incumbent evaluated on its completed comparison keys. */
     Incumbent,
 
     /** Lost a paired comparison or a measurement exhausted its retry allowance. */
     Rejected,
 
-    /** Fully measured former incumbent. */
+    /** Former incumbent superseded by a paired comparison. */
     Finished,
 }
 
@@ -56,11 +63,11 @@ data class RaceConfiguration(
     val status: RaceStatus,
 )
 
-/** Best fully compared configuration over the planned instance/seed keys. */
+/** Current incumbent with its completed comparison evidence. */
 data class RacingIncumbent(
     /** Original configuration. */
     val sample: BanditSample,
-    /** Mean of successful responses over every planned key. */
+    /** Mean over completed search keys or the finished fresh-key comparison. */
     val reward: Double,
     /** Number of paired measurements. */
     val measurements: Int,
@@ -79,6 +86,9 @@ enum class EvaluationBatchStatus {
 
     /** BO could not find another eligible configuration. */
     SearchExhausted,
+
+    /** Finalists completed fresh-key comparisons or exhausted their retry allowance. */
+    ConfirmationComplete,
 }
 
 /** Worker requests plus an explicit waiting/budget/search result. */
@@ -87,6 +97,14 @@ data class EvaluationBatch(
     val tasks: List<EvaluationTask>,
     /** Reason the batch stopped. */
     val status: EvaluationBatchStatus,
+)
+
+/** Frozen finalists compared on fresh measurement keys without adapting the shortlist to their outcomes. */
+data class RaceConfirmation(
+    /** Measurement keys unused during search. */
+    val keys: List<EvaluationKey>,
+    /** Configuration identifiers selected before observing confirmation results. */
+    val configurationIds: List<Long>,
 )
 
 /** Transfer state for a fresh compatible racing optimizer; pending workers retain their IDs. */
@@ -107,12 +125,15 @@ class RacingData internal constructor(
     val incumbentId: Long?,
     /** Next worker identifier. */
     val nextId: Long,
+    /** Optional frozen final comparison. */
+    val confirmation: RaceConfirmation? = null,
 )
 
 /**
  * Single-threaded intensifier racing fresh BO configurations on matched instance/seed measurements.
- * The first incumbent completes the plan. Challengers start with a prefix, are rejected when their
- * paired mean is worse by more than the allowed slack, or double their stage until fully compared.
+ * Initial incumbent effort is configurable. Challengers start with a paired prefix, are rejected when their
+ * mean disadvantage exceeds the configured slack and standard-error allowance, or grow their stage.
+ * Standard-error rejection is descriptive, not a sequential significance guarantee.
  * Challenger plans use reproducibly shuffled keys to avoid repeatedly favoring one seed or instance.
  * Each successful worker response enters BO history exactly once; failures do not create labels.
  * Instance metadata controls evaluation and pairing, not learned instance-feature marginalization.
@@ -141,6 +162,7 @@ class RacingOptimizer(
     private val known = mutableSetOf<AssignmentKey>()
     private var incumbentId: Long? = null
     private var nextId = 1L
+    private var confirmation: RaceConfirmation? = null
     init {
         require(optimizer.repeatPolicy == RepeatPolicy.Never) { "the intensifier owns repeated measurements" }
         require(optimizer.outcome.noise == ObservationNoise.Noisy) { "racing requires a noisy outcome policy" }
@@ -148,6 +170,7 @@ class RacingOptimizer(
         require(keys.isNotEmpty() && keys.distinct().size == keys.size && policy.minMeasurements <= keys.size)
         require(keys.all { it.budget == keys.first().budget }) { "paired races require one fidelity" }
         require(evaluationBudget > 0)
+        require(policy.initialIncumbentMeasurements == null || policy.initialIncumbentMeasurements <= keys.size)
     }
 
     /** Issued worker snapshots, including closed measurements. */
@@ -156,39 +179,74 @@ class RacingOptimizer(
     /** Configuration stage snapshots. */
     val configurations: List<RaceConfiguration> get() = states.values.toList()
 
-    /** Fully evaluated incumbent; null until the first configuration finishes its plan. */
+    /** Incumbent over its completed search keys, or fresh confirmation keys after the final comparison. */
     val incumbent: RacingIncumbent? get() = incumbentId?.let { id ->
-        RacingIncumbent(states.getValue(id).sample, mean(id, keys), keys.size)
+        val completed = successes(id).keys
+        val plan = confirmation?.takeIf { confirmationDone(it) && it.keys.all { key -> key in completed } }?.keys
+            ?: keys.filter { it in completed }
+        RacingIncumbent(states.getValue(id).sample, mean(id, plan), plan.size)
     }
     private fun successes(id: Long): Map<EvaluationKey, EvaluationRecord> = recorded.values.filter {
         it.task.configurationId == id && it.task.status == EvaluationStatus.Completed
     }.associateBy { it.task.key }
     private fun mean(id: Long, plan: List<EvaluationKey>): Double {
         val values = successes(id)
-        return DenseVector.of(DoubleArray(plan.size) { values.getValue(plan[it]).reward!! }).sum() / plan.size
+        return estimateMean(DenseVector.of(DoubleArray(plan.size) { values.getValue(plan[it]).reward!! })).mean
     }
     private fun plan(state: RaceConfiguration): List<EvaluationKey> = if (state.id == states.keys.first()) {
         keys
     } else {
         keys.shuffled(Random(policy.randomSeed.toLong() xor (state.id * -7046029254386353131L)))
     }
+    private fun confirmationFailed(id: Long, value: RaceConfirmation): Boolean = value.keys.any { key ->
+        key !in successes(id) && recorded.values.count {
+            it.task.configurationId == id && it.task.key == key && it.task.status == EvaluationStatus.Failed
+        } > policy.retries
+    }
+    private fun confirmationDone(value: RaceConfirmation): Boolean = value.configurationIds.all { id ->
+        value.keys.all { it in successes(id) } || confirmationFailed(id, value)
+    }
     private fun settle() {
+        confirmation?.let { value ->
+            if (confirmationDone(value)) {
+                val eligible = value.configurationIds.filter { id -> value.keys.all { it in successes(id) } }
+                val winner = eligible.maxByOrNull { optimizer.outcome.score(mean(it, value.keys)) } ?: return
+                incumbentId?.takeIf { it != winner }?.let { id ->
+                    states[id] = states.getValue(id).copy(status = RaceStatus.Finished)
+                }
+                incumbentId = winner
+                states[winner] = states.getValue(winner).copy(status = RaceStatus.Incumbent)
+            }
+            return
+        }
         for (state in states.values.toList()) {
             if (state.status != RaceStatus.Active) continue
             if (!plan(state).take(state.target).all { it in successes(state.id) }) continue
             val incumbent = incumbentId
             if (incumbent == null) {
-                if (state.target == keys.size) {
+                if (state.target >= (policy.initialIncumbentMeasurements ?: keys.size)) {
                     incumbentId = state.id
                     states[state.id] = state.copy(status = RaceStatus.Incumbent)
                 }
                 continue
             }
             val plan = plan(state).take(state.target)
+            if (!plan.all { it in successes(incumbent) }) continue
             val challengerScore = optimizer.outcome.score(mean(state.id, plan))
             val incumbentScore = optimizer.outcome.score(mean(incumbent, plan))
+            val challenger = successes(state.id)
+            val incumbentValues = successes(incumbent)
+            val difference = pairedMeanDifference(
+                DenseVector.of(
+                    DoubleArray(plan.size) { optimizer.outcome.score(challenger.getValue(plan[it]).reward!!) },
+                ),
+                DenseVector.of(
+                    DoubleArray(plan.size) { optimizer.outcome.score(incumbentValues.getValue(plan[it]).reward!!) },
+                ),
+            )
+            val clearlyBetter = difference.lowerBound(policy.rejectionStandardErrors) > 0.0
             states[state.id] = when {
-                state.target == keys.size -> {
+                state.target == keys.size || (policy.initialIncumbentMeasurements != null && clearlyBetter) -> {
                     if (challengerScore > incumbentScore) {
                         states[incumbent] = states.getValue(incumbent).copy(status = RaceStatus.Finished)
                         incumbentId = state.id
@@ -198,7 +256,8 @@ class RacingOptimizer(
                     }
                 }
 
-                challengerScore + policy.rejectionSlack < incumbentScore -> state.copy(status = RaceStatus.Rejected)
+                difference.upperBound(policy.rejectionStandardErrors) + policy.rejectionSlack < 0.0 ->
+                    state.copy(status = RaceStatus.Rejected)
 
                 else -> state.copy(target = minOf(keys.size.toLong(), state.target.toLong() * policy.growth).toInt())
             }
@@ -209,7 +268,15 @@ class RacingOptimizer(
         val pending = issued.values.filter {
             it.configurationId == state.id && it.status == EvaluationStatus.Pending
         }.map { it.key }.toSet()
-        return plan(state).take(state.target).firstOrNull { it !in completed && it !in pending }
+        val required = if (state.id == incumbentId) {
+            (
+                plan(state).take(state.target) + states.values.filter { it.status == RaceStatus.Active }
+                    .flatMap { plan(it).take(it.target) }
+                ).distinct()
+        } else {
+            plan(state).take(state.target)
+        }
+        return required.firstOrNull { it !in completed && it !in pending }
     }
     private fun fresh(): RaceConfiguration? {
         repeat(16) {
@@ -217,11 +284,39 @@ class RacingOptimizer(
             if (!known.add(trial.sample.sample.assignmentKey())) {
                 optimizer.cancel(trial.id, "configuration already raced")
             } else {
-                val target = if (incumbentId == null) keys.size else policy.minMeasurements
+                val target = if (incumbentId ==
+                    null
+                ) {
+                    policy.initialIncumbentMeasurements ?: keys.size
+                } else {
+                    policy.minMeasurements
+                }
                 return RaceConfiguration(trial.id, trial.sample, target, RaceStatus.Active).also { states[it.id] = it }
             }
         }
         return null
+    }
+
+    /**
+     * Freeze the best observed configurations for a final comparison on fresh keys.
+     * Call with no outstanding workers and reserve enough remaining budget for every finalist/key.
+     * Final recommendation uses only confirmation responses, avoiding reuse of selection outcomes.
+     * Confirmation keys must share the search plan's fixed fidelity and remain outside earlier history.
+     */
+    fun beginConfirmation(freshKeys: List<EvaluationKey>, candidates: Int = 3) {
+        require(incumbentId != null) { "establish an incumbent before final confirmation" }
+        require(confirmation == null && issued.values.none { it.status == EvaluationStatus.Pending })
+        require(candidates > 0 && freshKeys.isNotEmpty() && freshKeys.distinct().size == freshKeys.size)
+        require(freshKeys.none { it in keys } && freshKeys.all { it.budget == keys.first().budget })
+        val finalists = states.values.filter { successes(it.id).isNotEmpty() }
+            .sortedByDescending {
+                optimizer.outcome.score(
+                    mean(it.id, successes(it.id).keys.toList()),
+                )
+            }.take(candidates)
+        require(finalists.isNotEmpty())
+        require(finalists.size.toLong() * freshKeys.size <= evaluationBudget.toLong() - issued.size)
+        confirmation = RaceConfirmation(freshKeys.toList(), finalists.map { it.id })
     }
 
     /** Issue available paired measurements, reserving each configuration/key once while pending. */
@@ -231,7 +326,43 @@ class RacingOptimizer(
         repeat(count) {
             settle()
             if (issued.size >= evaluationBudget) return EvaluationBatch(result, EvaluationBatchStatus.BudgetExhausted)
-            var state = states.values.firstOrNull { it.status == RaceStatus.Active && missing(it) != null }
+            confirmation?.let { value ->
+                val state = value.configurationIds.firstOrNull { id ->
+                    val completed = successes(id).keys
+                    val pending = issued.values.filter {
+                        it.configurationId == id &&
+                            it.status == EvaluationStatus.Pending
+                    }.map { it.key }
+                    !confirmationFailed(id, value) && value.keys.any { it !in completed && it !in pending }
+                }
+                if (state == null) {
+                    return EvaluationBatch(
+                        result,
+                        if (confirmationDone(
+                                value,
+                            )
+                        ) {
+                            EvaluationBatchStatus.ConfirmationComplete
+                        } else {
+                            EvaluationBatchStatus.Waiting
+                        },
+                    )
+                }
+                val completed = successes(state).keys
+                val pending = issued.values.filter {
+                    it.configurationId == state &&
+                        it.status == EvaluationStatus.Pending
+                }.map { it.key }
+                val key = value.keys.first { it !in completed && it !in pending }
+                check(nextId < Long.MAX_VALUE)
+                val task = EvaluationTask(nextId++, state, states.getValue(state).sample, context, key)
+                issued[task.id] = task
+                result += task
+                return@repeat
+            }
+            var state = states.values.firstOrNull {
+                (it.status == RaceStatus.Active || it.status == RaceStatus.Incumbent) && missing(it) != null
+            }
             if (state == null) {
                 val active = states.values.count { it.status == RaceStatus.Active }
                 if ((incumbentId == null && active > 0) || active >= policy.maxActive) {
@@ -296,8 +427,9 @@ class RacingOptimizer(
             it.task.configurationId == task.configurationId && it.task.key == task.key &&
                 it.task.status == EvaluationStatus.Failed
         }
-        if (failures >= policy.retries) {
+        if (failures >= policy.retries && task.key !in (confirmation?.keys ?: emptyList())) {
             states[task.configurationId] = states.getValue(task.configurationId).copy(status = RaceStatus.Rejected)
+            if (incumbentId == task.configurationId) incumbentId = null
             if (optimizer.trials.single { it.id == task.configurationId }.status == TrialStatus.Pending) {
                 optimizer.fail(task.configurationId, reason)
             }
@@ -321,6 +453,7 @@ class RacingOptimizer(
         recorded.values.toList(),
         incumbentId,
         nextId,
+        confirmation,
     )
 
     /** Restore into a fresh compatible race with the same paired plan and hard context. */
@@ -350,7 +483,7 @@ class RacingOptimizer(
         require(data.records.all { it.task == tasks[it.task.id] })
         require(
             data.tasks.all {
-                it.key in keys && optimizer.space.matches(
+                it.key in keys + (data.confirmation?.keys ?: emptyList()) && optimizer.space.matches(
                     it.sample.sample,
                     optimizer.space.assumptionsFor(context),
                 )
@@ -361,6 +494,14 @@ class RacingOptimizer(
                 it.status != EvaluationStatus.Pending
             }.map { it.id }.toSet(),
         )
+        data.confirmation?.let {
+            require(it.keys.all { key -> key.budget == keys.first().budget })
+            require(
+                it.keys.isNotEmpty() && it.keys.distinct().size == it.keys.size && it.keys.none { key -> key in keys },
+            )
+            require(it.configurationIds.isNotEmpty() && it.configurationIds.distinct().size == it.configurationIds.size)
+            require(it.configurationIds.all { id -> id in configurations })
+        }
         optimizer.importData(data.optimizer)
         for (state in data.configurations) {
             states[state.id] = state
@@ -374,6 +515,7 @@ class RacingOptimizer(
         }
         incumbentId = data.incumbentId
         nextId = data.nextId
+        confirmation = data.confirmation
         settle()
     }
 }

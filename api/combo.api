@@ -540,6 +540,7 @@ public final class com/eignex/combo/bo/EvaluationBatch {
 
 public final class com/eignex/combo/bo/EvaluationBatchStatus : java/lang/Enum {
 	public static final field BudgetExhausted Lcom/eignex/combo/bo/EvaluationBatchStatus;
+	public static final field ConfirmationComplete Lcom/eignex/combo/bo/EvaluationBatchStatus;
 	public static final field CountReached Lcom/eignex/combo/bo/EvaluationBatchStatus;
 	public static final field SearchExhausted Lcom/eignex/combo/bo/EvaluationBatchStatus;
 	public static final field Waiting Lcom/eignex/combo/bo/EvaluationBatchStatus;
@@ -690,12 +691,13 @@ public final class com/eignex/combo/bo/ForestAcquisition : java/lang/Enum {
 
 public final class com/eignex/combo/bo/ForestOptimizerConfig {
 	public fun <init> ()V
-	public fun <init> (Lcom/eignex/kumulant/stat/regression/tree/BatchForestConfig;Lcom/eignex/combo/bo/ForestAcquisition;IDDIIIILcom/eignex/combo/bo/RepeatPolicy;Lcom/eignex/combo/bo/AcquisitionTieBreak;Lcom/eignex/combo/bo/LocalSearchPolicy;)V
-	public synthetic fun <init> (Lcom/eignex/kumulant/stat/regression/tree/BatchForestConfig;Lcom/eignex/combo/bo/ForestAcquisition;IDDIIIILcom/eignex/combo/bo/RepeatPolicy;Lcom/eignex/combo/bo/AcquisitionTieBreak;Lcom/eignex/combo/bo/LocalSearchPolicy;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lcom/eignex/kumulant/stat/regression/tree/BatchForestConfig;Lcom/eignex/combo/bo/ForestAcquisition;IDDIIIILcom/eignex/combo/bo/RepeatPolicy;Lcom/eignex/combo/bo/AcquisitionTieBreak;Lcom/eignex/combo/bo/LocalSearchPolicy;Lcom/eignex/combo/bo/ForestUncertainty;)V
+	public synthetic fun <init> (Lcom/eignex/kumulant/stat/regression/tree/BatchForestConfig;Lcom/eignex/combo/bo/ForestAcquisition;IDDIIIILcom/eignex/combo/bo/RepeatPolicy;Lcom/eignex/combo/bo/AcquisitionTieBreak;Lcom/eignex/combo/bo/LocalSearchPolicy;Lcom/eignex/combo/bo/ForestUncertainty;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Lcom/eignex/kumulant/stat/regression/tree/BatchForestConfig;
 	public final fun component10 ()Lcom/eignex/combo/bo/RepeatPolicy;
 	public final fun component11 ()Lcom/eignex/combo/bo/AcquisitionTieBreak;
 	public final fun component12 ()Lcom/eignex/combo/bo/LocalSearchPolicy;
+	public final fun component13 ()Lcom/eignex/combo/bo/ForestUncertainty;
 	public final fun component2 ()Lcom/eignex/combo/bo/ForestAcquisition;
 	public final fun component3 ()I
 	public final fun component4 ()D
@@ -704,8 +706,8 @@ public final class com/eignex/combo/bo/ForestOptimizerConfig {
 	public final fun component7 ()I
 	public final fun component8 ()I
 	public final fun component9 ()I
-	public final fun copy (Lcom/eignex/kumulant/stat/regression/tree/BatchForestConfig;Lcom/eignex/combo/bo/ForestAcquisition;IDDIIIILcom/eignex/combo/bo/RepeatPolicy;Lcom/eignex/combo/bo/AcquisitionTieBreak;Lcom/eignex/combo/bo/LocalSearchPolicy;)Lcom/eignex/combo/bo/ForestOptimizerConfig;
-	public static synthetic fun copy$default (Lcom/eignex/combo/bo/ForestOptimizerConfig;Lcom/eignex/kumulant/stat/regression/tree/BatchForestConfig;Lcom/eignex/combo/bo/ForestAcquisition;IDDIIIILcom/eignex/combo/bo/RepeatPolicy;Lcom/eignex/combo/bo/AcquisitionTieBreak;Lcom/eignex/combo/bo/LocalSearchPolicy;ILjava/lang/Object;)Lcom/eignex/combo/bo/ForestOptimizerConfig;
+	public final fun copy (Lcom/eignex/kumulant/stat/regression/tree/BatchForestConfig;Lcom/eignex/combo/bo/ForestAcquisition;IDDIIIILcom/eignex/combo/bo/RepeatPolicy;Lcom/eignex/combo/bo/AcquisitionTieBreak;Lcom/eignex/combo/bo/LocalSearchPolicy;Lcom/eignex/combo/bo/ForestUncertainty;)Lcom/eignex/combo/bo/ForestOptimizerConfig;
+	public static synthetic fun copy$default (Lcom/eignex/combo/bo/ForestOptimizerConfig;Lcom/eignex/kumulant/stat/regression/tree/BatchForestConfig;Lcom/eignex/combo/bo/ForestAcquisition;IDDIIIILcom/eignex/combo/bo/RepeatPolicy;Lcom/eignex/combo/bo/AcquisitionTieBreak;Lcom/eignex/combo/bo/LocalSearchPolicy;Lcom/eignex/combo/bo/ForestUncertainty;ILjava/lang/Object;)Lcom/eignex/combo/bo/ForestOptimizerConfig;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getAcquisition ()Lcom/eignex/combo/bo/ForestAcquisition;
 	public final fun getCandidateCount ()I
@@ -719,16 +721,26 @@ public final class com/eignex/combo/bo/ForestOptimizerConfig {
 	public final fun getRandomExploration ()D
 	public final fun getRepeatPolicy ()Lcom/eignex/combo/bo/RepeatPolicy;
 	public final fun getTieBreak ()Lcom/eignex/combo/bo/AcquisitionTieBreak;
+	public final fun getUncertainty ()Lcom/eignex/combo/bo/ForestUncertainty;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
 
 public final class com/eignex/combo/bo/ForestSurrogate : com/eignex/combo/bo/Surrogate {
 	public fun <init> ()V
-	public fun <init> (Lcom/eignex/kumulant/stat/regression/tree/BatchForestConfig;)V
-	public synthetic fun <init> (Lcom/eignex/kumulant/stat/regression/tree/BatchForestConfig;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lcom/eignex/kumulant/stat/regression/tree/BatchForestConfig;Lcom/eignex/combo/bo/ForestUncertainty;)V
+	public synthetic fun <init> (Lcom/eignex/kumulant/stat/regression/tree/BatchForestConfig;Lcom/eignex/combo/bo/ForestUncertainty;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun fit (Lcom/eignex/combo/bo/TrainingData;Lkotlin/random/Random;)Lcom/eignex/combo/bo/FittedSurrogate;
 	public final fun getConfig ()Lcom/eignex/kumulant/stat/regression/tree/BatchForestConfig;
+	public final fun getUncertainty ()Lcom/eignex/combo/bo/ForestUncertainty;
+}
+
+public final class com/eignex/combo/bo/ForestUncertainty : java/lang/Enum {
+	public static final field Disagreement Lcom/eignex/combo/bo/ForestUncertainty;
+	public static final field LeafMean Lcom/eignex/combo/bo/ForestUncertainty;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/eignex/combo/bo/ForestUncertainty;
+	public static fun values ()[Lcom/eignex/combo/bo/ForestUncertainty;
 }
 
 public final class com/eignex/combo/bo/HistoryData : com/eignex/combo/shared/LearnerData {
@@ -781,11 +793,12 @@ public final class com/eignex/combo/bo/InteractionFeatureProjection : com/eignex
 }
 
 public final class com/eignex/combo/bo/LatinHypercubeInitialDesign : com/eignex/combo/bo/InitialDesign {
-	public fun <init> (Lcom/eignex/combo/decisions/CompiledDecisionSpace;IIDDILcom/eignex/combo/shared/WitnessSearch;)V
-	public synthetic fun <init> (Lcom/eignex/combo/decisions/CompiledDecisionSpace;IIDDILcom/eignex/combo/shared/WitnessSearch;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lcom/eignex/combo/decisions/CompiledDecisionSpace;IIDDILcom/eignex/combo/shared/WitnessSearch;D)V
+	public synthetic fun <init> (Lcom/eignex/combo/decisions/CompiledDecisionSpace;IIDDILcom/eignex/combo/shared/WitnessSearch;DILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun explore (Lcom/eignex/combo/bo/StudySnapshot;Lkotlin/random/Random;)Z
 	public final fun getEvaluationBudget ()I
 	public final fun getMaxRatio ()D
+	public final fun getMeasurementsPerConfiguration ()D
 	public final fun getPerDimension ()I
 	public final fun getProbability ()D
 	public final fun getSeed ()I
@@ -963,6 +976,19 @@ public final class com/eignex/combo/bo/RaceConfiguration {
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class com/eignex/combo/bo/RaceConfirmation {
+	public fun <init> (Ljava/util/List;Ljava/util/List;)V
+	public final fun component1 ()Ljava/util/List;
+	public final fun component2 ()Ljava/util/List;
+	public final fun copy (Ljava/util/List;Ljava/util/List;)Lcom/eignex/combo/bo/RaceConfirmation;
+	public static synthetic fun copy$default (Lcom/eignex/combo/bo/RaceConfirmation;Ljava/util/List;Ljava/util/List;ILjava/lang/Object;)Lcom/eignex/combo/bo/RaceConfirmation;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getConfigurationIds ()Ljava/util/List;
+	public final fun getKeys ()Ljava/util/List;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class com/eignex/combo/bo/RaceStatus : java/lang/Enum {
 	public static final field Active Lcom/eignex/combo/bo/RaceStatus;
 	public static final field Finished Lcom/eignex/combo/bo/RaceStatus;
@@ -975,6 +1001,7 @@ public final class com/eignex/combo/bo/RaceStatus : java/lang/Enum {
 
 public final class com/eignex/combo/bo/RacingData {
 	public final fun getConfigurations ()Ljava/util/List;
+	public final fun getConfirmation ()Lcom/eignex/combo/bo/RaceConfirmation;
 	public final fun getIncumbentId ()Ljava/lang/Long;
 	public final fun getKeys ()Ljava/util/List;
 	public final fun getNextId ()J
@@ -1004,6 +1031,8 @@ public final class com/eignex/combo/bo/RacingOptimizer {
 	public synthetic fun <init> (Lcom/eignex/combo/bo/BayesianOptimizer;Ljava/util/List;Lcom/eignex/combo/bo/RacingPolicy;Lcom/eignex/combo/decisions/Context;ILcom/eignex/combo/bo/EvaluationStore;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun ask (I)Lcom/eignex/combo/bo/EvaluationBatch;
 	public static synthetic fun ask$default (Lcom/eignex/combo/bo/RacingOptimizer;IILjava/lang/Object;)Lcom/eignex/combo/bo/EvaluationBatch;
+	public final fun beginConfirmation (Ljava/util/List;I)V
+	public static synthetic fun beginConfirmation$default (Lcom/eignex/combo/bo/RacingOptimizer;Ljava/util/List;IILjava/lang/Object;)V
 	public final fun cancel (JLjava/lang/String;)V
 	public static synthetic fun cancel$default (Lcom/eignex/combo/bo/RacingOptimizer;JLjava/lang/String;ILjava/lang/Object;)V
 	public final fun complete (JDDLjava/lang/Double;Ljava/lang/Double;)V
@@ -1025,22 +1054,26 @@ public final class com/eignex/combo/bo/RacingOptimizer {
 
 public final class com/eignex/combo/bo/RacingPolicy {
 	public fun <init> ()V
-	public fun <init> (IIDIII)V
-	public synthetic fun <init> (IIDIIIILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (IIDIIILjava/lang/Integer;D)V
+	public synthetic fun <init> (IIDIIILjava/lang/Integer;DILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()I
 	public final fun component2 ()I
 	public final fun component3 ()D
 	public final fun component4 ()I
 	public final fun component5 ()I
 	public final fun component6 ()I
-	public final fun copy (IIDIII)Lcom/eignex/combo/bo/RacingPolicy;
-	public static synthetic fun copy$default (Lcom/eignex/combo/bo/RacingPolicy;IIDIIIILjava/lang/Object;)Lcom/eignex/combo/bo/RacingPolicy;
+	public final fun component7 ()Ljava/lang/Integer;
+	public final fun component8 ()D
+	public final fun copy (IIDIIILjava/lang/Integer;D)Lcom/eignex/combo/bo/RacingPolicy;
+	public static synthetic fun copy$default (Lcom/eignex/combo/bo/RacingPolicy;IIDIIILjava/lang/Integer;DILjava/lang/Object;)Lcom/eignex/combo/bo/RacingPolicy;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getGrowth ()I
+	public final fun getInitialIncumbentMeasurements ()Ljava/lang/Integer;
 	public final fun getMaxActive ()I
 	public final fun getMinMeasurements ()I
 	public final fun getRandomSeed ()I
 	public final fun getRejectionSlack ()D
+	public final fun getRejectionStandardErrors ()D
 	public final fun getRetries ()I
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
@@ -1059,8 +1092,8 @@ public final class com/eignex/combo/bo/RandomForestOptimizer$Companion {
 	public static synthetic fun bootstrapThompson$default (Lcom/eignex/combo/bo/RandomForestOptimizer$Companion;Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/combo/bo/ObservationStore;Lcom/eignex/combo/bo/ForestOptimizerConfig;IZILjava/lang/Object;)Lcom/eignex/combo/bo/RandomForestOptimizer;
 	public final fun smac (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/combo/bo/ObservationStore;Lcom/eignex/combo/bo/ForestOptimizerConfig;IZ)Lcom/eignex/combo/bo/RandomForestOptimizer;
 	public static synthetic fun smac$default (Lcom/eignex/combo/bo/RandomForestOptimizer$Companion;Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/combo/bo/ObservationStore;Lcom/eignex/combo/bo/ForestOptimizerConfig;IZILjava/lang/Object;)Lcom/eignex/combo/bo/RandomForestOptimizer;
-	public final fun smacProfile (Lcom/eignex/combo/decisions/CompiledDecisionSpace;IIZLcom/eignex/combo/bo/ResponseScale;ILcom/eignex/combo/bo/ObservationStore;Lcom/eignex/combo/bo/ObservationNoise;Lcom/eignex/combo/bo/RepeatPolicy;)Lcom/eignex/combo/bo/RandomForestOptimizer;
-	public static synthetic fun smacProfile$default (Lcom/eignex/combo/bo/RandomForestOptimizer$Companion;Lcom/eignex/combo/decisions/CompiledDecisionSpace;IIZLcom/eignex/combo/bo/ResponseScale;ILcom/eignex/combo/bo/ObservationStore;Lcom/eignex/combo/bo/ObservationNoise;Lcom/eignex/combo/bo/RepeatPolicy;ILjava/lang/Object;)Lcom/eignex/combo/bo/RandomForestOptimizer;
+	public final fun smacProfile (Lcom/eignex/combo/decisions/CompiledDecisionSpace;IIZLcom/eignex/combo/bo/ResponseScale;ILcom/eignex/combo/bo/ObservationStore;Lcom/eignex/combo/bo/ObservationNoise;Lcom/eignex/combo/bo/RepeatPolicy;Lcom/eignex/combo/bo/ForestUncertainty;Lcom/eignex/combo/bo/InitialDesign;)Lcom/eignex/combo/bo/RandomForestOptimizer;
+	public static synthetic fun smacProfile$default (Lcom/eignex/combo/bo/RandomForestOptimizer$Companion;Lcom/eignex/combo/decisions/CompiledDecisionSpace;IIZLcom/eignex/combo/bo/ResponseScale;ILcom/eignex/combo/bo/ObservationStore;Lcom/eignex/combo/bo/ObservationNoise;Lcom/eignex/combo/bo/RepeatPolicy;Lcom/eignex/combo/bo/ForestUncertainty;Lcom/eignex/combo/bo/InitialDesign;ILjava/lang/Object;)Lcom/eignex/combo/bo/RandomForestOptimizer;
 }
 
 public final class com/eignex/combo/bo/RandomInitialDesign : com/eignex/combo/bo/InitialDesign {
@@ -1263,6 +1296,7 @@ public final class com/eignex/combo/bo/TrialStatus : java/lang/Enum {
 
 public final class com/eignex/combo/bo/UncertaintyKind : java/lang/Enum {
 	public static final field EnsembleDisagreement Lcom/eignex/combo/bo/UncertaintyKind;
+	public static final field EstimatedMean Lcom/eignex/combo/bo/UncertaintyKind;
 	public static final field LatentPosterior Lcom/eignex/combo/bo/UncertaintyKind;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public static fun valueOf (Ljava/lang/String;)Lcom/eignex/combo/bo/UncertaintyKind;
