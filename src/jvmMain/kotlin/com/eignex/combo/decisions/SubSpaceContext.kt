@@ -90,6 +90,13 @@ internal class SubSpaceContext private constructor(
  */
 internal class RootKlauseSchema : VariableSchema() {
 
+    val scales = linkedMapOf<String, Scale>()
+
+    fun recordScale(name: String, min: Double, max: Double, scale: Scale) {
+        NumericDomain(min, max, scale)
+        if (scale != Scale.Linear) scales[name] = scale
+    }
+
     private val _activeConditions = mutableMapOf<String, BoolExpr>()
     val activeConditions: Map<String, BoolExpr> get() = _activeConditions
 

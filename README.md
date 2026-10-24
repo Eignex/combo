@@ -117,8 +117,10 @@ cached witnesses answer those checks without a solver call. A missing witness tr
 a local-search repair seeded from a nearby solution, followed by bounded backtracking
 when repair is inconclusive. The best feasible candidate is retained even if a
 preferred branch exhausts its search budget. Integer and float splits also affect
-candidate scoring; continuous candidate generation uses solver-produced feasible
-vertices in random linear directions, preserving Klause's values without a grid.
+candidate scoring. Continuous proposals include solver-produced boundary points and
+interior points drawn in the declared parameter geometry. Klause independently checks
+each interior proposal against the original problem; a failed proposal retains its
+feasible solver seed.
 
 Defaults are 2,000 local-search flips and 10,000 backtracking decisions per request;
 pass `localSearch = LocalSearchParams(...)` and `backtrack = BacktrackParams(...)`
@@ -150,7 +152,8 @@ bandit.update(arm, reward)
 Combo extends Klause's variables with context metadata. Context variables use the
 same types and constraints as decision variables; the caller supplies their values,
 and each choose call pins them through Klause assumptions. Floats retain Klause's
-semantics and decoded values. Combo adds no grid or post-solve perturbation.
+semantics and decoded values. Combo adds no grid; newly proposed assignments require
+an independent Klause feasibility check before use.
 
 Use `bandit.choose(context { ... })`, `bandit.update(arm, context, reward)`, and
 `bandit.optimal(context)` for contextual optimization. The same context remains a
@@ -158,6 +161,57 @@ hard constraint during candidate generation, branch repair, and solver fallback.
 
 End-to-end examples covering cascade-with-backtrack, Thompson sampling on linear
 models, and context-conditioned arms live under src/jvmTest/kotlin/com/eignex/combo.
+
+## Numeric search geometry
+
+Numeric variables may declare a scale hint while retaining Klause's original types,
+bounds, constraints, and returned values:
+
+```kotlin
+import com.eignex.combo.decisions.Scale
+
+val learningRate by floatVar(1e-6, 1.0, scale = Scale.Log)
+val workers by intVar(1, 128, scale = Scale.Log)
+val dropout by floatVar(0.0, 1.0) // Scale.Linear is the default.
+```
+
+Linear proposals allocate equal attention to additive intervals. Log proposals
+allocate equal attention to ratios and require positive lower bounds. ReverseLog
+uses `-log(1 + max - value)` to concentrate proposals near the upper bound.
+Scale hints also apply to `contextInt` and `optionalContextInt`, and survive nested
+`DecisionSpaceDef` serialization as local-name `scales` metadata.
+
+Vector feature encoding applies log/reverse-log transforms to numeric values and
+interactions, leaving the default linear features in their original units. Online
+trees retain source predicates and place default thresholds in the declared geometry.
+A linear bandit with nonlinear scale hints ranks shared feasible witness candidates;
+it cannot translate those feature weights into a linear objective in source units.
+Proposal generation remains bounded, and constrained spaces may return short batches.
+
+## Batch witness search
+
+`com.eignex.combo.shared.WitnessSearch` is the shared candidate-generation boundary:
+
+```kotlin
+val candidates = search.witnesses(
+    WitnessRequest(
+        count = 32,
+        assumptions = space.assumptionsFor(context),
+        exclude = pendingAssignments,
+        maxAttempts = 128,
+    ),
+    random,
+)
+```
+
+`WitnessBatch.witnesses` contains distinct feasible assignments. `termination` is
+`CountReached`, `BudgetExhausted`, or `Infeasible`; a short batch is not an UNSAT proof.
+Excluded assignments are compared by their coordinates, ignoring proof metadata.
+External `anchors` are independently verified before cache reuse. `maxAttempts`
+bounds proposal and fallback calls together; each engine keeps its configured local
+search/backtracking budget. A zero-attempt request can reuse verified cached witnesses.
+The default `HybridDescentSession` implements this interface alongside incremental
+streaming-tree descent. Optimizers can accept other `WitnessSearch` implementations.
 
 ## History-based optimization
 
@@ -193,16 +247,49 @@ forest fitted to the full history. Contextual choose/update overloads match thos
 the streaming forest; observations across contexts train a shared response model.
 Historical configurations also enter candidate ranking after Klause checks their
 feasibility, preserving observed interior points. Fresh continuous candidates use
-the hybrid session's random linear directions, so global acquisition maximization
-and general interior exploration require a richer custom candidate generator.
+scaled, independently checked interior proposals alongside boundary seeds. This is a
+bounded candidate search, with no guarantee of global acquisition maximization.
 
 `ObservationStore` is the storage boundary. Its append operation advances a revision,
 and `snapshot()` returns a stable, ordered history. The default in-memory store retains
 all observations without eviction. A persistent implementation can use the same
-interface. Stores belong to one decision-space schema. `train` records off-policy
+interface. Appends must atomically store the row and advance the revision; failed
+appends leave both unchanged. Stores belong to one decision-space schema. `train` records off-policy
 evaluations without reward/error bookkeeping; zero weight is a no-op and negative
 weights are rejected. Import/export transfers schema-bound history snapshots.
 Configuring pre/post-training error sinks can trigger additional fits during updates.
+
+For parallel evaluations, the BO interface follows Vizier's batch suggestion and
+pending-trial pattern ([Vizier API](https://oss-vizier.readthedocs.io/en/latest/guides/user/running_vizier.html)):
+
+```kotlin
+val batch = optimizer.suggest(count = 8, context = context)
+for (trial in batch) {
+    // Dispatch trial.sample and retain trial.id for the eventual result.
+}
+optimizer.complete(batch[0].id, reward = result, weight = 1.0)
+optimizer.fail(batch[1].id, reason = "evaluation failed")
+optimizer.cancel(batch[2].id)
+```
+
+`suggest` returns a `TrialBatch` with a termination status and reserves its points
+across later requests. It may return fewer trials than requested. Completed results
+may arrive in any order and are recorded once using the trial's captured context.
+Pending, failed, and cancelled trials never contribute invented rewards. Failure and
+cancellation release a reservation for future suggestions. Zero/nonfinite weights
+and repeated or unknown trial completions are rejected. A trial is closed immediately
+after its observation commits, even if a later metrics callback fails.
+
+SMAC-style batches select sequentially while excluding pending assignments. Bootstrap
+Thompson sampling fits a fresh bootstrap model for each selected slot. These policies
+do not implement joint batch EI or pending-outcome fantasization. Streaming learners
+keep their `choose/update` interface without trial tracking.
+
+`trials` and `pendingTrials` return immutable snapshots. Observation storage and
+reservation tracking have separate lifetimes: `exportData`/`importData` transfers
+both history and trial state, including outstanding IDs; persisting only an
+`ObservationStore` does not preserve reservations. Calls remain single-threaded,
+even when external evaluations run concurrently.
 
 ## Building
 

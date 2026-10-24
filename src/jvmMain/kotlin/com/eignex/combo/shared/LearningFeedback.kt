@@ -18,11 +18,12 @@ internal class LearningFeedback<Input>(
     fun train(sample: BanditSample, context: Context, reward: Double, weight: Double) =
         record(encode(sample, context), reward, weight)
 
-    fun update(sample: BanditSample, context: Context, reward: Double, weight: Double) {
+    fun update(sample: BanditSample, context: Context, reward: Double, weight: Double, onRecorded: () -> Unit = {}) {
         val input = encode(sample, context)
         rewards?.update(reward, 0L, weight)
         testAbsError?.update(abs(reward - mean(input)), 0L, weight)
         record(input, reward, weight)
+        onRecorded()
         trainAbsError?.update(abs(reward - mean(input)), 0L, weight)
     }
 }

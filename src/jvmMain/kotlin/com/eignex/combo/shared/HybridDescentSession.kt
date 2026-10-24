@@ -32,7 +32,9 @@ class HybridDescentSession(
     private val backtrack: (Random, Assumptions) -> SampleResult,
     private val candidateBatchSize: Int = 8,
     private val poolCapacity: Int = 64,
-) : DescentSession {
+) : DescentSession,
+    WitnessSearch {
+    private val validator = WitnessValidator(space)
     private val scopes = mutableListOf<Assumptions>()
     private val pool = ArrayDeque<Sample>()
     private var score: (Sample) -> Double = { 0.0 }
@@ -112,6 +114,53 @@ class HybridDescentSession(
         return result
     }
 
+    override fun witnesses(request: WitnessRequest, random: Random): WitnessBatch {
+        check(depth == 0) { "batch requests require an empty assumption stack" }
+        val found = linkedMapOf<AssignmentKey, Sample>()
+        val excluded = request.exclude.map { it.assignmentKey() }.toSet()
+        fun capture(sample: Sample) {
+            if (space.matches(sample, request.assumptions) && sample.assignmentKey() !in excluded) {
+                found.putIfAbsent(sample.assignmentKey(), sample)
+            }
+        }
+        for (anchor in request.anchors) {
+            if (space.matches(anchor, request.assumptions) && validator.valid(anchor)) {
+                remember(anchor, request.assumptions)
+            }
+        }
+        for (sample in pool) capture(sample)
+        var attempts = 0
+        while ((found.size < request.count || attempts < candidateBatchSize) && attempts < request.maxAttempts) {
+            attempts++
+            proposalCalls++
+            var result = propose(random, request.assumptions, null)
+            if (result is SampleResult.Unknown && attempts < request.maxAttempts) {
+                attempts++
+                backtrackCalls++
+                result = backtrack(random, request.assumptions)
+            }
+            lastResult = result
+            when (result) {
+                is SampleResult.Found -> {
+                    remember(result.sample, request.assumptions)
+                    capture(result.sample)
+                }
+
+                is SampleResult.Infeasible -> if (found.isEmpty()) {
+                    return WitnessBatch(emptyList(), WitnessTermination.Infeasible)
+                }
+
+                is SampleResult.Unknown -> Unit
+            }
+        }
+        val termination = if (found.size >= request.count) {
+            WitnessTermination.CountReached
+        } else {
+            WitnessTermination.BudgetExhausted
+        }
+        return WitnessBatch(found.values.shuffled(random).take(request.count), termination)
+    }
+
     internal fun bestWitness(assumptions: Assumptions, rng: Random): Sample? =
         pool.filter { space.matches(it, assumptions) }.shuffled(rng).maxByOrNull(score)
 
@@ -135,24 +184,30 @@ class HybridDescentSession(
             val problem = space.compiled.problem.bake()
             val local = LocalSearchSession(LocalSearchSolver(problem))
             val complete = BacktrackSolver(problem)
+            val proposals = ScaledWitnessProposals(space)
             return HybridDescentSession(
                 space = space,
                 propose = { rng, assumptions, anchor ->
                     if (anchor == null && problem.numRealVars > 0) {
-                        // Native real coordinates need a solver-produced real completion.
-                        // Random linear directions provide diverse feasible vertices without
-                        // discretizing variables or perturbing a certified assignment.
+                        // Solver completions seed independently verified interior proposals.
+                        // Failed proposals retain the feasible solver witness.
                         val objective = LinearObjective(
                             realCoefficients = DoubleArray(problem.numRealVars) { rng.nextDouble(-1.0, 1.0) },
                         )
-                        val result = complete.minimize(
+                        val pins = proposals.integerPins(assumptions, rng)
+                        val proposed = complete.minimize(
                             objective,
-                            backtrack.copy(
-                                randomSeed = rng.nextLong(),
-                                assumptions = assumptions,
-                            ),
+                            backtrack.copy(randomSeed = rng.nextLong(), assumptions = pins),
                         )
-                        val sample = result.assignment
+                        val result = if (proposed.assignment == null && pins !== assumptions) {
+                            complete.minimize(
+                                objective,
+                                backtrack.copy(randomSeed = rng.nextLong(), assumptions = assumptions),
+                            )
+                        } else {
+                            proposed
+                        }
+                        val sample = result.assignment?.let { proposals.interior(it, rng) }
                         when {
                             sample != null -> SampleResult.Found(sample)
                             result is MinimizeResult.Infeasible -> SampleResult.Infeasible(result.core)
@@ -160,13 +215,19 @@ class HybridDescentSession(
                             else -> SampleResult.Unknown(TerminationReason.BudgetExhausted)
                         }
                     } else {
-                        local.sample(
+                        val pins = proposals.integerPins(assumptions, rng)
+                        val proposed = local.sample(
                             localSearch.copy(
                                 randomSeed = rng.nextLong(),
-                                assumptions = assumptions,
+                                assumptions = pins,
                                 initialAssignment = anchor ?: localSearch.initialAssignment,
                             ),
                         )
+                        if (proposed is SampleResult.Found || pins === assumptions) {
+                            proposed
+                        } else {
+                            local.sample(localSearch.copy(randomSeed = rng.nextLong(), assumptions = assumptions))
+                        }
                     }
                 },
                 backtrack = { rng, assumptions ->
