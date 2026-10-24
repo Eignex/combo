@@ -40,6 +40,10 @@ data class ForestOptimizerConfig(
     val localSteps: Int = 8,
     /** Candidate neighbors attempted per iteration. */
     val neighbors: Int = 12,
+    /** Completed-point replication policy; deterministic evaluations normally do not repeat. */
+    val repeatPolicy: RepeatPolicy = RepeatPolicy.NoisyOnly,
+    /** Exactly equal forest acquisition values use seeded random tie-breaking. */
+    val tieBreak: AcquisitionTieBreak = AcquisitionTieBreak.Random,
 ) {
     init {
         require(
@@ -95,6 +99,7 @@ class RandomForestOptimizer(
         config.maxWitnessAttempts,
         config.localSteps,
         config.neighbors,
+        config.tieBreak,
     ),
     batchPolicy = batchPolicy,
     outcome = outcome,
@@ -104,6 +109,7 @@ class RandomForestOptimizer(
     rewards = rewards,
     trainAbsError = trainAbsError,
     testAbsError = testAbsError,
+    repeatPolicy = config.repeatPolicy,
 ) {
     init {
         require(outcome.maximize == maximize) { "objective directions differ" }

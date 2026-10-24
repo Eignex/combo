@@ -46,6 +46,15 @@ fun interface AcquisitionOptimizer {
     fun maximize(acquisition: Acquisition, request: AcquisitionRequest, random: Random): CandidateSelection
 }
 
+/** How equal acquisition scores are ordered, including the flat regions of tree models. */
+enum class AcquisitionTieBreak {
+    /** Preserve candidate order; useful for reproducing previous search behavior. */
+    First,
+
+    /** Seeded reservoir sampling among distinct tied points, allowing plateau exploration. */
+    Random,
+}
+
 /**
  * Random initialization followed by score-guided feasible neighborhood search.
  * Every accepted neighbor is checked against the original Klause problem. Integer and Boolean
@@ -57,6 +66,7 @@ fun interface AcquisitionOptimizer {
  * @property maxAttempts Initialization proposal allowance.
  * @property localSteps Number of successive neighborhood searches.
  * @property neighbors Number of attempted neighbors per local step.
+ * @property tieBreak Ordering of exactly equal acquisition scores.
  */
 class LocalAndRandomSearch(
     val projection: FeatureEncoder<com.eignex.koblas.Vector>,
@@ -65,6 +75,7 @@ class LocalAndRandomSearch(
     val maxAttempts: Int = 128,
     val localSteps: Int = 8,
     val neighbors: Int = 12,
+    val tieBreak: AcquisitionTieBreak = AcquisitionTieBreak.Random,
 ) : AcquisitionOptimizer {
     private val space = projection.space
     private val validator = WitnessValidator(space)
@@ -91,9 +102,13 @@ class LocalAndRandomSearch(
         var evaluations = 0
         var best: Sample? = null
         var bestScore = Double.NEGATIVE_INFINITY
+        var bestTies = 0
+        var guide: Sample? = null
+        var guideScore = Double.NEGATIVE_INFINITY
+        var guideTies = 0
         fun evaluate(points: List<Sample>) {
             val valid = points.distinctBy { it.assignmentKey() }.filter {
-                it.assignmentKey() !in excluded && space.matches(it, assumptions) && validator.valid(it)
+                it.assignmentKey() !in explored && space.matches(it, assumptions) && validator.valid(it)
             }
             if (valid.isEmpty()) return
             for (point in valid) explored[point.assignmentKey()] = point
@@ -105,15 +120,33 @@ class LocalAndRandomSearch(
             evaluations += valid.size
             valid.forEachIndexed { i, point ->
                 require(scores[i].isFinite()) { "acquisition returned a nonfinite score" }
+                if (guide == null || scores[i] > guideScore) {
+                    guide = point
+                    guideScore = scores[i]
+                    guideTies = 1
+                } else if (scores[i] == guideScore && tieBreak == AcquisitionTieBreak.Random) {
+                    guideTies++
+                    if (random.nextInt(guideTies) == 0) guide = point
+                }
+                if (point.assignmentKey() in excluded) return@forEachIndexed
                 if (best == null || scores[i] > bestScore) {
                     best = point
                     bestScore = scores[i]
+                    bestTies = 1
+                } else if (scores[i] == bestScore && tieBreak == AcquisitionTieBreak.Random) {
+                    bestTies++
+                    if (random.nextInt(bestTies) == 0) best = point
                 }
             }
         }
         evaluate(anchors + generated.witnesses)
         repeat(localSteps) { step ->
-            val anchor = best ?: return@repeat
+            // An excluded maximizer may have no usable neighborhood; restart from other verified anchors.
+            val anchor = if (best == null && step > 0 && anchors.isNotEmpty()) {
+                anchors[(step - 1) % anchors.size]
+            } else {
+                guide ?: return@repeat
+            }
             evaluate(
                 neighborhood.around(
                     anchor,
@@ -224,7 +257,7 @@ private class FeasibleNeighborhood(private val space: CompiledDecisionSpace) {
         val exact = a.indices.map { a[it] * (BigFraction.ONE - weight) + b[it] * weight }
         val coordinates = DoubleArray(exact.size) { index ->
             val projected = exact[index].toDouble()
-            if (!projected.isFinite()) return null
+            if (!projected.isFinite() || (projected == 0.0 && !exact[index].isZero)) return null
             projected
         }
         return Sample(left.bools, left.ints, coordinates, exactReals = exact)

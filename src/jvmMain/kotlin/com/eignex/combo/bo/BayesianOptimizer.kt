@@ -80,6 +80,7 @@ class RandomInitialDesign(
  * @property rewards Optional weighted reward sink.
  * @property trainAbsError Optional post-recording prediction error sink.
  * @property testAbsError Optional pre-recording prediction error sink.
+ * @property repeatPolicy Whether evaluated assignments remain eligible for another suggestion.
  */
 open class BayesianOptimizer(
     val projection: FeatureEncoder<Vector>,
@@ -98,6 +99,7 @@ open class BayesianOptimizer(
     override val rewards: SeriesStat<*>? = null,
     override val trainAbsError: SeriesStat<*>? = null,
     override val testAbsError: SeriesStat<*>? = null,
+    val repeatPolicy: RepeatPolicy = RepeatPolicy.NoisyOnly,
 ) : PredictionLearner<HistoryData>,
     TrialOptimizer {
     /** Original decision space, used exclusively for feasibility and decoding. */
@@ -154,6 +156,13 @@ open class BayesianOptimizer(
         val scoped = snapshot.history.observations.filter {
             space.matches(it.sample.sample, space.assumptionsFor(context)) && candidates.valid(it.sample.sample)
         }
+        val completed = if (repeatPolicy == RepeatPolicy.Never ||
+            (repeatPolicy == RepeatPolicy.NoisyOnly && outcome.noise == ObservationNoise.Deterministic)
+        ) {
+            snapshot.history.observations.map { it.sample.sample }
+        } else {
+            emptyList()
+        }
         val baseline by lazy {
             if (scoped.isEmpty()) {
                 null
@@ -199,7 +208,7 @@ open class BayesianOptimizer(
                 }
                 val selected = acquisitionOptimizer.maximize(
                     acquisition,
-                    AcquisitionRequest(context, excluded, scoped.map { it.sample.sample }),
+                    AcquisitionRequest(context, excluded + completed, scoped.map { it.sample.sample }),
                     random,
                 )
                 evaluations += selected.evaluations

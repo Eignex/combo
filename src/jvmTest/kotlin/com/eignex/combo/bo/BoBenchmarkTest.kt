@@ -86,6 +86,8 @@ class BoBenchmarkTest {
             maxWitnessAttempts = 64,
             localSteps = if (algorithm == "local-ei") 6 else 0,
             neighbors = 12,
+            repeatPolicy = if (algorithm == "local-ei") RepeatPolicy.NoisyOnly else RepeatPolicy.Allow,
+            tieBreak = if (algorithm == "local-ei") AcquisitionTieBreak.Random else AcquisitionTieBreak.First,
         )
         return RandomForestOptimizer(
             projection = if (algorithm == "legacy-pool-ei") LinearFeatureProjection(space) else SearchTransform(space),
