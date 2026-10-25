@@ -1630,6 +1630,10 @@ public final class com/eignex/combo/decisions/DecisionSpaceDef$Companion {
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
 }
 
+public final class com/eignex/combo/decisions/DefinitionCompilerKt {
+	public static final fun compileSpace (Lcom/eignex/combo/decisions/DecisionSpaceDef;)Lcom/eignex/combo/decisions/CompiledDecisionSpace;
+}
+
 public abstract interface class com/eignex/combo/decisions/FeatureEncoder {
 	public abstract fun encode (Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;)Ljava/lang/Object;
 	public static synthetic fun encode$default (Lcom/eignex/combo/decisions/FeatureEncoder;Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;ILjava/lang/Object;)Ljava/lang/Object;
