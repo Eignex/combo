@@ -1,17 +1,16 @@
 package com.eignex.combo.bo
 
 import com.eignex.koblas.DenseMatrix
-import com.eignex.koblas.koblas
-import com.eignex.kumulant.math.NotPositiveDefinite
-import com.eignex.kumulant.math.factorCholesky
-import com.eignex.kumulant.math.nextNormal
 import com.eignex.kumulant.stat.summary.MeanStat
+import kotlin.math.abs
 import kotlin.math.exp
+import kotlin.math.ln
+import kotlin.math.ln1p
 import kotlin.random.Random
 
 /** A fixed acquisition objective scoring an entire set of feature rows together. */
 fun interface JointAcquisition {
-    /** Expected incremental utility of this candidate set, always maximized. */
+    /** Set score, always maximized; log acquisitions return negative infinity for zero utility. */
     fun evaluate(features: DenseMatrix): Double
 }
 
@@ -41,7 +40,7 @@ fun interface JointAcquisitionFactory {
  * Log-response models are sampled in Gaussian log coordinates and scored in original units.
  * Reuses fixed antithetic normal samples, canonicalizes row order, and deduplicates coordinates.
  * Near-singular covariance can receive relative numerical jitter up to 1e-8; this is not observation noise.
- * Each bound objective caches normal samples by dimension and is single-threaded.
+ * Each bound objective retains common normal samples and a baseline factor, and is single-threaded.
  *
  * @property samples Even number of Monte Carlo draws per evaluated set.
  * @property margin Required improvement in original response units.
@@ -60,7 +59,8 @@ class JointExpectedImprovement(val samples: Int = 256, val margin: Double = 0.0)
  * Monte Carlo q-NEI sampling candidates and completed/pending baselines from one joint latent Gaussian.
  * No observed best response is treated as certain. Samples exclude observation noise, and pending labels
  * never enter recorded history. Shares [JointExpectedImprovement]'s sampling and numerical conventions.
- * Baselines are not pruned or root-cached: each set factors its joint covariance, so large histories cost more.
+ * Baseline prediction work, latent draws, and its Cholesky factor are cached for the bound round.
+ * Each candidate set factors only its conditional covariance. Baselines are not pruned.
  *
  * @property samples Even number of Monte Carlo draws per evaluated set.
  * @property margin Required improvement in original response units.
@@ -80,9 +80,61 @@ private fun validateJointSettings(samples: Int, margin: Double) {
     require(margin >= 0.0 && margin.isFinite())
 }
 
-private fun featureKeys(features: DenseMatrix): List<List<Double>> {
-    require(features.values.all { it.isFinite() })
-    return List(features.rows) { i -> List(features.cols) { j -> features[i, j].let { if (it == 0.0) 0.0 else it } } }
+/**
+ * Logarithm of smoothed joint EI, using fat-tailed positive-part and batch-maximum approximations.
+ * This is not the logarithm of a numerically evaluated EI: negative sampled improvements keep finite,
+ * ordered log scores. Temperatures use original response units (positive part) and log utility (batch max).
+ * The smoothing follows Ament et al., Unexpected Improvements to Expected Improvement (2023).
+ *
+ * @property samples Even Monte Carlo draw count.
+ * @property margin Required incremental improvement in original response units.
+ * @property temperature Positive-part smoothing temperature in original response units.
+ * @property batchTemperature Smooth maximum temperature in log-improvement coordinates.
+ */
+class JointLogExpectedImprovement(
+    val samples: Int = 256,
+    val margin: Double = 0.0,
+    val temperature: Double = 1e-6,
+    val batchTemperature: Double = 0.01,
+) : JointAcquisitionFactory {
+    init {
+        validateJointSettings(samples, margin)
+        validateTemperatures(temperature, batchTemperature)
+    }
+    override fun create(context: JointAcquisitionContext, random: Random): JointAcquisition {
+        require(context.incumbent?.isFinite() == true) { "q-LogEI requires a finite incumbent" }
+        return jointImprovement(context, random, samples, margin, noisy = false, temperature, batchTemperature)
+    }
+}
+
+/**
+ * Logarithm of smoothed joint noisy EI, integrating an uncertain latent completed/pending baseline.
+ * Shares [JointLogExpectedImprovement]'s approximation and [JointNoisyExpectedImprovement]'s factor cache.
+ * Exact baseline duplicates have no incremental utility and return negative infinity when alone.
+ *
+ * @property samples Even Monte Carlo draw count.
+ * @property margin Required incremental improvement in original response units.
+ * @property temperature Positive-part smoothing temperature in original response units.
+ * @property batchTemperature Smooth maximum temperature in log-improvement coordinates.
+ */
+class JointLogNoisyExpectedImprovement(
+    val samples: Int = 256,
+    val margin: Double = 0.0,
+    val temperature: Double = 1e-6,
+    val batchTemperature: Double = 0.01,
+) : JointAcquisitionFactory {
+    init {
+        validateJointSettings(samples, margin)
+        validateTemperatures(temperature, batchTemperature)
+    }
+    override fun create(context: JointAcquisitionContext, random: Random): JointAcquisition {
+        require(context.baseline.rows > 0) { "q-LogNEI requires completed baseline coordinates" }
+        return jointImprovement(context, random, samples, margin, noisy = true, temperature, batchTemperature)
+    }
+}
+
+private fun validateTemperatures(temperature: Double, batchTemperature: Double) {
+    require(temperature > 0.0 && temperature.isFinite() && batchTemperature > 0.0 && batchTemperature.isFinite())
 }
 
 private fun jointImprovement(
@@ -91,103 +143,101 @@ private fun jointImprovement(
     samples: Int,
     margin: Double,
     noisy: Boolean,
+    temperature: Double? = null,
+    batchTemperature: Double = 0.01,
 ): JointAcquisition {
     val dimensions = context.baseline.cols
     require(context.pending.cols == dimensions)
-    val baseline = (if (noisy) featureKeys(context.baseline) else emptyList()) + featureKeys(context.pending)
+    val fixed = ((if (noisy) featureKeys(context.baseline) else emptyList()) + featureKeys(context.pending))
+        .distinct().sortedWith(featureOrdering)
     val model = context.model
     val logarithmic = model is LogResponseSurrogate
-    fun moments(features: DenseMatrix): JointPredictiveMoments = requireNotNull(
-        if (model is LogResponseSurrogate) model.predictLogJoint(features) else model.predictJoint(features),
-    ) { "joint EI requires joint Gaussian moments; marginal-only models are unsupported" }
-    moments(DenseMatrix.zero(0, dimensions))
-    val seed = random.nextLong()
-    val normals = mutableMapOf<Int, DenseMatrix>()
-    return JointAcquisition { features ->
-        require(features.cols == dimensions)
-        val candidates = featureKeys(features).distinct()
-        if (candidates.isEmpty()) return@JointAcquisition 0.0
-        val ordering = Comparator<List<Double>> { a, b ->
-            var order = 0
-            for (i in a.indices) {
-                order = a[i].compareTo(b[i])
-                if (order != 0) break
-            }
-            order
-        }
-        // Keep baseline coordinates first so their Cholesky block and base draws stay fixed as candidates change.
-        val fixed = baseline.distinct().sortedWith(ordering)
-        val keys = fixed + (candidates - fixed.toSet()).sortedWith(ordering)
-        val indices = keys.withIndex().associate { it.value to it.index }
-        val baselineRows = baseline.distinct().map { indices.getValue(it) }
-        val candidateRows = candidates.map { indices.getValue(it) }
-        val queries = DenseMatrix.zero(keys.size, dimensions)
-        for (i in keys.indices) for (j in 0 until dimensions) queries[i, j] = keys[i][j]
-        val joint = moments(queries)
-        require(joint.means.size == keys.size && joint.covariance.rows == keys.size)
-        require(joint.means.toDoubleArray().all { it.isFinite() } && joint.covariance.values.all { it.isFinite() })
-        require(keys.indices.all { joint.covariance[it, it] >= 0.0 })
-        val active = keys.indices.filter { joint.covariance[it, it] > 0.0 }
-        val positions = IntArray(keys.size) { -1 }
-        active.forEachIndexed { position, row -> positions[row] = position }
-        val draws = if (active.isEmpty()) {
-            null
+    val features = featureMatrix(fixed, dimensions)
+    requireNotNull(
+        if (model is LogResponseSurrogate) {
+            model.predictLogJoint(
+                DenseMatrix.zero(0, dimensions),
+            )
         } else {
-            val covariance = DenseMatrix.zero(active.size)
-            for (i in active.indices) {
-                for (j in active.indices) {
-                    covariance[i, j] =
-                        joint.covariance[active[i], active[j]]
-                }
+            model.predictJoint(DenseMatrix.zero(0, dimensions))
+        },
+    ) {
+        "joint EI requires joint Gaussian moments; marginal-only models are unsupported"
+    }
+    val posterior = requireNotNull(
+        if (model is LogResponseSurrogate) model.logJointPosterior(features) else model.jointPosterior(features),
+    ) {
+        "joint EI requires joint Gaussian moments; marginal-only models are unsupported"
+    }
+    val sampler = JointGaussianSampler(posterior, samples, random.nextLong())
+    fun score(value: Double): Double = context.outcome.score(if (logarithmic) exp(value) else value).also {
+        require(it.isFinite()) { "nonfinite joint response; rescale responses" }
+    }
+    val thresholds = DoubleArray(samples) { draw ->
+        var best = if (noisy) Double.NEGATIVE_INFINITY else context.outcome.score(context.incumbent!!)
+        for (row in fixed.indices) best = maxOf(best, score(sampler.baselineDraws[row, draw]))
+        best
+    }
+    return JointAcquisition { candidates ->
+        require(candidates.cols == dimensions)
+        val novel = (featureKeys(candidates).distinct() - fixed.toSet()).sortedWith(featureOrdering)
+        if (novel.isEmpty()) return@JointAcquisition if (temperature == null) 0.0 else Double.NEGATIVE_INFINITY
+        val draws = sampler.draw(featureMatrix(novel, dimensions))
+        val values = DoubleArray(samples) { draw ->
+            val improvements = DoubleArray(novel.size) { row ->
+                (score(draws[row, draw]) - thresholds[draw] - margin).also { require(it.isFinite()) }
             }
-            val lower = jointRoot(covariance)
-            val z = normals.getOrPut(active.size) {
-                val generator = Random(seed)
-                DenseMatrix.zero(active.size, samples).also { values ->
-                    for (row in active.indices) {
-                        for (column in 0 until samples step 2) {
-                            val normal = generator.nextNormal()
-                            values[row, column] = normal
-                            values[row, column + 1] = -normal
-                        }
-                    }
-                }
+            if (temperature == null) {
+                maxOf(
+                    0.0,
+                    improvements.max(),
+                )
+            } else {
+                logSmoothedBatchImprovement(improvements, temperature, batchTemperature)
             }
-            koblas.gemm(lower, z)
         }
-        fun value(row: Int, draw: Int): Double {
-            val sample = joint.means[row] + if (positions[row] < 0) 0.0 else draws!![positions[row], draw]
-            return context.outcome.score(if (logarithmic) exp(sample) else sample)
-        }
+        val shift = if (temperature == null) 0.0 else values.max()
         val utility = MeanStat()
-        repeat(samples) { draw ->
-            var threshold = if (noisy) Double.NEGATIVE_INFINITY else context.outcome.score(context.incumbent!!)
-            for (row in baselineRows) threshold = maxOf(threshold, value(row, draw))
-            val best = candidateRows.maxOf { value(it, draw) }
-            utility.update(maxOf(0.0, best - threshold - margin), 0L)
-        }
-        utility.read(0L).mean.also { require(it.isFinite()) { "nonfinite joint EI; rescale responses" } }
+        for (value in values) utility.update(if (temperature == null) value else exp(value - shift), 0L)
+        val mean = utility.read(0L).mean
+        (
+            if (temperature == null) {
+                mean
+            } else {
+                shift + ln(
+                    mean,
+                )
+            }
+            ).also { require(it.isFinite()) { "nonfinite joint acquisition" } }
     }
 }
 
-private fun jointRoot(covariance: DenseMatrix): DenseMatrix {
-    try {
-        return covariance.factorCholesky().lowerFactor()
-    } catch (_: NotPositiveDefinite) {
-        // Joint posteriors can be singular even after exact duplicate coordinates are removed.
-    }
-    val scale = (0 until covariance.rows).maxOf { covariance[it, it] }
-    var jitter = scale * 1e-12
-    var failure: NotPositiveDefinite? = null
-    repeat(5) {
-        val stabilized = DenseMatrix.wrap(covariance.rows, covariance.cols, covariance.values.copyOf())
-        for (i in 0 until covariance.rows) stabilized[i, i] += jitter
-        try {
-            return stabilized.factorCholesky().lowerFactor()
-        } catch (error: NotPositiveDefinite) {
-            failure = error
-            jitter *= 10.0
+// Acquisition-specific smoothing, evaluated directly in log units instead of logging rounded EI.
+private fun logSmoothedBatchImprovement(
+    improvements: DoubleArray,
+    temperature: Double,
+    batchTemperature: Double,
+): Double {
+    val logs = DoubleArray(improvements.size) { i ->
+        val difference = improvements[i]
+        val t = difference / temperature
+        val logSoftplus = ln(temperature) + when {
+            t > 20.0 -> ln(difference) - ln(temperature)
+            t < -40.0 -> t
+            else -> ln(ln1p(exp(t)))
         }
+        val ratio = ln(abs(difference)) - ln(temperature)
+        val logDenominator = if (ratio > 0.0) 2.0 * ratio + ln1p(exp(-2.0 * ratio)) else ln1p(exp(2.0 * ratio))
+        val tail = ln(0.1) + ln(temperature) - logDenominator
+        val largest = maxOf(logSoftplus, tail)
+        largest + ln1p(exp(minOf(logSoftplus, tail) - largest))
     }
-    throw requireNotNull(failure)
+    val largest = logs.max()
+    val weights = MeanStat()
+    for (value in logs) {
+        val gap = (largest - value) / batchTemperature
+        val weight = if (gap > 1e150) 0.0 else 2.0 / (2.0 + 2.0 * gap + gap * gap)
+        weights.update(weight, 0L)
+    }
+    return largest + batchTemperature * (ln(weights.read(0L).mean) + ln(logs.size.toDouble()))
 }

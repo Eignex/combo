@@ -247,7 +247,7 @@ class LocalAndRandomSearch(
     }
 }
 
-private class FeasibleNeighborhood(private val space: CompiledDecisionSpace) {
+internal class FeasibleNeighborhood(private val space: CompiledDecisionSpace) {
     private val validator = WitnessValidator(space)
     private val solver by lazy { BacktrackSolver(space.compiled.problem.bake()) }
     private val coordinates = SolverCoordinateLayout(space)

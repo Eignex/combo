@@ -382,12 +382,12 @@ Monte Carlo formulation in [BoTorch's acquisition interface](https://botorch.rea
 
 ```kotlin
 val projection = SearchTransform(space)
-val jointSearch = JointPoolSearch(projection, witnesses, candidateCount = 32)
+val jointSearch = JointLocalAndRandomSearch(projection, witnesses, candidateCount = 32)
 val optimizer = BayesianOptimizer(
     projection,
     GaussianProcessSurrogate(),
     initialDesign = LatinHypercubeInitialDesign(space, evaluationBudget = 100, seed = 42),
-    batchPolicy = JointBatchPolicy(JointNoisyExpectedImprovement(samples = 256), jointSearch),
+    batchPolicy = JointBatchPolicy(JointLogNoisyExpectedImprovement(samples = 256), jointSearch),
     outcome = OutcomeSpec(maximize = false, noise = ObservationNoise.Noisy, standardize = true),
     randomSeed = 42,
 )
@@ -405,11 +405,14 @@ Bootstrap Thompson sampling is a separate incompatible strategy.
 `JointPoolSearch` generates a feasible pool, starts several random sets, and replaces
 one member at a time while scoring the entire set. It enforces distinct assignments,
 context, exclusions, and Klause feasibility, and can return partial batches on exhaustion.
-It searches within its pool and has no global-optimum guarantee. The suggestion trace
+It searches within its pool. `JointLocalAndRandomSearch` additionally refines every
+start with checked normalized neighbors and bounded solver repair, so it can leave
+the initial pool. Both searches have bounded budgets and no global-optimum guarantee.
+The suggestion trace
 counts whole-set acquisition evaluations for joint search; these are more expensive than
 single-point scores and should not be compared as equal computational units.
 
-Both acquisitions approximate joint moments as Gaussian, or sample Gaussian log-response
+All joint acquisitions approximate joint moments as Gaussian, or sample Gaussian log-response
 moments before exponentiating for a log-transformed outcome. Fixed antithetic normal
 samples make each bound objective reproducible; candidate row permutations and duplicates
 do not change its value. Kumulant supplies normal draws, summaries, and Cholesky factors;
@@ -417,12 +420,34 @@ Koblas supplies matrix products. Near-singular joint covariance receives bounded
 jitter up to `1e-8` only after factorization fails. Exactly deterministic coordinates remain
 deterministic. Materially indefinite matrices fail rather than dropping correlations.
 
-This first version re-factors the joint covariance for each candidate set. q-NEI includes
-the full same-context baseline, with no pruning or cached baseline factor, so large histories
-are expensive. Ordinary Monte Carlo EI can also develop zero-improvement plateaus; stable
-log-improvement acquisition remains future work. q-NEI is an improvement criterion, not an
-information-gain policy for choosing repeated measurements. These policies remain opt-in;
-see the [paired joint-batch experiment](benchmarks/joint-batch/report.md) for results and limits.
+`JointLogExpectedImprovement` and `JointLogNoisyExpectedImprovement` implement smoothed
+q-LogEI/q-LogNEI. They evaluate improvement directly in log units, with fat-tailed
+positive-part and batch-maximum approximations from [Ament et al.](https://arxiv.org/abs/2310.20708).
+Taking the logarithm of an already-zero EI cannot recover these scores. The positive-part
+`temperature` uses original response units; `batchTemperature` uses log-improvement units.
+Both must be positive. Candidate sets containing only baseline coordinates have zero
+incremental utility (`-Infinity` in log units), which joint search accepts as a valid score.
+These acquisitions are approximate, and temperature and sample count affect the approximation.
+
+Each bound acquisition caches its baseline posterior work, Cholesky factor, latent draws,
+and improvement thresholds. Candidate sets use triangular solves and a conditional covariance
+factor of order at most the novel batch size. The baseline factor still costs cubic time once
+per round; there is no baseline pruning. The `jointPosterior(baseline)` extension exposes baseline moments and candidate cross-covariance.
+The GP advertises `JointPosteriorSurrogate` and caches training-to-baseline solves; models and
+decorators without that explicit capability use their own full joint predictions.
+`logJointPosterior` and `LogJointPosteriorSurrogate` preserve Gaussian log-response coordinates
+through standardization. Opting into a cache requires keeping it consistent with the model's
+joint predictions. Bound posterior results are read-only by contract.
+
+GP conditioning, acquisition definitions, and feasible search stay in Combo. Kumulant owns
+normal sampling, statistical summaries, and factorization; Koblas supplies matrix products.
+No additional numerical kernels or GP-specific APIs are added to either dependency.
+
+q-NEI is an improvement criterion, not an information-gain policy for repeated measurements.
+All joint policies remain opt-in; sequential batching and model defaults are unchanged.
+See the [original joint-batch experiment](benchmarks/joint-batch/report.md) and the
+[GP refinement cycle](benchmarks/gp-refinement/report.md) for paired results, numerical
+reference checks, factor-cache measurements, and limitations.
 
 ## SMAC-inspired profile and paired racing
 
@@ -656,8 +681,8 @@ tasks already supply these flags.
   Thompson-sampling surrogate.
 - **Additional history-based surrogates**: extend the shared store/refit lifecycle
   to batch linear models and additional acquisition functions.
-- **Scalable joint batching and richer kernels**: baseline pruning/root caching, stable
-  log-improvement acquisitions, and mixed-type GP covariance, followed by instance features,
+- **Scalable joint batching and richer kernels**: baseline pruning, additional sampling
+  strategies, and mixed-type GP covariance, followed by instance features,
   censored observations, and multi-fidelity scheduling.
 
 ### Noisy recommendations

@@ -1,0 +1,17 @@
+{
+  "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43",
+  "architecture": "x86_64",
+  "logical_cpus": 20,
+  "java_toolchain": 25,
+  "kotlin": "2.4.10",
+  "gradle": "9.7",
+  "clock": "System.nanoTime",
+  "cpu_model": "12th Gen Intel(R) Core(TM) i9-12900H",
+  "reference_libraries": {
+    "torch": "2.14.1+cpu",
+    "botorch": "0.18.1",
+    "gpytorch": "1.15.2",
+    "numpy": "2.5.4",
+    "scipy": "1.18.1"
+  }
+}

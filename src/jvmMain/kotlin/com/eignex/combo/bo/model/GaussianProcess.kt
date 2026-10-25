@@ -1,5 +1,7 @@
 package com.eignex.combo.bo.model
 
+import com.eignex.combo.bo.JointPosterior
+import com.eignex.combo.bo.JointPosteriorPrediction
 import com.eignex.combo.bo.JointPredictiveMoments
 import com.eignex.combo.bo.PredictiveMoments
 import com.eignex.combo.bo.SampledFunction
@@ -109,7 +111,9 @@ internal class GaussianProcessModel private constructor(
         return PredictiveMoments(DenseVector.of(means), DenseVector.of(variances))
     }
 
-    fun predictJoint(features: DenseMatrix): JointPredictiveMoments {
+    fun predictJoint(features: DenseMatrix): JointPredictiveMoments = jointFeatures(features).first
+
+    private fun jointFeatures(features: DenseMatrix): Pair<JointPredictiveMoments, DenseMatrix> {
         validate(features)
         val cross = cross(features)
         val means = koblas.gemv(cross, alpha, transpose = true)
@@ -118,7 +122,21 @@ internal class GaussianProcessModel private constructor(
         val result = covariance(features, features, config.kernel, parameters)
         koblas.gemm(-1.0, solved, true, solved, false, 1.0, result)
         for (i in 0 until result.rows) result[i, i] = maxOf(0.0, result[i, i])
-        return JointPredictiveMoments(DenseVector.of(means), result)
+        return JointPredictiveMoments(DenseVector.of(means), result) to solved
+    }
+
+    fun jointPosterior(baseline: DenseMatrix): JointPosterior {
+        val fixed = DenseMatrix.wrap(baseline.rows, baseline.cols, baseline.values.copyOf())
+        val (moments, baselineSolved) = jointFeatures(fixed)
+        return object : JointPosterior {
+            override val baseline = moments
+            override fun predict(features: DenseMatrix): JointPosteriorPrediction {
+                val (candidates, solved) = jointFeatures(features)
+                val cross = covariance(fixed, features, config.kernel, parameters)
+                koblas.gemm(-1.0, baselineSolved, true, solved, false, 1.0, cross)
+                return JointPosteriorPrediction(candidates, cross)
+            }
+        }
     }
 
     fun condition(temporary: TrainingData): GaussianProcessModel {

@@ -686,7 +686,7 @@ public final class com/eignex/combo/bo/FantasyPolicy$PosteriorMean : com/eignex/
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class com/eignex/combo/bo/FittedGaussianProcess : com/eignex/combo/bo/ConditionableSurrogate {
+public final class com/eignex/combo/bo/FittedGaussianProcess : com/eignex/combo/bo/ConditionableSurrogate, com/eignex/combo/bo/JointPosteriorSurrogate {
 	public fun condition (Lcom/eignex/combo/bo/TrainingData;)Lcom/eignex/combo/bo/FittedGaussianProcess;
 	public synthetic fun condition (Lcom/eignex/combo/bo/TrainingData;)Lcom/eignex/combo/bo/FittedSurrogate;
 	public fun drawFunction (Lkotlin/random/Random;)Lcom/eignex/combo/bo/SampledFunction;
@@ -694,6 +694,7 @@ public final class com/eignex/combo/bo/FittedGaussianProcess : com/eignex/combo/
 	public final fun getNumericalJitter ()D
 	public final fun getParameters ()Lcom/eignex/combo/bo/model/GaussianProcessParameters;
 	public fun getUncertaintyKind ()Lcom/eignex/combo/bo/UncertaintyKind;
+	public fun jointPosterior (Lcom/eignex/koblas/DenseMatrix;)Lcom/eignex/combo/bo/JointPosterior;
 	public fun predict (Lcom/eignex/koblas/DenseMatrix;)Lcom/eignex/combo/bo/PredictiveMoments;
 	public fun predictJoint (Lcom/eignex/koblas/DenseMatrix;)Lcom/eignex/combo/bo/JointPredictiveMoments;
 }
@@ -874,6 +875,41 @@ public final class com/eignex/combo/bo/JointExpectedImprovement : com/eignex/com
 	public final fun getSamples ()I
 }
 
+public final class com/eignex/combo/bo/JointLocalAndRandomSearch : com/eignex/combo/bo/JointAcquisitionOptimizer {
+	public fun <init> (Lcom/eignex/combo/decisions/FeatureEncoder;Lcom/eignex/combo/shared/WitnessSearch;IIIILcom/eignex/combo/bo/LocalSearchPolicy;)V
+	public synthetic fun <init> (Lcom/eignex/combo/decisions/FeatureEncoder;Lcom/eignex/combo/shared/WitnessSearch;IIIILcom/eignex/combo/bo/LocalSearchPolicy;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getCandidateCount ()I
+	public final fun getLocalPolicy ()Lcom/eignex/combo/bo/LocalSearchPolicy;
+	public final fun getLocalSteps ()I
+	public final fun getNeighbors ()I
+	public final fun getPasses ()I
+	public final fun getProjection ()Lcom/eignex/combo/decisions/FeatureEncoder;
+	public final fun getWitnesses ()Lcom/eignex/combo/shared/WitnessSearch;
+	public fun maximize (Lcom/eignex/combo/bo/JointAcquisition;Lcom/eignex/combo/bo/AcquisitionRequest;ILkotlin/random/Random;)Lcom/eignex/combo/bo/JointCandidateSelection;
+}
+
+public final class com/eignex/combo/bo/JointLogExpectedImprovement : com/eignex/combo/bo/JointAcquisitionFactory {
+	public fun <init> ()V
+	public fun <init> (IDDD)V
+	public synthetic fun <init> (IDDDILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun create (Lcom/eignex/combo/bo/JointAcquisitionContext;Lkotlin/random/Random;)Lcom/eignex/combo/bo/JointAcquisition;
+	public final fun getBatchTemperature ()D
+	public final fun getMargin ()D
+	public final fun getSamples ()I
+	public final fun getTemperature ()D
+}
+
+public final class com/eignex/combo/bo/JointLogNoisyExpectedImprovement : com/eignex/combo/bo/JointAcquisitionFactory {
+	public fun <init> ()V
+	public fun <init> (IDDD)V
+	public synthetic fun <init> (IDDDILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun create (Lcom/eignex/combo/bo/JointAcquisitionContext;Lkotlin/random/Random;)Lcom/eignex/combo/bo/JointAcquisition;
+	public final fun getBatchTemperature ()D
+	public final fun getMargin ()D
+	public final fun getSamples ()I
+	public final fun getTemperature ()D
+}
+
 public final class com/eignex/combo/bo/JointNoisyExpectedImprovement : com/eignex/combo/bo/JointAcquisitionFactory {
 	public fun <init> ()V
 	public fun <init> (ID)V
@@ -892,6 +928,30 @@ public final class com/eignex/combo/bo/JointPoolSearch : com/eignex/combo/bo/Joi
 	public final fun getStarts ()I
 	public final fun getWitnesses ()Lcom/eignex/combo/shared/WitnessSearch;
 	public fun maximize (Lcom/eignex/combo/bo/JointAcquisition;Lcom/eignex/combo/bo/AcquisitionRequest;ILkotlin/random/Random;)Lcom/eignex/combo/bo/JointCandidateSelection;
+}
+
+public abstract interface class com/eignex/combo/bo/JointPosterior {
+	public abstract fun getBaseline ()Lcom/eignex/combo/bo/JointPredictiveMoments;
+	public abstract fun predict (Lcom/eignex/koblas/DenseMatrix;)Lcom/eignex/combo/bo/JointPosteriorPrediction;
+}
+
+public final class com/eignex/combo/bo/JointPosteriorKt {
+	public static final fun jointPosterior (Lcom/eignex/combo/bo/FittedSurrogate;Lcom/eignex/koblas/DenseMatrix;)Lcom/eignex/combo/bo/JointPosterior;
+	public static final fun logJointPosterior (Lcom/eignex/combo/bo/LogResponseSurrogate;Lcom/eignex/koblas/DenseMatrix;)Lcom/eignex/combo/bo/JointPosterior;
+}
+
+public final class com/eignex/combo/bo/JointPosteriorPrediction {
+	public fun <init> (Lcom/eignex/combo/bo/JointPredictiveMoments;Lcom/eignex/koblas/DenseMatrix;)V
+	public final fun getCandidates ()Lcom/eignex/combo/bo/JointPredictiveMoments;
+	public final fun getCrossCovariance ()Lcom/eignex/koblas/DenseMatrix;
+}
+
+public abstract interface class com/eignex/combo/bo/JointPosteriorSurrogate : com/eignex/combo/bo/FittedSurrogate {
+	public abstract fun jointPosterior (Lcom/eignex/koblas/DenseMatrix;)Lcom/eignex/combo/bo/JointPosterior;
+}
+
+public final class com/eignex/combo/bo/JointPosteriorSurrogate$DefaultImpls {
+	public static fun predictJoint (Lcom/eignex/combo/bo/JointPosteriorSurrogate;Lcom/eignex/koblas/DenseMatrix;)Lcom/eignex/combo/bo/JointPredictiveMoments;
 }
 
 public final class com/eignex/combo/bo/JointPredictiveMoments {
@@ -951,6 +1011,15 @@ public final class com/eignex/combo/bo/LocalSearchPolicy {
 	public final fun getStarts ()I
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class com/eignex/combo/bo/LogJointPosteriorSurrogate : com/eignex/combo/bo/JointPosteriorSurrogate, com/eignex/combo/bo/LogResponseSurrogate {
+	public abstract fun logJointPosterior (Lcom/eignex/koblas/DenseMatrix;)Lcom/eignex/combo/bo/JointPosterior;
+}
+
+public final class com/eignex/combo/bo/LogJointPosteriorSurrogate$DefaultImpls {
+	public static fun predictJoint (Lcom/eignex/combo/bo/LogJointPosteriorSurrogate;Lcom/eignex/koblas/DenseMatrix;)Lcom/eignex/combo/bo/JointPredictiveMoments;
+	public static fun predictLogJoint (Lcom/eignex/combo/bo/LogJointPosteriorSurrogate;Lcom/eignex/koblas/DenseMatrix;)Lcom/eignex/combo/bo/JointPredictiveMoments;
 }
 
 public abstract interface class com/eignex/combo/bo/LogResponseSurrogate : com/eignex/combo/bo/FittedSurrogate {
