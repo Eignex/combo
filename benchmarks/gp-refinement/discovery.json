@@ -1,0 +1,8 @@
+{
+  "base_commit": "46737508851b4c140225c34ceefe2a2daed32f4d",
+  "histories": "Archived qnei and exclusion traces; seeds 1501\u20131503, SD .03, first 24 evaluations",
+  "captured_samples": 256,
+  "reference_samples": 16384,
+  "sets_per_fixture": 21,
+  "fixtures": 12
+}

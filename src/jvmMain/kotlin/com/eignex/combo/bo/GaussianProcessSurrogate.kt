@@ -27,7 +27,9 @@ class GaussianProcessSurrogate(val config: GaussianProcessConfig = GaussianProce
  * assignment order. Each draw is single-threaded and retains sampled points, so its storage and solve cost
  * grow with distinct queries.
  */
-class FittedGaussianProcess internal constructor(private val model: GaussianProcessModel) : ConditionableSurrogate {
+class FittedGaussianProcess internal constructor(private val model: GaussianProcessModel) :
+    ConditionableSurrogate,
+    JointPosteriorSurrogate {
     override val uncertaintyKind: UncertaintyKind = UncertaintyKind.LatentPosterior
 
     /** Independent fitted parameter snapshot in training-response coordinates. */
@@ -43,6 +45,7 @@ class FittedGaussianProcess internal constructor(private val model: GaussianProc
 
     override fun predict(features: DenseMatrix): PredictiveMoments = model.predict(features)
     override fun predictJoint(features: DenseMatrix): JointPredictiveMoments = model.predictJoint(features)
+    override fun jointPosterior(baseline: DenseMatrix): JointPosterior = model.jointPosterior(baseline)
     override fun condition(temporary: TrainingData): FittedGaussianProcess = FittedGaussianProcess(
         model.condition(temporary),
     )
