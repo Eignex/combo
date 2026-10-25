@@ -37,11 +37,11 @@ kotlin {
         for ((sourceSet, modules) in mapOf(
             "jvmMain" to mapOf(
                 "klause-jvm" to "0.0.1-20261023.210726-928",
-                "kumulant-jvm" to "0.3.4-20261024.212301-72",
+                "kumulant-jvm" to "0.3.4-20261025.053320-73",
             ),
             "linuxX64Main" to mapOf(
                 "klause-linuxx64" to "0.0.1-20261023.210726-927",
-                "kumulant-linuxx64" to "0.3.4-20261024.212301-72",
+                "kumulant-linuxx64" to "0.3.4-20261025.053320-73",
             ),
         )) {
             getByName(sourceSet).dependencies {

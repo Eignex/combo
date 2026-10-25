@@ -184,8 +184,9 @@ lines += ['', '## Scope and next refinements', '',
           'batch EI are unvalidated or unimplemented here. Exact GP fits retain history and scale '
           'cubically; coherent lazy function draws also retain their distinct queried points.', '',
           'The GP follows [GPML chapter 2](https://gaussianprocess.org/gpml/chapters/RW2.pdf). '
-          'Koblas supplies numerical factorization and solves; all GP model and optimization policy '
-          'lives in Combo. Kumulant supplies generic summaries and shared tree snapshots.', '',
+          'These archived runs used the Koblas factorization API. The current implementation '
+          'reuses Kumulant’s Cholesky factorization over Koblas BLAS operations; GP models and '
+          'optimization policy live in Combo.', '',
           '## Reproduce', '', '```sh', './gradlew compareGp',
           'python3 scripts/summarize_gp_comparison.py', '```', '',
           'Use `-Pgp.mode=frozen` or `-Pgp.mode=optimize` to run one stage. '
