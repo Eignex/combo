@@ -1,0 +1,55 @@
+{
+  "base_commit": "d722ae1e43fc2b6e9eba56135bc91557f1f60035",
+  "validation_seeds": [
+    1501,
+    1502,
+    1503,
+    1504,
+    1505,
+    1506,
+    1507,
+    1508
+  ],
+  "development_seeds": [
+    941
+  ],
+  "budget": 32,
+  "batch_size": 2,
+  "noise_sd": [
+    0.0,
+    0.03
+  ],
+  "source_sha256": {
+    "build.gradle.kts": "57426d100021773deb80b889ea2a6ec0ef0ebc27dfaa429aa0fd56e12e91894b",
+    "src/jvmMain/kotlin/com/eignex/combo/bo/Acquisition.kt": "119b128b8b6bcd2ef29436b0c9ce6a6d326e2bf342fc0913643d12a78615defd",
+    "src/jvmMain/kotlin/com/eignex/combo/bo/AcquisitionOptimizer.kt": "371cc9ada011b234dd78bbe4edf52fc3f0d7f1e0e747b5e18161a923ba672a9b",
+    "src/jvmMain/kotlin/com/eignex/combo/bo/BatchPolicy.kt": "d2e6dd14f05b346aef3b2c8cecb7bb8bf0d976b8a8a339dbce7344e2eccdb9d5",
+    "src/jvmMain/kotlin/com/eignex/combo/bo/BayesianOptimizer.kt": "30cda2de0581ee1fe4135bb234b95b94307ae348f94c529d2441665e481c5847",
+    "src/jvmMain/kotlin/com/eignex/combo/bo/EvaluationStore.kt": "af3be776fff3eadffd692f13f479054c8cd412cd75f2c89db4d61f04bf4c0ca2",
+    "src/jvmMain/kotlin/com/eignex/combo/bo/ExpectedImprovement.kt": "53d03627351fc310d8c973d53ee474013145ed958eb6a18e695bae16f4184eeb",
+    "src/jvmMain/kotlin/com/eignex/combo/bo/GaussianProcessSurrogate.kt": "d9e580eb411e2b192d82a804f1e17ec88f669ccefe75ef0cc5e1208287ae3a10",
+    "src/jvmMain/kotlin/com/eignex/combo/bo/InitialDesign.kt": "e2024f9632dfb087c96b46b73d47be58be8125d8071524d41afd0858f6979d6f",
+    "src/jvmMain/kotlin/com/eignex/combo/bo/InteractionFeatureProjection.kt": "22d70ce29820a932162793ab33e065d74e6ec5f524c69fbd20057cfed00a9382",
+    "src/jvmMain/kotlin/com/eignex/combo/bo/JointAcquisition.kt": "9402865e317b38c284653a4131e8b4391648f98f5242c252cdddacefc16c31cd",
+    "src/jvmMain/kotlin/com/eignex/combo/bo/JointAcquisitionOptimizer.kt": "8601ddf3b7b596a33ad160b5f5dd6a0ef4b763f904b84fbb9343ce922fd6c215",
+    "src/jvmMain/kotlin/com/eignex/combo/bo/LatinHypercubeInitialDesign.kt": "3a777e14bbfe8be5c849d80345ebca4e00f40502bce06bbc8785be803dd18e86",
+    "src/jvmMain/kotlin/com/eignex/combo/bo/ObservationStore.kt": "d1771f91028d1ebd2f1b51f0f972ac4ce0beac6f043f9028395bf1b1fae0ca40",
+    "src/jvmMain/kotlin/com/eignex/combo/bo/OptimizationBenchmark.kt": "65edb67640e52427850212326d8572326f84527ed06ee041d114fd1331f5642f",
+    "src/jvmMain/kotlin/com/eignex/combo/bo/OutcomeSpec.kt": "80bb457ff4d2cb652d6ff5f963e05800af3506a40a4b781552c272fcd605d0c0",
+    "src/jvmMain/kotlin/com/eignex/combo/bo/RacingOptimizer.kt": "01a5eb4624edbc69f42d335ca3d47c781216814fd946c5d52775fa1185ca3c0a",
+    "src/jvmMain/kotlin/com/eignex/combo/bo/RandomForestOptimizer.kt": "362671c42716994ddd7e6efb403f08d33bb1bdfe9af133e955a5f934ea4b3eed",
+    "src/jvmMain/kotlin/com/eignex/combo/bo/RepeatPolicy.kt": "89c07b39cbec1f32c428ff60864cf8ea5706544151784c27f050e1fda2a7c795",
+    "src/jvmMain/kotlin/com/eignex/combo/bo/SearchTransform.kt": "943bf042c37b6d6f977fba21515a0f4255efd0cfa7012a7d6c37f84c5df32486",
+    "src/jvmMain/kotlin/com/eignex/combo/bo/Study.kt": "b8f2038c07e5c37ae31329017900cf8f45d47e553b025601fa7473ef4a43d00a",
+    "src/jvmMain/kotlin/com/eignex/combo/bo/StudyRunner.kt": "9648f44cf2011d5edf68bfcd5edad92a0090e10ceacd76c108b99b186d21b400",
+    "src/jvmMain/kotlin/com/eignex/combo/bo/Surrogate.kt": "fc4f98f40faf474f88580d6352a246fbe637d568e7f930b47809360ff3fe5782",
+    "src/jvmMain/kotlin/com/eignex/combo/bo/SurrogateLearning.kt": "164479a415d1b7b88b1c243a4b289db4f73ad8b0fcb8287e279fafa9a05a0afa",
+    "src/jvmMain/kotlin/com/eignex/combo/bo/Trials.kt": "bddd10fa339372f23deb10bc8fc4d1585f6cb3e5956003c85bbf703b5f7f5e6c",
+    "src/jvmMain/kotlin/com/eignex/combo/bo/model/BatchForestModel.kt": "fbbd8c1394d378dda54c41702be10106fb613709880c4a73c287ec51a646067a",
+    "src/jvmMain/kotlin/com/eignex/combo/bo/model/BatchRandomForest.kt": "44cc332b43e712611d63a11f1d7c7548f139345900f0f480d6fa1d45c1b1d420",
+    "src/jvmMain/kotlin/com/eignex/combo/bo/model/GaussianProcess.kt": "697e387355f50a912ddb03e930d28e53cc9aa667f7839e696e6895f2132a4d7f",
+    "src/jvmTest/kotlin/com/eignex/combo/bo/JointBatchBenchmark.kt": "c63aae5b311b5dd35815fb844bd4e4bfd0b727bdcfeb1015b2ba02d7f284f2c4",
+    "src/jvmTest/kotlin/com/eignex/combo/bo/NoisyBoBenchmark.kt": "5291d2fc2892fe5948e4b0a03c616e90df2f5548bc18835652c4f6a8179cbf72",
+    "src/jvmTest/kotlin/com/eignex/combo/bo/RefinementBenchmark.kt": "80783c1662ac764941c62ea540b7a7417ca617106302e739d430c5a64192e1dc"
+  }
+}
