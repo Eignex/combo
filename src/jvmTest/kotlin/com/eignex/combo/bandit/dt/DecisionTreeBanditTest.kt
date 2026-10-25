@@ -1,7 +1,9 @@
 package com.eignex.combo.bandit.dt
 
 import com.eignex.combo.bandit.PredictionBanditTestSuite
+import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.CompiledDecisionSpace
+import com.eignex.combo.decisions.DecisionSpace
 import com.eignex.combo.shared.PredictionLearner
 import com.eignex.klause.backtrack.BacktrackParams
 import com.eignex.klause.backtrack.BacktrackSolver
@@ -12,7 +14,12 @@ import com.eignex.klause.solver.Sample
 import com.eignex.klause.solver.SolveResult
 import com.eignex.kumulant.bandit.univariate.Greedy
 import com.eignex.kumulant.stat.regression.tree.RegressionTreeConfig
+import com.eignex.kumulant.stat.score.MaeLossStat
+import com.eignex.kumulant.stat.score.MseLossStat
 import com.eignex.kumulant.stat.summary.MeanStat
+import kotlin.math.abs
+import kotlin.test.Test
+import kotlin.test.assertEquals
 
 /**
  * Plug [DecisionTreeBandit] into the shared bandit harness. The harness's `TinySpace`
@@ -62,5 +69,29 @@ class DecisionTreeBanditTest : PredictionBanditTestSuite<DecisionTreeData>() {
             maximize = maximize,
             rewards = rewards,
         )
+    }
+
+    @Test
+    fun `tree feedback delegates pre and post training losses to paired scorers`() {
+        val model = object : DecisionSpace() {
+            val enabled by boolVar()
+        }
+        val sample = Sample(booleanArrayOf(false), longArrayOf())
+        val before = MseLossStat()
+        val after = MaeLossStat()
+        val bandit = DecisionTreeBandit(
+            model.compileSpace(),
+            Greedy(),
+            { _, _ -> sample },
+            testScore = before,
+            trainScore = after,
+        )
+
+        bandit.update(BanditSample(sample), 3.0, weight = 2.0)
+
+        assertEquals(9.0, before.read().mean)
+        assertEquals(abs(3.0 - bandit.predict(BanditSample(sample))), after.read().mean, 1e-12)
+        assertEquals(2.0, before.read().totalWeights)
+        assertEquals(2.0, after.read().totalWeights)
     }
 }

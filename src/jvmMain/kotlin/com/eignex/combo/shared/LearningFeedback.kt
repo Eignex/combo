@@ -2,16 +2,16 @@ package com.eignex.combo.shared
 
 import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.Context
+import com.eignex.kumulant.core.PairedStat
 import com.eignex.kumulant.core.SeriesStat
-import kotlin.math.abs
 
 internal class LearningFeedback<Input>(
     private val encode: (BanditSample, Context) -> Input,
     private val mean: (Input) -> Double,
     private val record: (Input, Double, Double) -> Unit,
     private val rewards: SeriesStat<*>?,
-    private val trainAbsError: SeriesStat<*>?,
-    private val testAbsError: SeriesStat<*>?,
+    private val trainScore: PairedStat<*>?,
+    private val testScore: PairedStat<*>?,
 ) {
     fun predict(sample: BanditSample, context: Context): Double = mean(encode(sample, context))
 
@@ -24,9 +24,9 @@ internal class LearningFeedback<Input>(
 
     fun updateEncoded(input: Input, reward: Double, weight: Double, onRecorded: () -> Unit = {}) {
         rewards?.update(reward, 0L, weight)
-        testAbsError?.update(abs(reward - mean(input)), 0L, weight)
+        testScore?.update(mean(input), reward, 0L, weight)
         record(input, reward, weight)
         onRecorded()
-        trainAbsError?.update(abs(reward - mean(input)), 0L, weight)
+        trainScore?.update(mean(input), reward, 0L, weight)
     }
 }

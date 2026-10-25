@@ -10,6 +10,7 @@ import com.eignex.combo.shared.LearnerData
 import com.eignex.combo.shared.SlotRemap
 import com.eignex.combo.shared.WitnessSearch
 import com.eignex.koblas.Vector
+import com.eignex.kumulant.core.PairedStat
 import com.eignex.kumulant.core.SeriesStat
 
 /** Acquisition rules for a history-fitted random forest. */
@@ -71,8 +72,8 @@ data class ForestOptimizerConfig(
  * @param randomSeed Reproducible fitting and round seed.
  * @param maximize Reward maximization or cost minimization.
  * @param rewards Optional weighted reward sink.
- * @param trainAbsError Optional post-fit error sink.
- * @param testAbsError Optional pre-fit error sink.
+ * @param trainScore Optional paired scorer evaluated after fitting.
+ * @param testScore Optional paired scorer evaluated before fitting.
  * @param batchPolicy Pending exclusion or temporary fantasy batching.
  * @param outcome Objective noise and response normalization policy.
  * @param initialDesign Structured design or initial/interleaved exploration schedule.
@@ -89,8 +90,8 @@ class RandomForestOptimizer(
     randomSeed: Int = 0,
     maximize: Boolean = true,
     rewards: SeriesStat<*>? = null,
-    trainAbsError: SeriesStat<*>? = null,
-    testAbsError: SeriesStat<*>? = null,
+    trainScore: PairedStat<*>? = null,
+    testScore: PairedStat<*>? = null,
     batchPolicy: BatchPolicy = SequentialBatchPolicy(),
     outcome: OutcomeSpec = OutcomeSpec(maximize = maximize),
     initialDesign: InitialDesign = RandomInitialDesign(config.initialRandomObservations, config.randomExploration),
@@ -115,8 +116,8 @@ class RandomForestOptimizer(
     bootstrapThompson = config.acquisition == ForestAcquisition.BootstrapThompson,
     randomSeed = randomSeed,
     rewards = rewards,
-    trainAbsError = trainAbsError,
-    testAbsError = testAbsError,
+    trainScore = trainScore,
+    testScore = testScore,
     repeatPolicy = config.repeatPolicy,
 ) {
     init {

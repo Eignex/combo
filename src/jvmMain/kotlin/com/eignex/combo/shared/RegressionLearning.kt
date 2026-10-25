@@ -3,6 +3,7 @@ package com.eignex.combo.shared
 import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.Context
 import com.eignex.koblas.Vector
+import com.eignex.kumulant.core.PairedStat
 import com.eignex.kumulant.core.RegressionStat
 import com.eignex.kumulant.core.Result
 import com.eignex.kumulant.core.SeriesStat
@@ -12,10 +13,10 @@ internal class RegressionLearning<R : Result>(
     encode: (BanditSample, Context) -> Vector,
     mean: (Vector) -> Double,
     rewards: SeriesStat<*>?,
-    trainAbsError: SeriesStat<*>?,
-    testAbsError: SeriesStat<*>?,
+    trainScore: PairedStat<*>?,
+    testScore: PairedStat<*>?,
 ) {
-    private val feedback = LearningFeedback(encode, mean, regression::update, rewards, trainAbsError, testAbsError)
+    private val feedback = LearningFeedback(encode, mean, regression::update, rewards, trainScore, testScore)
 
     fun predict(sample: BanditSample, context: Context = Context.Empty): Double = feedback.predict(sample, context)
 

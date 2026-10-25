@@ -3,6 +3,7 @@ package com.eignex.combo.shared
 import com.eignex.combo.decisions.BanditSample
 import com.eignex.klause.compile.CompiledSchema
 import com.eignex.klause.solver.Solver
+import com.eignex.kumulant.core.PairedStat
 import com.eignex.kumulant.core.SeriesStat
 
 /** Thrown when a bandit cannot produce a feasible sample within its budget. */
@@ -90,8 +91,11 @@ interface Learner<D : LearnerData> {
  * and [train] (off-policy update without bumping reward bookkeeping).
  */
 interface PredictionLearner<D : LearnerData> : Learner<D> {
-    val trainAbsError: SeriesStat<*>?
-    val testAbsError: SeriesStat<*>?
+    /** Optional scorer receiving (prediction, reward) after learning, with the observation weight. */
+    val trainScore: PairedStat<*>?
+
+    /** Optional scorer receiving (prediction, reward) before learning, with the observation weight. */
+    val testScore: PairedStat<*>?
 
     fun predict(sample: BanditSample): Double
 

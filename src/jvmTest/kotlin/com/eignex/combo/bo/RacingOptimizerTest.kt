@@ -6,9 +6,9 @@ import com.eignex.combo.shared.WitnessTermination
 import com.eignex.combo.shared.assignmentKey
 import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
-import com.eignex.kumulant.core.SeriesStat
-import com.eignex.kumulant.stat.summary.SumResult
-import com.eignex.kumulant.stat.summary.SumStat
+import com.eignex.kumulant.core.PairedStat
+import com.eignex.kumulant.stat.score.MaeLossStat
+import com.eignex.kumulant.stat.summary.WeightedMeanResult
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -21,7 +21,7 @@ class RacingOptimizerTest {
     }
     private fun optimizer(
         space: com.eignex.combo.decisions.CompiledDecisionSpace,
-        metric: SeriesStat<*>? = null,
+        metric: PairedStat<*>? = null,
     ): BayesianOptimizer {
         val points = listOf(0.0, 0.5, 1.0).map {
             Sample(
@@ -35,7 +35,7 @@ class RacingOptimizerTest {
             SearchTransform(space),
             ForestSurrogate(),
             outcome = OutcomeSpec(noise = ObservationNoise.Noisy),
-            trainAbsError = metric,
+            trainScore = metric,
             repeatPolicy = RepeatPolicy.Never,
             initialDesign = InitialDesign { _, _ -> false },
             acquisitionOptimizer = AcquisitionOptimizer { _, request, _ ->
@@ -164,8 +164,10 @@ class RacingOptimizerTest {
 
     @Test
     fun `metric failures after observation commit still close workers exactly once`() {
-        val sink = object : SeriesStat<SumResult> by SumStat() {
-            override fun update(value: Double, timestampNanos: Long, weight: Double) = error("metric unavailable")
+        val sink = object : PairedStat<WeightedMeanResult> by MaeLossStat() {
+            override fun update(x: Double, y: Double, timestampNanos: Long, weight: Double) = error(
+                "metric unavailable",
+            )
         }
         val race = RacingOptimizer(optimizer(Rate().compileSpace(), sink), listOf(keys.first()))
         val task = race.ask(1).tasks.single()

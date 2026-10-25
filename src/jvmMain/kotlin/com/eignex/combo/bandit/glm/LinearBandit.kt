@@ -14,6 +14,7 @@ import com.eignex.klause.solver.Sample
 import com.eignex.klause.solver.objective.LinearObjective
 import com.eignex.koblas.Vector
 import com.eignex.koblas.dot
+import com.eignex.kumulant.core.PairedStat
 import com.eignex.kumulant.core.RegressionStat
 import com.eignex.kumulant.core.SeriesStat
 import com.eignex.kumulant.stat.regression.glm.LinearPosterior
@@ -46,8 +47,8 @@ class LinearBandit<R : LinearRegressionResult>(
     override val randomSeed: Int = System.currentTimeMillis().toInt(),
     override val maximize: Boolean = true,
     override val rewards: SeriesStat<*>? = null,
-    override val trainAbsError: SeriesStat<*>? = null,
-    override val testAbsError: SeriesStat<*>? = null,
+    override val trainScore: PairedStat<*>? = null,
+    override val testScore: PairedStat<*>? = null,
 ) : PredictionLearner<LinearLearnerData> {
 
     val space get() = projection.space
@@ -77,8 +78,8 @@ class LinearBandit<R : LinearRegressionResult>(
         projection::encode,
         { features -> regression.read().predict(features) },
         rewards,
-        trainAbsError,
-        testAbsError,
+        trainScore,
+        testScore,
     )
 
     fun predict(sample: BanditSample, context: Context): Double = learning.predict(sample, context)
