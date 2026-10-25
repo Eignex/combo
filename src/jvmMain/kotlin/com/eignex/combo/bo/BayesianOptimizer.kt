@@ -14,6 +14,7 @@ import com.eignex.koblas.DenseVector
 import com.eignex.koblas.Vector
 import com.eignex.koblas.dot
 import com.eignex.koblas.sum
+import com.eignex.kumulant.core.PairedStat
 import com.eignex.kumulant.core.SeriesStat
 import kotlin.random.Random
 
@@ -59,8 +60,8 @@ data class ObservedBest(
  * @property bootstrapThompson Fit a new history-bootstrap reward model for each batch slot.
  * @property randomSeed Seed combined with the exported study round counter.
  * @property rewards Optional weighted reward sink.
- * @property trainAbsError Optional post-recording prediction error sink.
- * @property testAbsError Optional pre-recording prediction error sink.
+ * @property trainScore Optional paired scorer evaluated after recording an observation.
+ * @property testScore Optional paired scorer evaluated before recording an observation.
  * @property repeatPolicy Whether evaluated assignments remain eligible for another suggestion.
  * @property exploration Independent feasible proposal source for random exploration rounds.
  */
@@ -79,8 +80,8 @@ open class BayesianOptimizer(
     val bootstrapThompson: Boolean = false,
     override val randomSeed: Int = 0,
     override val rewards: SeriesStat<*>? = null,
-    override val trainAbsError: SeriesStat<*>? = null,
-    override val testAbsError: SeriesStat<*>? = null,
+    override val trainScore: PairedStat<*>? = null,
+    override val testScore: PairedStat<*>? = null,
     val repeatPolicy: RepeatPolicy = RepeatPolicy.NoisyOnly,
     val exploration: WitnessSearch = HybridDescentSession.klause(projection.space),
 ) : PredictionLearner<HistoryData>,
@@ -105,8 +106,8 @@ open class BayesianOptimizer(
         outcome,
         randomSeed,
         rewards,
-        trainAbsError,
-        testAbsError,
+        trainScore,
+        testScore,
     )
 
     /** Number of full fits, including temporary and metric-triggered refits. */

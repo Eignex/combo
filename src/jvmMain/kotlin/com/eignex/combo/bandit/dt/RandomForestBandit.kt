@@ -20,6 +20,7 @@ import com.eignex.klause.solver.objective.LinearObjective
 import com.eignex.koblas.Vector
 import com.eignex.kumulant.bandit.univariate.BanditPolicy
 import com.eignex.kumulant.bandit.univariate.NormalTS
+import com.eignex.kumulant.core.PairedStat
 import com.eignex.kumulant.core.SeriesStat
 import com.eignex.kumulant.stat.regression.tree.RandomForestRegressionStat
 import com.eignex.kumulant.stat.regression.tree.RegressionLeafNode
@@ -108,8 +109,8 @@ class RandomForestBandit(
     override val randomSeed: Int = System.currentTimeMillis().toInt(),
     override val maximize: Boolean = true,
     override val rewards: SeriesStat<*>? = null,
-    override val trainAbsError: SeriesStat<*>? = null,
-    override val testAbsError: SeriesStat<*>? = null,
+    override val trainScore: PairedStat<*>? = null,
+    override val testScore: PairedStat<*>? = null,
 ) : PredictionLearner<ForestData> {
 
     init {
@@ -440,8 +441,8 @@ class RandomForestBandit(
         { sample, _ -> layout.encode(projection.encode(sample)) },
         regression::predict,
         rewards,
-        trainAbsError,
-        testAbsError,
+        trainScore,
+        testScore,
     )
 
     override fun predict(sample: BanditSample): Double = learning.predict(sample)
@@ -499,8 +500,8 @@ class RandomForestBandit(
             randomSeed: Int = System.currentTimeMillis().toInt(),
             maximize: Boolean = true,
             rewards: SeriesStat<*>? = null,
-            trainAbsError: SeriesStat<*>? = null,
-            testAbsError: SeriesStat<*>? = null,
+            trainScore: PairedStat<*>? = null,
+            testScore: PairedStat<*>? = null,
             bagging: Boolean = true,
             candidates: List<Split> = defaultSplitCandidates(space),
         ): RandomForestBandit {
@@ -518,8 +519,8 @@ class RandomForestBandit(
                 randomSeed = randomSeed,
                 maximize = maximize,
                 rewards = rewards,
-                trainAbsError = trainAbsError,
-                testAbsError = testAbsError,
+                trainScore = trainScore,
+                testScore = testScore,
             )
         }
 
@@ -541,8 +542,8 @@ class RandomForestBandit(
             randomSeed: Int = System.currentTimeMillis().toInt(),
             maximize: Boolean = true,
             rewards: SeriesStat<*>? = null,
-            trainAbsError: SeriesStat<*>? = null,
-            testAbsError: SeriesStat<*>? = null,
+            trainScore: PairedStat<*>? = null,
+            testScore: PairedStat<*>? = null,
             bagging: Boolean = true,
             candidates: List<Split> = defaultSplitCandidates(space),
         ): RandomForestBandit {
@@ -567,8 +568,8 @@ class RandomForestBandit(
                 randomSeed = randomSeed,
                 maximize = maximize,
                 rewards = rewards,
-                trainAbsError = trainAbsError,
-                testAbsError = testAbsError,
+                trainScore = trainScore,
+                testScore = testScore,
             )
         }
     }

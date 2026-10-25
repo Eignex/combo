@@ -115,6 +115,7 @@ start to isolate repeat/tie policies from the new multi-start search.
 ```sh
 ./gradlew refineBo -Prefinement.mode=frozen
 PYTHONHASHSEED=0 build/smac-venv/bin/python scripts/run_smac_frozen.py
+./gradlew scoreSmacFrozen
 ./gradlew refineBo -Prefinement.mode=optimize
 ./gradlew refineBo -Prefinement.mode=race
 python3 scripts/summarize_bo_refinement.py
@@ -124,7 +125,9 @@ The [study](refinement/report.md) archives aggregate frozen-model/search diagnos
 complete validation traces. Frozen histories use 20 seeds, 201–220. Whole-loop runs
 use 12 different seeds, 101–112, and budgets of 32 and 128 calls. Development seed 91
 is excluded. `-Prefinement.seeds=91` runs a smoke sample. The model-only reference uses
-the same pinned Python environment as the original SMAC comparison.
+the same pinned Python environment as the original SMAC comparison. Python exports
+raw predictions; `scoreSmacFrozen` computes prediction losses with Kumulant scorer
+stats and writes `smac-models.csv`.
 
 Frozen models see identical training rows and predict the same 10,000 independent
 feasible points. Candidate-budget comparisons keep the model fixed and vary nested

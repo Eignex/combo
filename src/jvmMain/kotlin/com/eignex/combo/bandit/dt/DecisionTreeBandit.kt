@@ -2,18 +2,20 @@ package com.eignex.combo.bandit.dt
 
 import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.CompiledDecisionSpace
+import com.eignex.combo.decisions.Context
+import com.eignex.combo.shared.LearningFeedback
 import com.eignex.combo.shared.NoFeasibleSampleException
 import com.eignex.combo.shared.PredictionLearner
 import com.eignex.combo.util.RandomSequence
 import com.eignex.klause.propagation.Assumptions
 import com.eignex.klause.solver.Sample
 import com.eignex.kumulant.bandit.univariate.BanditPolicy
+import com.eignex.kumulant.core.PairedStat
 import com.eignex.kumulant.core.SeriesStat
 import com.eignex.kumulant.stat.regression.tree.TreeRegressionResult
 import com.eignex.kumulant.stat.regression.tree.mergeSnapshot
 import com.eignex.kumulant.stat.regression.tree.snapshot
 import com.eignex.kumulant.stat.summary.WeightedVarianceResult
-import kotlin.math.abs
 import kotlin.random.Random
 
 /**
@@ -43,8 +45,8 @@ class DecisionTreeBandit(
     override val randomSeed: Int = System.currentTimeMillis().toInt(),
     override val maximize: Boolean = true,
     override val rewards: SeriesStat<*>? = null,
-    override val trainAbsError: SeriesStat<*>? = null,
-    override val testAbsError: SeriesStat<*>? = null,
+    override val trainScore: PairedStat<*>? = null,
+    override val testScore: PairedStat<*>? = null,
 ) : PredictionLearner<DecisionTreeData> {
 
     private val randomSequence = RandomSequence(randomSeed)
@@ -79,18 +81,22 @@ class DecisionTreeBandit(
         )
     }
 
-    override fun predict(sample: BanditSample): Double = tree.predict(projection.encode(sample))
+    private val feedback = LearningFeedback(
+        encode = { sample, _ -> projection.encode(sample) },
+        mean = tree::predict,
+        record = tree::update,
+        rewards = rewards,
+        trainScore = trainScore,
+        testScore = testScore,
+    )
 
-    override fun update(sample: BanditSample, reward: Double, weight: Double) {
-        rewards?.update(reward, 0L, weight)
-        if (testAbsError != null) testAbsError.update(abs(reward - predict(sample)), 0L, weight)
-        train(sample, reward, weight)
-        if (trainAbsError != null) trainAbsError.update(abs(reward - predict(sample)), 0L, weight)
-    }
+    override fun predict(sample: BanditSample): Double = feedback.predict(sample, Context.Empty)
 
-    override fun train(sample: BanditSample, reward: Double, weight: Double) {
-        tree.update(projection.encode(sample), reward, weight)
-    }
+    override fun update(sample: BanditSample, reward: Double, weight: Double) =
+        feedback.update(sample, Context.Empty, reward, weight)
+
+    override fun train(sample: BanditSample, reward: Double, weight: Double) =
+        feedback.train(sample, Context.Empty, reward, weight)
 
     override fun importData(data: DecisionTreeData) {
         require(

@@ -79,8 +79,8 @@ public final class com/eignex/combo/bandit/dt/BoolSplit : com/eignex/combo/bandi
 }
 
 public final class com/eignex/combo/bandit/dt/DecisionTreeBandit : com/eignex/combo/shared/PredictionLearner {
-	public fun <init> (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;Lkotlin/jvm/functions/Function2;Lcom/eignex/combo/bandit/dt/Tree;IIZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;)V
-	public synthetic fun <init> (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;Lkotlin/jvm/functions/Function2;Lcom/eignex/combo/bandit/dt/Tree;IIZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;Lkotlin/jvm/functions/Function2;Lcom/eignex/combo/bandit/dt/Tree;IIZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/PairedStat;Lcom/eignex/kumulant/core/PairedStat;)V
+	public synthetic fun <init> (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;Lkotlin/jvm/functions/Function2;Lcom/eignex/combo/bandit/dt/Tree;IIZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/PairedStat;Lcom/eignex/kumulant/core/PairedStat;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun choose ()Lcom/eignex/combo/decisions/BanditSample;
 	public fun chooseOrThrow ()Lcom/eignex/combo/decisions/BanditSample;
 	public fun exportData ()Lcom/eignex/combo/bandit/dt/DecisionTreeData;
@@ -92,8 +92,8 @@ public final class com/eignex/combo/bandit/dt/DecisionTreeBandit : com/eignex/co
 	public final fun getRetryBudget ()I
 	public fun getRewards ()Lcom/eignex/kumulant/core/SeriesStat;
 	public final fun getSpace ()Lcom/eignex/combo/decisions/CompiledDecisionSpace;
-	public fun getTestAbsError ()Lcom/eignex/kumulant/core/SeriesStat;
-	public fun getTrainAbsError ()Lcom/eignex/kumulant/core/SeriesStat;
+	public fun getTestScore ()Lcom/eignex/kumulant/core/PairedStat;
+	public fun getTrainScore ()Lcom/eignex/kumulant/core/PairedStat;
 	public final fun getTree ()Lcom/eignex/combo/bandit/dt/Tree;
 	public fun importData (Lcom/eignex/combo/bandit/dt/DecisionTreeData;)V
 	public synthetic fun importData (Lcom/eignex/combo/shared/LearnerData;)V
@@ -207,8 +207,8 @@ public final class com/eignex/combo/bandit/dt/PathStep {
 
 public final class com/eignex/combo/bandit/dt/RandomForestBandit : com/eignex/combo/shared/PredictionLearner {
 	public static final field Companion Lcom/eignex/combo/bandit/dt/RandomForestBandit$Companion;
-	public fun <init> (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;Lkotlin/jvm/functions/Function2;Lcom/eignex/kumulant/stat/regression/tree/RandomForestRegressionStat;Lcom/eignex/combo/bandit/dt/TreeVectorLayout;Lkotlin/jvm/functions/Function2;Lcom/eignex/combo/shared/DescentSession;IZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;)V
-	public synthetic fun <init> (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;Lkotlin/jvm/functions/Function2;Lcom/eignex/kumulant/stat/regression/tree/RandomForestRegressionStat;Lcom/eignex/combo/bandit/dt/TreeVectorLayout;Lkotlin/jvm/functions/Function2;Lcom/eignex/combo/shared/DescentSession;IZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;Lkotlin/jvm/functions/Function2;Lcom/eignex/kumulant/stat/regression/tree/RandomForestRegressionStat;Lcom/eignex/combo/bandit/dt/TreeVectorLayout;Lkotlin/jvm/functions/Function2;Lcom/eignex/combo/shared/DescentSession;IZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/PairedStat;Lcom/eignex/kumulant/core/PairedStat;)V
+	public synthetic fun <init> (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;Lkotlin/jvm/functions/Function2;Lcom/eignex/kumulant/stat/regression/tree/RandomForestRegressionStat;Lcom/eignex/combo/bandit/dt/TreeVectorLayout;Lkotlin/jvm/functions/Function2;Lcom/eignex/combo/shared/DescentSession;IZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/PairedStat;Lcom/eignex/kumulant/core/PairedStat;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun choose ()Lcom/eignex/combo/decisions/BanditSample;
 	public final fun choose (Lcom/eignex/combo/decisions/Context;)Lcom/eignex/combo/decisions/BanditSample;
 	public fun chooseOrThrow ()Lcom/eignex/combo/decisions/BanditSample;
@@ -226,8 +226,8 @@ public final class com/eignex/combo/bandit/dt/RandomForestBandit : com/eignex/co
 	public final fun getRegression ()Lcom/eignex/kumulant/stat/regression/tree/RandomForestRegressionStat;
 	public fun getRewards ()Lcom/eignex/kumulant/core/SeriesStat;
 	public final fun getSpace ()Lcom/eignex/combo/decisions/CompiledDecisionSpace;
-	public fun getTestAbsError ()Lcom/eignex/kumulant/core/SeriesStat;
-	public fun getTrainAbsError ()Lcom/eignex/kumulant/core/SeriesStat;
+	public fun getTestScore ()Lcom/eignex/kumulant/core/PairedStat;
+	public fun getTrainScore ()Lcom/eignex/kumulant/core/PairedStat;
 	public final fun getTrees ()Ljava/util/List;
 	public fun importData (Lcom/eignex/combo/bandit/dt/ForestData;)V
 	public synthetic fun importData (Lcom/eignex/combo/shared/LearnerData;)V
@@ -248,10 +248,10 @@ public final class com/eignex/combo/bandit/dt/RandomForestBandit : com/eignex/co
 }
 
 public final class com/eignex/combo/bandit/dt/RandomForestBandit$Companion {
-	public final fun build (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;ILjava/lang/Integer;Lcom/eignex/kumulant/stat/regression/tree/RegressionTreeConfig;Lcom/eignex/klause/localsearch/LocalSearchParams;Lcom/eignex/klause/backtrack/BacktrackParams;IIIZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;ZLjava/util/List;)Lcom/eignex/combo/bandit/dt/RandomForestBandit;
-	public final fun build (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;Lkotlin/jvm/functions/Function2;ILjava/lang/Integer;Lcom/eignex/kumulant/stat/regression/tree/RegressionTreeConfig;Lkotlin/jvm/functions/Function2;Lcom/eignex/combo/shared/DescentSession;IZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;ZLjava/util/List;)Lcom/eignex/combo/bandit/dt/RandomForestBandit;
-	public static synthetic fun build$default (Lcom/eignex/combo/bandit/dt/RandomForestBandit$Companion;Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;ILjava/lang/Integer;Lcom/eignex/kumulant/stat/regression/tree/RegressionTreeConfig;Lcom/eignex/klause/localsearch/LocalSearchParams;Lcom/eignex/klause/backtrack/BacktrackParams;IIIZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;ZLjava/util/List;ILjava/lang/Object;)Lcom/eignex/combo/bandit/dt/RandomForestBandit;
-	public static synthetic fun build$default (Lcom/eignex/combo/bandit/dt/RandomForestBandit$Companion;Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;Lkotlin/jvm/functions/Function2;ILjava/lang/Integer;Lcom/eignex/kumulant/stat/regression/tree/RegressionTreeConfig;Lkotlin/jvm/functions/Function2;Lcom/eignex/combo/shared/DescentSession;IZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;ZLjava/util/List;ILjava/lang/Object;)Lcom/eignex/combo/bandit/dt/RandomForestBandit;
+	public final fun build (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;ILjava/lang/Integer;Lcom/eignex/kumulant/stat/regression/tree/RegressionTreeConfig;Lcom/eignex/klause/localsearch/LocalSearchParams;Lcom/eignex/klause/backtrack/BacktrackParams;IIIZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/PairedStat;Lcom/eignex/kumulant/core/PairedStat;ZLjava/util/List;)Lcom/eignex/combo/bandit/dt/RandomForestBandit;
+	public final fun build (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;Lkotlin/jvm/functions/Function2;ILjava/lang/Integer;Lcom/eignex/kumulant/stat/regression/tree/RegressionTreeConfig;Lkotlin/jvm/functions/Function2;Lcom/eignex/combo/shared/DescentSession;IZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/PairedStat;Lcom/eignex/kumulant/core/PairedStat;ZLjava/util/List;)Lcom/eignex/combo/bandit/dt/RandomForestBandit;
+	public static synthetic fun build$default (Lcom/eignex/combo/bandit/dt/RandomForestBandit$Companion;Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;ILjava/lang/Integer;Lcom/eignex/kumulant/stat/regression/tree/RegressionTreeConfig;Lcom/eignex/klause/localsearch/LocalSearchParams;Lcom/eignex/klause/backtrack/BacktrackParams;IIIZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/PairedStat;Lcom/eignex/kumulant/core/PairedStat;ZLjava/util/List;ILjava/lang/Object;)Lcom/eignex/combo/bandit/dt/RandomForestBandit;
+	public static synthetic fun build$default (Lcom/eignex/combo/bandit/dt/RandomForestBandit$Companion;Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/kumulant/bandit/univariate/BanditPolicy;Lkotlin/jvm/functions/Function2;ILjava/lang/Integer;Lcom/eignex/kumulant/stat/regression/tree/RegressionTreeConfig;Lkotlin/jvm/functions/Function2;Lcom/eignex/combo/shared/DescentSession;IZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/PairedStat;Lcom/eignex/kumulant/core/PairedStat;ZLjava/util/List;ILjava/lang/Object;)Lcom/eignex/combo/bandit/dt/RandomForestBandit;
 }
 
 public abstract interface class com/eignex/combo/bandit/dt/Split : com/eignex/kumulant/stat/regression/tree/Split {
@@ -325,8 +325,8 @@ public final class com/eignex/combo/bandit/dt/TreeVectorLayout {
 }
 
 public final class com/eignex/combo/bandit/glm/LinearBandit : com/eignex/combo/shared/PredictionLearner {
-	public fun <init> (Lcom/eignex/combo/shared/LinearFeatureProjection;Lcom/eignex/kumulant/core/RegressionStat;Lcom/eignex/kumulant/stat/regression/glm/LinearPosterior;DLkotlin/jvm/functions/Function2;IZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;)V
-	public synthetic fun <init> (Lcom/eignex/combo/shared/LinearFeatureProjection;Lcom/eignex/kumulant/core/RegressionStat;Lcom/eignex/kumulant/stat/regression/glm/LinearPosterior;DLkotlin/jvm/functions/Function2;IZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lcom/eignex/combo/shared/LinearFeatureProjection;Lcom/eignex/kumulant/core/RegressionStat;Lcom/eignex/kumulant/stat/regression/glm/LinearPosterior;DLkotlin/jvm/functions/Function2;IZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/PairedStat;Lcom/eignex/kumulant/core/PairedStat;)V
+	public synthetic fun <init> (Lcom/eignex/combo/shared/LinearFeatureProjection;Lcom/eignex/kumulant/core/RegressionStat;Lcom/eignex/kumulant/stat/regression/glm/LinearPosterior;DLkotlin/jvm/functions/Function2;IZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/PairedStat;Lcom/eignex/kumulant/core/PairedStat;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun choose ()Lcom/eignex/combo/decisions/BanditSample;
 	public final fun choose (Lcom/eignex/combo/decisions/Context;)Lcom/eignex/combo/decisions/BanditSample;
 	public fun chooseOrThrow ()Lcom/eignex/combo/decisions/BanditSample;
@@ -342,8 +342,8 @@ public final class com/eignex/combo/bandit/glm/LinearBandit : com/eignex/combo/s
 	public final fun getRegression ()Lcom/eignex/kumulant/core/RegressionStat;
 	public fun getRewards ()Lcom/eignex/kumulant/core/SeriesStat;
 	public final fun getSpace ()Lcom/eignex/combo/decisions/CompiledDecisionSpace;
-	public fun getTestAbsError ()Lcom/eignex/kumulant/core/SeriesStat;
-	public fun getTrainAbsError ()Lcom/eignex/kumulant/core/SeriesStat;
+	public fun getTestScore ()Lcom/eignex/kumulant/core/PairedStat;
+	public fun getTrainScore ()Lcom/eignex/kumulant/core/PairedStat;
 	public fun importData (Lcom/eignex/combo/bandit/glm/LinearLearnerData;)V
 	public synthetic fun importData (Lcom/eignex/combo/shared/LearnerData;)V
 	public fun optimal ()Lcom/eignex/combo/decisions/BanditSample;
@@ -435,8 +435,8 @@ public abstract interface class com/eignex/combo/bo/BatchSelector {
 }
 
 public class com/eignex/combo/bo/BayesianOptimizer : com/eignex/combo/bo/TrialOptimizer, com/eignex/combo/shared/PredictionLearner {
-	public fun <init> (Lcom/eignex/combo/decisions/FeatureEncoder;Lcom/eignex/combo/bo/Surrogate;Lcom/eignex/combo/bo/Study;Lcom/eignex/combo/bo/AcquisitionFactory;Lcom/eignex/combo/bo/AcquisitionOptimizer;Lcom/eignex/combo/bo/BatchPolicy;Lcom/eignex/combo/bo/OutcomeSpec;Lcom/eignex/combo/bo/InitialDesign;ZILcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/combo/bo/RepeatPolicy;Lcom/eignex/combo/shared/WitnessSearch;)V
-	public synthetic fun <init> (Lcom/eignex/combo/decisions/FeatureEncoder;Lcom/eignex/combo/bo/Surrogate;Lcom/eignex/combo/bo/Study;Lcom/eignex/combo/bo/AcquisitionFactory;Lcom/eignex/combo/bo/AcquisitionOptimizer;Lcom/eignex/combo/bo/BatchPolicy;Lcom/eignex/combo/bo/OutcomeSpec;Lcom/eignex/combo/bo/InitialDesign;ZILcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/combo/bo/RepeatPolicy;Lcom/eignex/combo/shared/WitnessSearch;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lcom/eignex/combo/decisions/FeatureEncoder;Lcom/eignex/combo/bo/Surrogate;Lcom/eignex/combo/bo/Study;Lcom/eignex/combo/bo/AcquisitionFactory;Lcom/eignex/combo/bo/AcquisitionOptimizer;Lcom/eignex/combo/bo/BatchPolicy;Lcom/eignex/combo/bo/OutcomeSpec;Lcom/eignex/combo/bo/InitialDesign;ZILcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/PairedStat;Lcom/eignex/kumulant/core/PairedStat;Lcom/eignex/combo/bo/RepeatPolicy;Lcom/eignex/combo/shared/WitnessSearch;)V
+	public synthetic fun <init> (Lcom/eignex/combo/decisions/FeatureEncoder;Lcom/eignex/combo/bo/Surrogate;Lcom/eignex/combo/bo/Study;Lcom/eignex/combo/bo/AcquisitionFactory;Lcom/eignex/combo/bo/AcquisitionOptimizer;Lcom/eignex/combo/bo/BatchPolicy;Lcom/eignex/combo/bo/OutcomeSpec;Lcom/eignex/combo/bo/InitialDesign;ZILcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/PairedStat;Lcom/eignex/kumulant/core/PairedStat;Lcom/eignex/combo/bo/RepeatPolicy;Lcom/eignex/combo/shared/WitnessSearch;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun bestObserved (Lcom/eignex/combo/decisions/Context;)Lcom/eignex/combo/bo/ObservedBest;
 	public static synthetic fun bestObserved$default (Lcom/eignex/combo/bo/BayesianOptimizer;Lcom/eignex/combo/decisions/Context;ILjava/lang/Object;)Lcom/eignex/combo/bo/ObservedBest;
 	public fun cancel (JLjava/lang/String;)V
@@ -467,8 +467,8 @@ public class com/eignex/combo/bo/BayesianOptimizer : com/eignex/combo/bo/TrialOp
 	public final fun getStore ()Lcom/eignex/combo/bo/ObservationStore;
 	public final fun getStudy ()Lcom/eignex/combo/bo/Study;
 	public final fun getSurrogate ()Lcom/eignex/combo/bo/Surrogate;
-	public fun getTestAbsError ()Lcom/eignex/kumulant/core/SeriesStat;
-	public fun getTrainAbsError ()Lcom/eignex/kumulant/core/SeriesStat;
+	public fun getTestScore ()Lcom/eignex/kumulant/core/PairedStat;
+	public fun getTrainScore ()Lcom/eignex/kumulant/core/PairedStat;
 	public fun getTrials ()Ljava/util/List;
 	public fun importData (Lcom/eignex/combo/bo/HistoryData;)V
 	public synthetic fun importData (Lcom/eignex/combo/shared/LearnerData;)V
@@ -1123,8 +1123,8 @@ public final class com/eignex/combo/bo/RacingPolicy {
 
 public final class com/eignex/combo/bo/RandomForestOptimizer : com/eignex/combo/bo/BayesianOptimizer {
 	public static final field Companion Lcom/eignex/combo/bo/RandomForestOptimizer$Companion;
-	public fun <init> (Lcom/eignex/combo/decisions/FeatureEncoder;Lcom/eignex/combo/bo/ObservationStore;Lcom/eignex/combo/bo/ForestOptimizerConfig;Lcom/eignex/combo/shared/WitnessSearch;IZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/combo/bo/BatchPolicy;Lcom/eignex/combo/bo/OutcomeSpec;Lcom/eignex/combo/bo/InitialDesign;)V
-	public synthetic fun <init> (Lcom/eignex/combo/decisions/FeatureEncoder;Lcom/eignex/combo/bo/ObservationStore;Lcom/eignex/combo/bo/ForestOptimizerConfig;Lcom/eignex/combo/shared/WitnessSearch;IZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/combo/bo/BatchPolicy;Lcom/eignex/combo/bo/OutcomeSpec;Lcom/eignex/combo/bo/InitialDesign;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lcom/eignex/combo/decisions/FeatureEncoder;Lcom/eignex/combo/bo/ObservationStore;Lcom/eignex/combo/bo/ForestOptimizerConfig;Lcom/eignex/combo/shared/WitnessSearch;IZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/PairedStat;Lcom/eignex/kumulant/core/PairedStat;Lcom/eignex/combo/bo/BatchPolicy;Lcom/eignex/combo/bo/OutcomeSpec;Lcom/eignex/combo/bo/InitialDesign;)V
+	public synthetic fun <init> (Lcom/eignex/combo/decisions/FeatureEncoder;Lcom/eignex/combo/bo/ObservationStore;Lcom/eignex/combo/bo/ForestOptimizerConfig;Lcom/eignex/combo/shared/WitnessSearch;IZLcom/eignex/kumulant/core/SeriesStat;Lcom/eignex/kumulant/core/PairedStat;Lcom/eignex/kumulant/core/PairedStat;Lcom/eignex/combo/bo/BatchPolicy;Lcom/eignex/combo/bo/OutcomeSpec;Lcom/eignex/combo/bo/InitialDesign;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun getConfig ()Lcom/eignex/combo/bo/ForestOptimizerConfig;
 	public final fun getSearch ()Lcom/eignex/combo/shared/WitnessSearch;
 }
@@ -1882,8 +1882,8 @@ public final class com/eignex/combo/shared/NoFeasibleSampleException : java/lang
 }
 
 public abstract interface class com/eignex/combo/shared/PredictionLearner : com/eignex/combo/shared/Learner {
-	public abstract fun getTestAbsError ()Lcom/eignex/kumulant/core/SeriesStat;
-	public abstract fun getTrainAbsError ()Lcom/eignex/kumulant/core/SeriesStat;
+	public abstract fun getTestScore ()Lcom/eignex/kumulant/core/PairedStat;
+	public abstract fun getTrainScore ()Lcom/eignex/kumulant/core/PairedStat;
 	public abstract fun predict (Lcom/eignex/combo/decisions/BanditSample;)D
 	public abstract fun train (Lcom/eignex/combo/decisions/BanditSample;DD)V
 	public static synthetic fun train$default (Lcom/eignex/combo/shared/PredictionLearner;Lcom/eignex/combo/decisions/BanditSample;DDILjava/lang/Object;)V

@@ -4,9 +4,9 @@ import com.eignex.combo.decisions.DecisionSpace
 import com.eignex.combo.decisions.context
 import com.eignex.combo.shared.LinearFeatureProjection
 import com.eignex.combo.shared.WitnessTermination
-import com.eignex.kumulant.core.SeriesStat
-import com.eignex.kumulant.stat.summary.SumResult
-import com.eignex.kumulant.stat.summary.SumStat
+import com.eignex.kumulant.core.PairedStat
+import com.eignex.kumulant.stat.score.MaeLossStat
+import com.eignex.kumulant.stat.summary.WeightedMeanResult
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -110,10 +110,12 @@ class TrialsTest {
     @Test
     fun `a post recording metric failure cannot append a trial outcome twice`() {
         val model = Toggles()
-        val sink = object : SeriesStat<SumResult> by SumStat() {
-            override fun update(value: Double, timestampNanos: Long, weight: Double) = error("metric unavailable")
+        val sink = object : PairedStat<WeightedMeanResult> by MaeLossStat() {
+            override fun update(x: Double, y: Double, timestampNanos: Long, weight: Double) = error(
+                "metric unavailable",
+            )
         }
-        val optimizer = RandomForestOptimizer(LinearFeatureProjection(model.compileSpace()), trainAbsError = sink)
+        val optimizer = RandomForestOptimizer(LinearFeatureProjection(model.compileSpace()), trainScore = sink)
         val trial = optimizer.suggest(1, context { set(model.premium, true) })[0]
         assertFailsWith<IllegalStateException> { optimizer.complete(trial.id, 5.0) }
         assertEquals(TrialStatus.Completed, optimizer.trials.single().status)

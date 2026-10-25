@@ -7,6 +7,7 @@ import com.eignex.combo.shared.LearningFeedback
 import com.eignex.combo.shared.assignmentKey
 import com.eignex.koblas.DenseVector
 import com.eignex.koblas.Vector
+import com.eignex.kumulant.core.PairedStat
 import com.eignex.kumulant.core.SeriesStat
 import kotlin.random.Random
 
@@ -17,8 +18,8 @@ internal class SurrogateLearning(
     private val outcome: OutcomeSpec,
     private val seed: Int,
     rewards: SeriesStat<*>?,
-    trainAbsError: SeriesStat<*>?,
-    testAbsError: SeriesStat<*>?,
+    trainScore: PairedStat<*>?,
+    testScore: PairedStat<*>?,
 ) {
     private var cached: FittedSurrogate? = null
     private var fittedRevision: Long? = null
@@ -41,8 +42,8 @@ internal class SurrogateLearning(
             store.append(Observation(value.sample, value.context, reward, weight, value.noise))
         },
         rewards = rewards,
-        trainAbsError = trainAbsError,
-        testAbsError = testAbsError,
+        trainScore = trainScore,
+        testScore = testScore,
     )
 
     private fun trainingSeed(observations: List<Observation>): Long {

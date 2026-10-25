@@ -259,7 +259,18 @@ interface. Appends must atomically store the row and advance the revision; faile
 appends leave both unchanged. Stores belong to one decision-space schema. `train` records off-policy
 evaluations without reward/error bookkeeping; zero weight is a no-op and negative
 weights are rejected. Import/export transfers schema-bound history snapshots.
-Configuring pre/post-training error sinks can trigger additional fits during updates.
+
+Prediction learners accept `testScore` and `trainScore` as Kumulant `PairedStat`
+scorers. They receive `(prediction, observed reward)` before and after learning,
+respectively, with the observation weight. Use `MaeLossStat()` for mean absolute
+error or `MseLossStat()` for mean squared error; callers can provide other paired
+scorers appropriate to their model. Off-policy `train` leaves reward and score
+tracking untouched. Configuring these scorers can trigger additional fits during updates.
+
+The former `testAbsError` / `trainAbsError` scalar sinks are replaced by these paired
+scorers. Replace an absolute-error `MeanStat()` sink with `MaeLossStat()` and read its
+weighted mean and total weight. For a former `SumStat()` sink, the weighted total
+is `result.mean * result.totalWeights`. Loss calculation and aggregation belong to Kumulant.
 
 For parallel evaluations, the BO interface follows Vizier's batch suggestion and
 pending-trial pattern ([Vizier API](https://oss-vizier.readthedocs.io/en/latest/guides/user/running_vizier.html)):

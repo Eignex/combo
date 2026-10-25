@@ -16,6 +16,8 @@ import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
 import com.eignex.koblas.DenseVector
 import com.eignex.koblas.Vector
+import com.eignex.kumulant.stat.score.MaeLossStat
+import com.eignex.kumulant.stat.score.MseLossStat
 import com.eignex.kumulant.stat.summary.SumStat
 import org.junit.Rule
 import org.junit.rules.Timeout
@@ -268,13 +270,13 @@ class RandomForestOptimizerTest {
     fun `history learners share weighted reward and pre and post training error tracking`() {
         val space = Toggle().compileSpace()
         val rewards = SumStat()
-        val before = SumStat()
-        val after = SumStat()
+        val before = MseLossStat()
+        val after = MaeLossStat()
         val optimizer = RandomForestOptimizer(
             LinearFeatureProjection(space),
             rewards = rewards,
-            testAbsError = before,
-            trainAbsError = after,
+            testScore = before,
+            trainScore = after,
         )
         val sample = BanditSample(Sample(booleanArrayOf(false), longArrayOf()))
         optimizer.train(sample, 100.0, weight = 0.0)
@@ -282,7 +284,9 @@ class RandomForestOptimizerTest {
         assertFailsWith<IllegalArgumentException> { optimizer.train(sample, 1.0, weight = -1.0) }
         optimizer.update(sample, 3.0, weight = 2.0)
         assertEquals(6.0, rewards.read().sum)
-        assertEquals(6.0, before.read().sum)
-        assertEquals(0.0, after.read().sum)
+        assertEquals(9.0, before.read().mean)
+        assertEquals(2.0, before.read().totalWeights)
+        assertEquals(0.0, after.read().mean)
+        assertEquals(2.0, after.read().totalWeights)
     }
 }
