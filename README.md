@@ -604,3 +604,25 @@ tasks already supply these flags.
   to batch linear models and additional acquisition functions.
 - **Joint batching and richer kernels**: joint batch acquisitions and mixed-type GP
   covariance, followed by instance features, censored observations, and multi-fidelity scheduling.
+
+### Noisy recommendations
+
+`recommendOrThrow()` reads a frozen history without advancing suggestion randomness or
+reserving trials. Repeated calls on unchanged history use the same recommendation seed.
+Its model fit is cached; configuring a recommendation search separately lets callers
+increase computational effort without increasing the external evaluation budget:
+
+```kotlin
+val point = optimizer.recommendOrThrow(
+    LocalAndRandomSearch(projection, witnesses, candidateCount = 1024, maxAttempts = 2048),
+)
+```
+
+Fresh confirmation can use explicitly selected evaluated configuration IDs. For example,
+rank `race.configurations` by the optimizer's posterior mean, select a frozen shortlist,
+and call `race.beginConfirmation(freshKeys, configurationIds)`. Every selected ID must
+have a successful measurement; keys must be fresh and enough worker budget must remain.
+The winner uses only confirmation measurements. This is opt-in: our
+[noisy refinement study](benchmarks/noisy-bo/report.md) finds substantial opportunity
+cost at small budgets, and additional recommendation search does not consistently
+improve true regret. GP, forest, racing, and search defaults remain unchanged.

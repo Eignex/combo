@@ -132,3 +132,25 @@ tasks.register<JavaExec>("scoreSmacFrozen") {
     javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(25)) })
     jvmArgs("--enable-native-access=ALL-UNNAMED", "--add-modules=jdk.incubator.vector")
 }
+
+// Noisy recommendation/model/search diagnostics with separately budgeted fresh confirmation.
+tasks.register<JavaExec>("refineNoisyBo") {
+    dependsOn("jvmTestClasses")
+    val compilation = kotlin.targets.getByName("jvm").compilations.getByName("test")
+    classpath(compilation.output.allOutputs, compilation.runtimeDependencyFiles)
+    mainClass.set("com.eignex.combo.bo.NoisyBoBenchmarkKt")
+    args(providers.gradleProperty("noisy.seeds").orElse("").get(),
+        providers.gradleProperty("noisy.design").orElse("measurement-aware").get())
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(25)) })
+    jvmArgs("--enable-native-access=ALL-UNNAMED", "--add-modules=jdk.incubator.vector")
+}
+
+// Refit archived failing histories to separate model error from recommendation-search error.
+tasks.register<JavaExec>("auditLegacyNoisyBo") {
+    dependsOn("jvmTestClasses")
+    val compilation = kotlin.targets.getByName("jvm").compilations.getByName("test")
+    classpath(compilation.output.allOutputs, compilation.runtimeDependencyFiles)
+    mainClass.set("com.eignex.combo.bo.LegacyNoisyAuditKt")
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(25)) })
+    jvmArgs("--enable-native-access=ALL-UNNAMED", "--add-modules=jdk.incubator.vector")
+}

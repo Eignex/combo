@@ -478,7 +478,9 @@ public class com/eignex/combo/bo/BayesianOptimizer : com/eignex/combo/bo/TrialOp
 	public final fun optimalOrThrow (Lcom/eignex/combo/decisions/Context;)Lcom/eignex/combo/decisions/BanditSample;
 	public fun predict (Lcom/eignex/combo/decisions/BanditSample;)D
 	public final fun predict (Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;)D
+	public final fun recommendOrThrow (Lcom/eignex/combo/bo/AcquisitionOptimizer;Lcom/eignex/combo/decisions/Context;)Lcom/eignex/combo/decisions/BanditSample;
 	public final fun recommendOrThrow (Lcom/eignex/combo/decisions/Context;)Lcom/eignex/combo/decisions/BanditSample;
+	public static synthetic fun recommendOrThrow$default (Lcom/eignex/combo/bo/BayesianOptimizer;Lcom/eignex/combo/bo/AcquisitionOptimizer;Lcom/eignex/combo/decisions/Context;ILjava/lang/Object;)Lcom/eignex/combo/decisions/BanditSample;
 	public static synthetic fun recommendOrThrow$default (Lcom/eignex/combo/bo/BayesianOptimizer;Lcom/eignex/combo/decisions/Context;ILjava/lang/Object;)Lcom/eignex/combo/decisions/BanditSample;
 	public fun suggest (ILcom/eignex/combo/decisions/Context;)Lcom/eignex/combo/bo/TrialBatch;
 	public fun train (Lcom/eignex/combo/decisions/BanditSample;DD)V
@@ -1074,6 +1076,7 @@ public final class com/eignex/combo/bo/RacingOptimizer {
 	public final fun ask (I)Lcom/eignex/combo/bo/EvaluationBatch;
 	public static synthetic fun ask$default (Lcom/eignex/combo/bo/RacingOptimizer;IILjava/lang/Object;)Lcom/eignex/combo/bo/EvaluationBatch;
 	public final fun beginConfirmation (Ljava/util/List;I)V
+	public final fun beginConfirmation (Ljava/util/List;Ljava/util/List;)V
 	public static synthetic fun beginConfirmation$default (Lcom/eignex/combo/bo/RacingOptimizer;Ljava/util/List;IILjava/lang/Object;)V
 	public final fun cancel (JLjava/lang/String;)V
 	public static synthetic fun cancel$default (Lcom/eignex/combo/bo/RacingOptimizer;JLjava/lang/String;ILjava/lang/Object;)V
