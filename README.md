@@ -328,8 +328,8 @@ optimizer.complete(trial.id, cost, noiseVariance = measurementVariance)
 ```
 
 Combo owns the batch GP and CART models under `com.eignex.combo.bo.model`; Kumulant
-retains online learning, statistical summaries, and shared tree snapshots. Koblas
-supplies Cholesky factorization, triangular solves, and matrix/vector products.
+retains online learning, statistical summaries, shared tree snapshots, and Cholesky
+factorization. Koblas supplies triangular solves and matrix/vector products.
 The GP follows [Gaussian Processes for Machine Learning, chapter 2](https://gaussianprocess.org/gpml/chapters/RW2.pdf).
 
 The default kernel is Matérn five halves; `GaussianKernel.Rbf` selects squared exponential

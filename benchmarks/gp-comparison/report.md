@@ -142,7 +142,7 @@ The canonical archive uses the published artifacts listed in [replay.json](repla
 
 Keep GP/EI as an explicit alternative for small continuous histories; retain the forest defaults for existing users. Read the frozen model and fixed-history acquisition tables together before attributing an optimization difference to search or uncertainty. Mixed-type/conditional kernels, censored outcomes, multi-fidelity scheduling, and joint batch EI are unvalidated or unimplemented here. Exact GP fits retain history and scale cubically; coherent lazy function draws also retain their distinct queried points.
 
-The GP follows [GPML chapter 2](https://gaussianprocess.org/gpml/chapters/RW2.pdf). Koblas supplies numerical factorization and solves; all GP model and optimization policy lives in Combo. Kumulant supplies generic summaries and shared tree snapshots.
+The GP follows [GPML chapter 2](https://gaussianprocess.org/gpml/chapters/RW2.pdf). These archived runs used the Koblas factorization API. The current implementation reuses Kumulant’s Cholesky factorization over Koblas BLAS operations; GP models and optimization policy live in Combo.
 
 ## Reproduce
 

@@ -4,12 +4,12 @@ import com.eignex.combo.bo.JointPredictiveMoments
 import com.eignex.combo.bo.PredictiveMoments
 import com.eignex.combo.bo.SampledFunction
 import com.eignex.combo.bo.TrainingData
-import com.eignex.koblas.CholeskyFactor
 import com.eignex.koblas.DenseMatrix
 import com.eignex.koblas.DenseVector
-import com.eignex.koblas.NotPositiveDefinite
-import com.eignex.koblas.cholesky
 import com.eignex.koblas.koblas
+import com.eignex.kumulant.math.CholeskyFactor
+import com.eignex.kumulant.math.NotPositiveDefinite
+import com.eignex.kumulant.math.factorCholesky
 import com.eignex.kumulant.math.nextNormal
 import com.eignex.kumulant.stat.summary.estimateMean
 import kotlin.math.PI
@@ -333,7 +333,7 @@ private fun stabilized(
         val regularized = DenseMatrix.wrap(matrix.rows, matrix.cols, matrix.values.copyOf())
         for (i in 0 until matrix.rows) regularized[i, i] += jitter
         try {
-            return regularized.cholesky() to jitter
+            return regularized.factorCholesky() to jitter
         } catch (error: NotPositiveDefinite) {
             failure = error
             jitter *= 10.0
