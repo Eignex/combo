@@ -299,7 +299,7 @@ The default batch policy selects sequentially with pending assignments excluded.
 constructing a batch. Conditionable surrogates can condition on those observations;
 other surrogates refit temporary datasets. Neither path writes fantasies into the
 observation store. Bootstrap Thompson fits a fresh history-bootstrap model per slot.
-Joint batch EI is not implemented. Streaming learners retain `choose/update`.
+Opt-in joint batch acquisition is described below. Streaming learners retain `choose/update`.
 
 Bayesian optimizers exclude completed assignments by default for deterministic outcomes.
 `RepeatPolicy.NoisyOnly` permits replicates when `OutcomeSpec.noise` is `Noisy`;
@@ -364,11 +364,65 @@ Conditioning freezes fitted parameters and re-factorizes augmented data. Functio
 sample latent points jointly and cache their values across repeated, reordered, and later
 queries. First visits to unseen coordinates determine seeded random assignment order;
 a draw retains those points and its conditioning cost grows with them. Fantasies remain
-outside recorded history. Joint batch EI remains a later acquisition improvement.
+outside recorded history. Joint acquisition uses joint moments directly rather than growing a function draw.
 
 See the [GP comparison report](benchmarks/gp-comparison/report.md) for frozen-history
 model diagnostics, acquisition-search checks, and equal-budget GP/EI, forest/EI, and
 random-search experiments. These comparisons use continuous synthetic spaces.
+
+## Joint batch acquisition
+
+`JointBatchPolicy` optimizes a set of configurations using their joint latent posterior.
+`JointExpectedImprovement` (q-EI) uses a fixed incumbent; `JointNoisyExpectedImprovement`
+(q-NEI) jointly samples completed configurations and candidates, integrating uncertainty
+about the latent incumbent. Pending points enter that sampled baseline, so only the
+additional improvement from the new batch contributes. Neither acquisition invents
+pending outcomes or adds observation noise to function draws. This follows the joint
+Monte Carlo formulation in [BoTorch's acquisition interface](https://botorch.readthedocs.io/en/stable/acquisition.html).
+
+```kotlin
+val projection = SearchTransform(space)
+val jointSearch = JointPoolSearch(projection, witnesses, candidateCount = 32)
+val optimizer = BayesianOptimizer(
+    projection,
+    GaussianProcessSurrogate(),
+    initialDesign = LatinHypercubeInitialDesign(space, evaluationBudget = 100, seed = 42),
+    batchPolicy = JointBatchPolicy(JointNoisyExpectedImprovement(samples = 256), jointSearch),
+    outcome = OutcomeSpec(maximize = false, noise = ObservationNoise.Noisy, standardize = true),
+    randomSeed = 42,
+)
+val batch = optimizer.suggest(4)
+// Complete each reserved trial once; results can arrive in any order.
+```
+
+One frozen snapshot and fitted model serve the entire request. Baseline and pending
+coordinates respect the requested hard context, while all pending assignments remain
+excluded from proposals. Study validates and reserves the full batch together. Initial
+exploration and contexts without a completed baseline use ordinary feasible proposals.
+Joint moments are required after warmup; marginal-only forest models fail explicitly.
+Bootstrap Thompson sampling is a separate incompatible strategy.
+
+`JointPoolSearch` generates a feasible pool, starts several random sets, and replaces
+one member at a time while scoring the entire set. It enforces distinct assignments,
+context, exclusions, and Klause feasibility, and can return partial batches on exhaustion.
+It searches within its pool and has no global-optimum guarantee. The suggestion trace
+counts whole-set acquisition evaluations for joint search; these are more expensive than
+single-point scores and should not be compared as equal computational units.
+
+Both acquisitions approximate joint moments as Gaussian, or sample Gaussian log-response
+moments before exponentiating for a log-transformed outcome. Fixed antithetic normal
+samples make each bound objective reproducible; candidate row permutations and duplicates
+do not change its value. Kumulant supplies normal draws, summaries, and Cholesky factors;
+Koblas supplies matrix products. Near-singular joint covariance receives bounded relative
+jitter up to `1e-8` only after factorization fails. Exactly deterministic coordinates remain
+deterministic. Materially indefinite matrices fail rather than dropping correlations.
+
+This first version re-factors the joint covariance for each candidate set. q-NEI includes
+the full same-context baseline, with no pruning or cached baseline factor, so large histories
+are expensive. Ordinary Monte Carlo EI can also develop zero-improvement plateaus; stable
+log-improvement acquisition remains future work. q-NEI is an improvement criterion, not an
+information-gain policy for choosing repeated measurements. These policies remain opt-in;
+see the [paired joint-batch experiment](benchmarks/joint-batch/report.md) for results and limits.
 
 ## SMAC-inspired profile and paired racing
 
@@ -602,8 +656,9 @@ tasks already supply these flags.
   Thompson-sampling surrogate.
 - **Additional history-based surrogates**: extend the shared store/refit lifecycle
   to batch linear models and additional acquisition functions.
-- **Joint batching and richer kernels**: joint batch acquisitions and mixed-type GP
-  covariance, followed by instance features, censored observations, and multi-fidelity scheduling.
+- **Scalable joint batching and richer kernels**: baseline pruning/root caching, stable
+  log-improvement acquisitions, and mixed-type GP covariance, followed by instance features,
+  censored observations, and multi-fidelity scheduling.
 
 ### Noisy recommendations
 

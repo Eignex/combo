@@ -28,7 +28,7 @@ data class SuggestionTrace(
     val seed: Long,
     /** Full model fits performed in this round, including temporary bootstrap/fantasy fits. */
     val modelFits: Long,
-    /** Acquisition evaluations, excluding expensive external objective evaluations. */
+    /** Acquisition objective evaluations (individual points or joint sets), excluding external evaluations. */
     val acquisitionEvaluations: Int,
 )
 
@@ -162,6 +162,45 @@ open class BayesianOptimizer(
         val selector = object : BatchSelector {
             override fun predict(sample: BanditSample, context: Context): Double =
                 base.mean(projection.encode(sample, context))
+            override fun selectJoint(
+                count: Int,
+                acquisition: JointAcquisitionFactory,
+                optimizer: JointAcquisitionOptimizer,
+            ): ProposalBatch {
+                require(!bootstrapThompson) { "joint batches do not support bootstrap Thompson sampling" }
+                if (explore || scoped.isEmpty()) {
+                    return SequentialBatchPolicy().select(snapshot, count, context, this)
+                }
+                val pending = snapshot.pending.filter {
+                    space.matches(it.sample.sample, space.assumptionsFor(context)) && candidates.valid(it.sample.sample)
+                }
+                val completedRows = scoped.distinctBy { it.sample.sample.assignmentKey() }
+                val objective = acquisition.create(
+                    JointAcquisitionContext(
+                        base,
+                        baseline,
+                        outcome,
+                        featureRows(
+                            completedRows.map { projection.encode(it.sample, context) },
+                            projection.featureSize,
+                        ),
+                        featureRows(pending.map { projection.encode(it.sample, context) }, projection.featureSize),
+                    ),
+                    random,
+                )
+                val selected = optimizer.maximize(
+                    objective,
+                    AcquisitionRequest(
+                        context,
+                        snapshot.pending.map { it.sample.sample } + completed,
+                        scoped.map { it.sample.sample },
+                    ),
+                    count,
+                    random,
+                )
+                evaluations += selected.evaluations
+                return ProposalBatch(selected.samples, selected.termination)
+            }
             override fun select(
                 temporary: List<Observation>,
                 excluded: List<com.eignex.klause.solver.Sample>,

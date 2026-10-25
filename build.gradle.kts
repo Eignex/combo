@@ -154,3 +154,14 @@ tasks.register<JavaExec>("auditLegacyNoisyBo") {
     javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(25)) })
     jvmArgs("--enable-native-access=ALL-UNNAMED", "--add-modules=jdk.incubator.vector")
 }
+
+// Optional paired comparison of joint acquisitions and existing sequential batch policies.
+tasks.register<JavaExec>("compareJointBatch") {
+    dependsOn("jvmTestClasses")
+    val compilation = kotlin.targets.getByName("jvm").compilations.getByName("test")
+    classpath(compilation.output.allOutputs, compilation.runtimeDependencyFiles)
+    mainClass.set("com.eignex.combo.bo.JointBatchBenchmarkKt")
+    args(providers.gradleProperty("joint.seeds").orElse("").get())
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(25)) })
+    jvmArgs("--enable-native-access=ALL-UNNAMED", "--add-modules=jdk.incubator.vector")
+}
