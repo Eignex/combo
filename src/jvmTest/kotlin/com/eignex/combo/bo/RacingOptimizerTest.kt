@@ -306,4 +306,32 @@ class RacingOptimizerTest {
         restored.importData(race.exportData())
         assertTrue(restored.ask(1).tasks.isNotEmpty())
     }
+
+    @Test
+    fun `explicit confirmation freezes selected evaluated IDs and uses only fresh evidence`() {
+        val race = RacingOptimizer(optimizer(Rate().compileSpace()), listOf(keys.first()), evaluationBudget = 3)
+        val first = race.ask(1).tasks.single()
+        race.complete(first.id, 10.0)
+        val second = race.ask(1).tasks.single()
+        race.complete(second.id, 8.0)
+        val selected = mutableListOf(second.configurationId)
+        assertFailsWith<IllegalArgumentException> {
+            race.beginConfirmation(listOf(EvaluationKey(seed = 101)), listOf(999L))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            race.beginConfirmation(listOf(EvaluationKey(seed = 101)), selected + selected)
+        }
+        race.beginConfirmation(listOf(EvaluationKey(seed = 101)), selected)
+        selected.clear()
+
+        val confirmation = race.ask(1).tasks.single()
+        race.complete(confirmation.id, 7.0)
+
+        assertEquals(second.configurationId, confirmation.configurationId)
+        assertEquals(second.sample, race.incumbent!!.sample)
+        assertEquals(7.0, race.incumbent!!.reward)
+        assertEquals(1, race.incumbent!!.measurements)
+        assertEquals(3L, race.optimizer.store.revision)
+        assertEquals(3, race.tasks.size)
+    }
 }

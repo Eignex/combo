@@ -240,18 +240,28 @@ open class BayesianOptimizer(
     }
 
     /** Recommend a feasible configuration by posterior mean, which may not have been evaluated. */
-    fun recommendOrThrow(context: Context = Context.Empty): BanditSample {
-        val snapshot = study.beginRound()
+    fun recommendOrThrow(context: Context = Context.Empty): BanditSample =
+        recommendOrThrow(acquisitionOptimizer, context)
+
+    /**
+     * Recommend using an independent search budget over the cached posterior mean.
+     * Reads a snapshot without advancing suggestion randomness or reserving an evaluation.
+     *
+     * @param search Feasible maximizer used only for recommendation.
+     * @param context Hard context shared by the recommendation candidates.
+     */
+    fun recommendOrThrow(search: AcquisitionOptimizer, context: Context = Context.Empty): BanditSample {
+        val snapshot = study.snapshot()
         val model = learning.model(snapshot.history)
         val acquisition = PosteriorMean.create(AcquisitionContext(model, null, outcome), Random(randomSeed))
-        return acquisitionOptimizer.maximize(
+        return search.maximize(
             acquisition,
             AcquisitionRequest(
                 context,
                 emptyList(),
                 snapshot.history.observations.map { it.sample.sample },
             ),
-            Random(randomSeed.toLong() xor snapshot.round),
+            Random(randomSeed.toLong() xor snapshot.history.revision),
         ).sample
             ?: throw NoFeasibleSampleException("recommendation search returned no feasible witness")
     }
@@ -268,6 +278,8 @@ open class BayesianOptimizer(
     } catch (_: NoFeasibleSampleException) {
         null
     }
+
+    internal fun fittedModel(): FittedSurrogate = learning.model(store.snapshot())
 
     /** Best actually evaluated configuration; noisy observations are aggregated by statistical weight. */
     fun bestObserved(context: Context = Context.Empty): ObservedBest? {

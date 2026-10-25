@@ -1,0 +1,27 @@
+{
+  "development_seeds": [
+    911,
+    912,
+    913,
+    914
+  ],
+  "benchmark_sha256": "e115000e62487b0d8d5253d12c03bea0ad474df50caf7d233e6582c9878ac5d0",
+  "build_sha256": "1485e67919c3c7ae511836fb51ba96dec517317cfe587f2a35f536c4394a8972",
+  "runs": 240,
+  "evaluations": 11520,
+  "protocol_discovery_seeds": [
+    1001,
+    1002,
+    1003,
+    1004,
+    1005,
+    1006,
+    1007,
+    1008,
+    1009,
+    1010,
+    1011,
+    1012
+  ],
+  "design": "single-evaluation allowance for racing, superseded by the measurement-aware final protocol"
+}

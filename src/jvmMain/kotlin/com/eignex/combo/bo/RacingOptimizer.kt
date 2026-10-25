@@ -304,19 +304,30 @@ class RacingOptimizer(
      * Confirmation keys must share the search plan's fixed fidelity and remain outside earlier history.
      */
     fun beginConfirmation(freshKeys: List<EvaluationKey>, candidates: Int = 3) {
+        require(candidates > 0)
+        val finalists = states.values.filter { successes(it.id).isNotEmpty() }
+            .sortedByDescending { optimizer.outcome.score(mean(it.id, successes(it.id).keys.toList())) }
+            .take(candidates).map { it.id }
+        beginConfirmation(freshKeys, finalists)
+    }
+
+    /**
+     * Freeze explicitly selected evaluated configurations for fresh-key confirmation.
+     * Allows a caller to rank finalists by model predictions instead of noisy observed extremes.
+     * Only the fresh responses choose the winner; selection scores are never recorded as observations.
+     *
+     * @param freshKeys Distinct measurement keys unused during search, at the search fidelity.
+     * @param configurationIds Distinct raced configuration IDs with successful search measurements.
+     */
+    fun beginConfirmation(freshKeys: List<EvaluationKey>, configurationIds: List<Long>) {
         require(incumbentId != null) { "establish an incumbent before final confirmation" }
         require(confirmation == null && issued.values.none { it.status == EvaluationStatus.Pending })
-        require(candidates > 0 && freshKeys.isNotEmpty() && freshKeys.distinct().size == freshKeys.size)
+        require(freshKeys.isNotEmpty() && freshKeys.distinct().size == freshKeys.size)
         require(freshKeys.none { it in keys } && freshKeys.all { it.budget == keys.first().budget })
-        val finalists = states.values.filter { successes(it.id).isNotEmpty() }
-            .sortedByDescending {
-                optimizer.outcome.score(
-                    mean(it.id, successes(it.id).keys.toList()),
-                )
-            }.take(candidates)
-        require(finalists.isNotEmpty())
-        require(finalists.size.toLong() * freshKeys.size <= evaluationBudget.toLong() - issued.size)
-        confirmation = RaceConfirmation(freshKeys.toList(), finalists.map { it.id })
+        require(configurationIds.isNotEmpty() && configurationIds.distinct().size == configurationIds.size)
+        require(configurationIds.all { it in states && successes(it).isNotEmpty() })
+        require(configurationIds.size.toLong() * freshKeys.size <= evaluationBudget.toLong() - issued.size)
+        confirmation = RaceConfirmation(freshKeys.toList(), configurationIds.toList())
     }
 
     /** Issue available paired measurements, reserving each configuration/key once while pending. */
