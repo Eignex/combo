@@ -17,6 +17,7 @@ val ktorVersion = "3.6.0"
 
 dependencies {
     implementation(project(":combo"))
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
     implementation("io.ktor:ktor-server-cio:$ktorVersion")
     implementation("io.ktor:ktor-server-content-negotiation:$ktorVersion")
     implementation("io.ktor:ktor-server-body-limit:$ktorVersion")

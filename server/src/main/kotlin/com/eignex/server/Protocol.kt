@@ -4,44 +4,43 @@ import com.eignex.combo.decisions.DecisionSpaceDef
 import com.eignex.klause.model.SchemaEntry
 import com.eignex.skema.SchemaDef
 import com.eignex.skema.schemaJsonConfig
-import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.SerialName
+import io.ktor.http.HttpStatusCode
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonClassDiscriminator
 import kotlinx.serialization.json.JsonObject
 
 internal val wireJson = Json { schemaJsonConfig() }
+internal val emptyObject = JsonObject(emptyMap())
+
+internal fun validateTimeout(value: Long) {
+    require(value in 1..300_000) { "timeoutMillis must be between 1 and 300000" }
+}
 
 @Serializable
-internal data class Submission(val request: JobRequest, val timeoutMillis: Long = 30_000) {
+internal data class CreateProblem(val schema: SchemaDef<SchemaEntry>, val timeoutMillis: Long = 30_000) {
+    init { validateTimeout(timeoutMillis) }
+}
+
+@Serializable
+internal data class ProblemQuery(
+    val assumptions: JsonObject = emptyObject,
+    val maxDecisions: Long = 100_000,
+    val seed: Long = 0,
+    val timeoutMillis: Long = 30_000,
+) {
     init {
-        require(timeoutMillis in 1..300_000) { "timeoutMillis must be between 1 and 300000" }
+        validateTimeout(timeoutMillis)
+        require(maxDecisions in 1..10_000_000) { "maxDecisions must be between 1 and 10000000" }
     }
 }
 
-@OptIn(ExperimentalSerializationApi::class)
 @Serializable
-@JsonClassDiscriminator("type")
-internal sealed interface JobRequest {
-    val operation: String
+internal data class CreateStatistics(val type: String = "summary") {
+    init { require(type == "summary") { "unsupported statistic type '$type'" } }
 }
 
 @Serializable
-@SerialName("klause.solve")
-internal data class KlauseSolve(
-    val schema: SchemaDef<SchemaEntry>,
-    val maxDecisions: Long = 100_000,
-    val seed: Long = 0,
-) : JobRequest {
-    override val operation: String get() = "klause.solve"
-    init { require(maxDecisions in 1..10_000_000) { "maxDecisions must be between 1 and 10000000" } }
-}
-
-@Serializable
-@SerialName("kumulant.summary")
-internal data class KumulantSummary(val values: List<Double>) : JobRequest {
-    override val operation: String get() = "kumulant.summary"
+internal data class StatisticsUpdate(val values: List<Double>) {
     init {
         require(values.isNotEmpty() && values.size <= 100_000) { "values must contain 1 to 100000 observations" }
         require(values.all(Double::isFinite)) { "values must be finite" }
@@ -49,58 +48,70 @@ internal data class KumulantSummary(val values: List<Double>) : JobRequest {
 }
 
 @Serializable
-@SerialName("combo.suggest")
-internal data class ComboSuggest(
-    val space: DecisionSpaceDef,
-    val observations: List<ObservationInput> = emptyList(),
-    val context: JsonObject = JsonObject(emptyMap()),
-    val count: Int = 1,
-    val seed: Int = 0,
-    val maximize: Boolean = true,
-) : JobRequest {
-    override val operation: String get() = "combo.suggest"
+internal data class SummarySnapshot(
+    val count: Long,
+    val mean: Double,
+    val variance: Double,
+    val min: Double,
+    val max: Double,
+) {
     init {
-        require(count in 1..64) { "count must be between 1 and 64" }
-        require(observations.size <= 10_000) { "at most 10000 observations are supported" }
+        require(count in 0..9_007_199_254_740_992L) { "invalid observation count" }
+        require(listOf(mean, variance, min, max).all(Double::isFinite)) { "summary values must be finite" }
+        require(variance >= 0.0 && min <= mean && mean <= max) { "invalid summary" }
+        require(count != 0L || listOf(mean, variance, min, max).all { it == 0.0 }) { "invalid empty summary" }
+        require(count != 1L || (variance == 0.0 && min == mean && mean == max)) { "invalid singleton summary" }
     }
 }
 
 @Serializable
-internal data class ObservationInput(
-    val values: JsonObject,
+internal data class CreateOptimizer(
+    val space: DecisionSpaceDef,
+    val seed: Int = 0,
+    val maximize: Boolean = true,
+    val timeoutMillis: Long = 30_000,
+) {
+    init { validateTimeout(timeoutMillis) }
+}
+
+@Serializable
+internal data class SuggestionRequest(
+    val context: JsonObject = emptyObject,
+    val count: Int = 1,
+    val timeoutMillis: Long = 30_000,
+) {
+    init {
+        validateTimeout(timeoutMillis)
+        require(count in 1..64) { "count must be between 1 and 64" }
+    }
+}
+
+@Serializable
+internal data class CompleteTrial(
     val reward: Double,
-    val context: JsonObject = JsonObject(emptyMap()),
     val weight: Double = 1.0,
+    val noiseVariance: Double? = null,
 ) {
     init {
         require(reward.isFinite()) { "reward must be finite" }
         require(weight.isFinite() && weight > 0.0) { "weight must be positive and finite" }
+        require(noiseVariance == null || (noiseVariance.isFinite() && noiseVariance >= 0.0)) { "invalid noise variance" }
     }
 }
 
 @Serializable
-internal enum class JobStatus {
-    @SerialName("queued") Queued,
-    @SerialName("running") Running,
-    @SerialName("succeeded") Succeeded,
-    @SerialName("failed") Failed,
-    @SerialName("cancelled") Cancelled,
-    @SerialName("timed_out") TimedOut;
-
-    val terminal: Boolean get() = this != Queued && this != Running
+internal data class TrialReason(val reason: String) {
+    init { require(reason.isNotBlank()) { "reason must not be blank" } }
 }
 
 @Serializable
-internal data class JobSnapshot(
-    val id: String,
-    val operation: String,
-    val status: JobStatus,
-    val submittedAt: String,
-    val startedAt: String? = null,
-    val finishedAt: String? = null,
-    val result: JsonObject? = null,
-    val error: ApiError? = null,
-)
+internal data class ResourceInfo(val id: String, val type: String)
 
 @Serializable
 internal data class ApiError(val code: String, val message: String)
+
+internal class ApiException(val status: HttpStatusCode, val code: String, message: String) : RuntimeException(message)
+internal fun notFound(): Nothing = throw ApiException(HttpStatusCode.NotFound, "not_found", "unknown resource")
+internal fun capacityExceeded(): Nothing = throw ApiException(
+    HttpStatusCode.ServiceUnavailable, "capacity_exceeded", "server capacity reached",
+)

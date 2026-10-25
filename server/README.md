@@ -1,144 +1,186 @@
 # Eignex Server
 
-An API-only Ktor application that calls Klause, Kumulant, and Combo in the same JVM.
+An API-only Ktor application for repeated interaction with Klause, Kumulant, and
+Combo. Create a resource once, then query or update its retained state by identifier:
+
+| Resource | Retained state | Repeated operations |
+| --- | --- | --- |
+| `/v1/problems` | Compiled Klause schema, baked problem, and solver session | Solve or sample under different assumptions |
+| `/v1/statistics` | Kumulant accumulator and observation count | Update, read, merge, reset |
+| `/v1/optimizers` | Combo decision space, optimizer, history, and trial reservations | Suggest, complete, fail, cancel |
+
 The `:server` application and `:combo` library are separate Gradle modules in the same
-repository. The application uses the `com.eignex.server` package; the library keeps
-its `com.eignex.combo` packages and Maven coordinates. Ktor belongs to the server module.
+repository. The application uses `com.eignex.server`; the library keeps its
+`com.eignex.combo` packages and Maven coordinates. Ktor belongs to the server module.
 
 ```sh
 ./gradlew :server:run
 ```
 
-The default address is `127.0.0.1:8080`. Set `EIGNEX_SERVER_HOST` and `EIGNEX_SERVER_PORT` to change it.
-The application uses JDK 25, provisioned by Gradle. `./gradlew :server:installDist`
-builds a distribution under `server/build/install/eignex-server`; its `bin/eignex-server`
-launcher also needs JDK 25.
+The default address is `127.0.0.1:8080`. Set `EIGNEX_SERVER_HOST` and
+`EIGNEX_SERVER_PORT` to change it. Gradle provisions JDK 25 for development.
+`./gradlew :server:installDist` creates `server/build/install/eignex-server`; its
+`bin/eignex-server` launcher also needs JDK 25.
 
-## Job API
+## Shared lifecycle
 
-| Method | Path | Behavior |
-| --- | --- | --- |
-| GET | `/health` | Process health |
-| POST | `/v1/jobs` | Submit a job; returns `202` and a `Location` header |
-| GET | `/v1/jobs` | List retained job snapshots in submission order |
-| GET | `/v1/jobs/{id}` | Poll status and retrieve the result |
-| POST | `/v1/jobs/{id}/cancel` | Cancel queued or running work; repeat calls are safe |
-| DELETE | `/v1/jobs/{id}` | Delete a terminal job record; active jobs return `409` |
+For each collection, `POST` creates a resource and returns `201`, an `{id, type}`
+response, and a `Location` header. `GET` lists resource identifiers, `GET /{id}`
+inspects one resource, and `DELETE /{id}` releases its state. Operations return their
+results directly. `GET /health` reports process health.
 
-Submission wraps a typed `request` and an optional `timeoutMillis` (default 30,000;
-range 1–300,000). A snapshot contains `id`, `operation`, `status`, `submittedAt`, and,
-when available, `startedAt`, `finishedAt`, `result`, and `error`.
+Malformed input, unknown fields, invalid models, and invalid operation parameters
+return `400`. Unknown resources and trials return `404`; completing or changing a
+closed trial returns `409`. Saturation returns `503` with `Retry-After`.
+Errors have the shape `{code, message}`.
 
-Statuses are `queued`, `running`, `succeeded`, `failed`, `cancelled`, and `timed_out`.
-Solver outcomes such as `unsat` or `unknown` are successful computations: inspect
-`result.verdict` rather than treating job success as a satisfiability claim.
+## Klause problems
 
-Malformed JSON, unknown operations or fields, and invalid request bounds return `400`.
-Model compilation and observation validation happen on the worker; failures appear
-in the job snapshot with `error.code = "invalid_job"`. Unexpected worker failures
-use `execution_failed` and are logged on the server. Missing jobs return `404`.
+Create a problem with the existing Klause `SchemaDef` wire format:
 
-## Kumulant summaries
+```http
+POST /v1/problems
+Content-Type: application/json
 
-```sh
-curl -s http://127.0.0.1:8080/v1/jobs \
-  -H 'Content-Type: application/json' \
-  -d '{"request":{"type":"kumulant.summary","values":[1,2,3,4]}}'
+{
+  "schema": {
+    "entries": {
+      "enabled": {"$type":"bool"},
+      "workers": {"$type":"int","min":1,"max":8},
+      "strategy": {"$type":"nominal","labels":["fast","thorough"]}
+    }
+  }
+}
 ```
 
-Poll the returned `Location`. The result is
+Then use its identifier for repeated queries, without resending or recompiling the schema:
+
+```http
+POST /v1/problems/{id}/solve
+Content-Type: application/json
+
+{"assumptions":{"enabled":true,"workers":4},"maxDecisions":100000,"seed":42}
+```
+
+`POST /v1/problems/{id}/sample` accepts the same request. Assumptions belong to one
+call and do not carry into the next. The retained session reuses the compiled and
+baked problem; calls start fresh searches. The schema is immutable for the resource's
+lifetime. Create a replacement resource to use a different schema.
+
+Results contain `verdict` (`sat`, `unsat`, or `unknown`); `sat` includes named `values`,
+and `unknown` includes the solver's `reason`. An infeasibility proof is a normal
+solver result and returns `200`.
+
+The initial API supports Boolean, integer, nominal, float, and presence variables,
+plus named constraints. Query assumptions support Boolean, integer, and nominal
+variables. Float assumptions, set variables, and file-format ingestion are not
+exposed. `maxDecisions` defaults to 100,000 and accepts 1–10,000,000.
+
+## Kumulant statistics
+
+Create an accumulator, then send only new observations:
+
+```http
+POST /v1/statistics
+Content-Type: application/json
+
+{"type":"summary"}
+```
+
+```http
+POST /v1/statistics/{id}/updates
+Content-Type: application/json
+
+{"values":[1,2]}
+```
+
+A subsequent update with `{"values":[3,4]}` returns
 `{"count":4,"mean":2.5,"variance":1.25,"min":1.0,"max":4.0}`.
-Variance is the population variance. Inputs contain 1–100,000 finite values.
+`GET /v1/statistics/{id}/snapshot` returns that same evidence without changing it.
+Variance is population variance. The summary accumulator retains sufficient
+statistics rather than storing or replaying the input stream.
 
-## Klause solving
+Post a snapshot to `/v1/statistics/{id}/merge` to combine independent partial results.
+The source accumulator remains unchanged. `POST /v1/statistics/{id}/reset` clears the
+recipient. A snapshot with zero observations has zero-valued fields.
 
-```sh
-curl -s http://127.0.0.1:8080/v1/jobs \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "request": {
-      "type": "klause.solve",
-      "schema": {
-        "entries": {
-          "enabled": {"$type":"bool"},
-          "workers": {"$type":"int","min":1,"max":8},
-          "strategy": {"$type":"nominal","labels":["fast","thorough"]}
-        }
-      },
-      "maxDecisions": 100000,
-      "seed": 42
-    }
-  }'
+The initial accumulator type is `summary`. Update batches accept 1–100,000 finite
+values. Updates and merges are validated before replacing the accumulator's state;
+overflow or invalid input leaves its previous evidence intact. Counts are limited to
+2^53 observations, matching the exact integral weight range of the accumulator.
+
+## Combo optimizers
+
+Create the optimizer and decision space once:
+
+```http
+POST /v1/optimizers
+Content-Type: application/json
+
+{
+  "space": {"variables":{"workers":{"$type":"int","min":1,"max":8}}},
+  "seed": 42,
+  "maximize": true
+}
 ```
 
-The schema uses Klause's existing `SchemaDef` wire format, including named
-constraints. Nested schema types use `$type`; the job operation uses `type`.
-The initial API supports Boolean, integer, nominal, float, and presence variables.
-Set variables and file-format ingestion are not exposed by this operation.
+Request suggestions on that optimizer:
 
-Results have `verdict` set to `sat`, `unsat`, or `unknown`. A `sat` result contains
-`values` keyed by variable name; `unknown` includes a `reason` from Klause.
-`maxDecisions` defaults to 100,000 and accepts 1–10,000,000.
+```http
+POST /v1/optimizers/{id}/suggestions
+Content-Type: application/json
 
-## Combo suggestions
-
-```sh
-curl -s http://127.0.0.1:8080/v1/jobs \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "request": {
-      "type": "combo.suggest",
-      "space": {
-        "variables": {"workers":{"$type":"int","min":1,"max":8}}
-      },
-      "observations": [
-        {"values":{"workers":1},"reward":0.2},
-        {"values":{"workers":4},"reward":0.8}
-      ],
-      "count": 2,
-      "seed": 42,
-      "maximize": true
-    }
-  }'
+{"count":2,"context":{}}
 ```
 
-This operation fits Combo's forest/EI optimizer to the supplied history and returns
-up to `count` feasible configurations in `result.suggestions`. `result.termination`
-reports whether the requested count was reached or the feasible search stopped early.
-Before five observations, the optimizer uses its initial random design.
+The response contains `termination` and `trials`. Each trial has an `id`, `status`,
+and named `values`. Reservations remain pending across subsequent HTTP requests,
+so concurrent evaluation batches cannot reserve the same configuration twice.
+`GET /v1/optimizers/{id}/trials` lists issued trials and their current state.
 
-`space` is Combo's existing `DecisionSpaceDef`, with constraints, nested and optional
+Report feedback using the returned trial identifier:
+
+```http
+POST /v1/optimizers/{id}/trials/{trialId}/complete
+Content-Type: application/json
+
+{"reward":0.8,"weight":1.0}
+```
+
+The optimizer records the observation once and uses it in later suggestion rounds.
+Feedback can arrive out of order. The server retains the original sample and context,
+so completing a float-valued trial preserves its checked assignment without asking
+the client to reconstruct it. Optional `noiseVariance` must be finite and nonnegative.
+
+`POST /v1/optimizers/{id}/trials/{trialId}/fail` takes `{"reason":"..."}`;
+`POST /v1/optimizers/{id}/trials/{trialId}/cancel` takes no body. Both release the
+configuration without adding training evidence. A closed trial rejects further
+feedback or state changes. Inspecting the optimizer reports observation and pending
+trial counts.
+
+The initial optimizer is forest/EI. Before five completed observations it uses its
+initial random design. The decision space accepts constraints, nested and optional
 spaces, scale metadata, and Boolean/integer context. Supply required context by name
-in `request.context`; omitted optional context stays absent. Each observation can
-also specify its own `context` and positive `weight` (default 1).
+on each suggestion call; omitted optional context stays absent. Up to 64 trials can
+be requested per call. If search stops early, inspect `termination` and the returned
+partial batch.
 
-Observations are checked for feasibility before training. Their `values` must include
-every flattened variable, including context and presence gates; returned suggestions
-use that same shape. Observation import currently supports finite Boolean, integer,
-and nominal spaces. Float spaces accept suggestion requests without observations.
-Limits are 64 suggestions and 10,000 observations per job.
+## Concurrency and storage
 
-Each request creates an independent optimizer. Suggestions in one batch exclude each
-other; reservations and learner state are not shared across jobs. A client keeps its
-history and sends it with the next request. Stateful studies and streaming model
-updates are future API extensions.
+Calls on one resource are serialized; independent resources can execute concurrently.
+Two CPU workers handle library operations, with at most 66 admitted calls across
+execution and waiting. Each collection retains at most 1,000 resources. Delete unused
+resources to release capacity. Request bodies are limited to 2 MiB (`413` on overflow).
 
-## Execution and lifecycle
+The default operation deadline is 30 seconds, including time waiting for admission to
+its resource. Problem creation, solver queries, optimizer creation, and suggestions
+accept `timeoutMillis` in 1–300,000. Cooperative deadlines return `408`; request
+cancellation is passed into active searches. Library work stops when it observes
+cancellation. A deadline or disconnected client does not roll back an update already
+committed; inspect resource or trial state before retrying feedback.
 
-Two CPU workers execute jobs independently of Ktor request handling, with a queue of
-64 jobs and at most 1,000 retained records. Saturation returns `503` with `Retry-After`;
-delete terminal records to free retained capacity. Request bodies are limited to 2 MiB
-(`413` on overflow). Completed jobs release their input payloads and retain only the
-snapshot and result.
+Resource state lives in memory and is lost on restart. The initial server has no
+authentication layer and binds to loopback by default.
 
-The execution timeout starts when a worker starts the job. Cancellation and deadlines
-are cooperative: the adapters check between work units and pass cancellation into
-Klause searches. Cancellation immediately closes the API record and discards late
-results; a running library call releases its worker when it observes the cancellation.
-Server shutdown requests cancellation of all outstanding work.
-
-Job records and results live in memory and are lost on restart. This initial server
-has no authentication layer and binds to loopback by default.
-
-Run the HTTP and worker lifecycle tests with `./gradlew :server:test`. They use Ktor's
-in-process test host and real library adapters; no external service is required.
+Run the HTTP and resource lifecycle tests with `./gradlew :server:test`. They use
+Ktor's in-process test host and real library adapters, without external services.

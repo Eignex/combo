@@ -1,0 +1,107 @@
+package com.eignex.server
+
+import com.eignex.combo.decisions.CompiledDecisionSpace
+import com.eignex.combo.decisions.Context
+import com.eignex.combo.decisions.context
+import com.eignex.klause.compile.CompiledSchema
+import com.eignex.klause.model.BoolSpec
+import com.eignex.klause.model.FloatSpec
+import com.eignex.klause.model.IntSpec
+import com.eignex.klause.model.NominalSpec
+import com.eignex.klause.model.PresenceSpec
+import com.eignex.klause.model.SchemaEntry
+import com.eignex.klause.model.VarSpec
+import com.eignex.klause.propagation.Assumptions
+import com.eignex.klause.schema.BoolHandle
+import com.eignex.klause.schema.FloatHandle
+import com.eignex.klause.schema.IntHandle
+import com.eignex.klause.schema.NominalHandle
+import com.eignex.klause.solver.Sample
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
+import kotlinx.serialization.json.put
+
+internal fun requireScalarVariables(entries: Map<String, SchemaEntry>) {
+    for ((name, entry) in entries) {
+        require(entry !is VarSpec || entry == BoolSpec || entry is IntSpec || entry is FloatSpec ||
+            entry is NominalSpec || entry is PresenceSpec) { "unsupported variable type at '$name'" }
+    }
+}
+
+internal inline fun <T> compileInput(compile: () -> T): T = try {
+    compile()
+} catch (error: IllegalStateException) {
+    throw IllegalArgumentException(error.message ?: "invalid model", error)
+}
+
+internal fun values(compiled: CompiledSchema, entries: Map<String, SchemaEntry>, sample: Sample): JsonObject =
+    buildJsonObject {
+        for ((name, spec) in entries) {
+            when (spec) {
+                BoolSpec, is PresenceSpec -> put(name, compiled.decode(BoolHandle(name), sample))
+                is IntSpec -> put(name, compiled.decode(IntHandle(name, spec.min, spec.max), sample))
+                is NominalSpec -> put(name, compiled.decode(NominalHandle(name, spec.labels), sample))
+                is FloatSpec -> put(name, compiled.decode(FloatHandle(name, spec.min, spec.max), sample))
+                else -> Unit
+            }
+        }
+    }
+
+internal fun assumptions(compiled: CompiledSchema, entries: Map<String, SchemaEntry>, input: JsonObject): Assumptions {
+    var result = Assumptions.None
+    for ((name, element) in input) {
+        val value = element.jsonPrimitive
+        result = when (val spec = entries[name]) {
+            BoolSpec, is PresenceSpec -> {
+                require(!value.isString) { "'$name' must be Boolean" }
+                result.withBool(compiled.boolVarIdByName.getValue(name), value.boolean)
+            }
+            is IntSpec -> {
+                require(!value.isString) { "'$name' must be an integer" }
+                val number = value.long
+                require(number in spec.min.toLong()..spec.max.toLong()) { "'$name' outside its bounds" }
+                result.withInt(compiled.intVarIdByName.getValue(name), number)
+            }
+            is NominalSpec -> {
+                require(value.isString && value.content in spec.labels) { "invalid label for '$name'" }
+                var pinned = result
+                for ((label, id) in compiled.nominalIndicators.getValue(name)) {
+                    pinned = pinned.withBool(id, label == value.content)
+                }
+                pinned
+            }
+            is FloatSpec -> throw IllegalArgumentException("float assumptions are not supported")
+            else -> throw IllegalArgumentException("unknown variable '$name'")
+        }
+    }
+    return result
+}
+
+internal fun readContext(space: CompiledDecisionSpace, input: JsonObject): Context {
+    val names = (space.contextBools.map { it.name } + space.contextInts.map { it.name }).toSet()
+    require(input.keys.all { it in names }) { "unknown context field" }
+    return context {
+        for (handle in space.contextBools) {
+            val value = input[handle.name]
+            require(value != null || handle.isOptional) { "missing context '${handle.name}'" }
+            if (value != null) {
+                require(!value.jsonPrimitive.isString) { "context '${handle.name}' must be Boolean" }
+                set(handle, value.jsonPrimitive.boolean)
+            }
+        }
+        for (handle in space.contextInts) {
+            val value = input[handle.name]
+            require(value != null || handle.isOptional) { "missing context '${handle.name}'" }
+            if (value != null) {
+                require(!value.jsonPrimitive.isString) { "context '${handle.name}' must be an integer" }
+                val number = value.jsonPrimitive.int
+                require(number in handle.min..handle.max) { "context '${handle.name}' outside its bounds" }
+                set(handle, number)
+            }
+        }
+    }
+}
