@@ -581,7 +581,7 @@ matrix construction use Koblas APIs rather than parallel numerical helpers.
 
 The build uses Kbuild 1.3.3, Kotlin 2.4.10, Gradle 9.7.0, and a JDK 25 toolchain
 that Gradle provisions automatically. Klause and Kumulant use their latest published
-snapshots from October 23–24, 2026. Exact platform artifact versions are pinned in
+snapshots, including Kumulant’s canonical JSON support merged on October 25, 2026. Exact platform artifact versions are pinned in
 `combo/build.gradle.kts`, alongside a shared Koblas version that resolves their conflicting
 backend pins. The configured targets are JVM and Linux
 x64, matching Klause's available snapshots; Combo's implementation is currently JVM.

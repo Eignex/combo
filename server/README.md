@@ -6,7 +6,7 @@ Combo. Create a resource once, then query or update its retained state by identi
 | Resource | Retained state | Repeated operations |
 | --- | --- | --- |
 | `/v1/problems` | Compiled Klause schema, baked problem, and solver session | Solve or sample under different assumptions |
-| `/v1/statistics` | Kumulant accumulator and observation count | Update, read, merge, reset |
+| `/v1/stats` | Native Kumulant stat or bandit | Update, read, choose, reset |
 | `/v1/optimizers` | Combo decision space, optimizer, history, and trial reservations | Suggest, complete, fail, cancel |
 
 The `:server` application and `:combo` library are separate Gradle modules in the same
@@ -24,9 +24,10 @@ The default address is `127.0.0.1:8080`. Set `EIGNEX_SERVER_HOST` and
 
 ## Shared lifecycle
 
-For each collection, `POST` creates a resource and returns `201`, an `{id, type}`
-response, and a `Location` header. `GET` lists resource identifiers, `GET /{id}`
-inspects one resource, and `DELETE /{id}` releases its state. Operations return their
+For each collection, `POST` creates a resource and returns `201`, an identifier,
+and a `Location` header. Stats creation returns `{id}`; problems and optimizers
+also return `type`. `GET` lists resource identifiers, `GET /{id}` reads one resource,
+and `DELETE /{id}` releases its state. Operations return their
 results directly. `GET /health` reports process health.
 
 Malformed input, unknown fields, invalid models, and invalid operation parameters
@@ -76,38 +77,107 @@ plus named constraints. Query assumptions support Boolean, integer, and nominal
 variables. Float assumptions, set variables, and file-format ingestion are not
 exposed. `maxDecisions` defaults to 100,000 and accepts 1–10,000,000.
 
-## Kumulant statistics
+## Kumulant stats and bandits
 
-Create an accumulator, then send only new observations:
+`POST /v1/stats` accepts Kumulant's canonical JSON directly: any `StatSpec`,
+`UnivariateBanditSpec`, or `ContextualBanditSpec`. The native spec selects the model;
+there is no extra mode field or server expression language.
 
-```http
-POST /v1/statistics
-Content-Type: application/json
-
-{"type":"summary"}
-```
+Create a simple exponentially weighted moving average:
 
 ```http
-POST /v1/statistics/{id}/updates
+POST /v1/stats
 Content-Type: application/json
 
-{"values":[1,2]}
+{"ewma":{"alpha":0.1}}
 ```
 
-A subsequent update with `{"values":[3,4]}` returns
-`{"count":4,"mean":2.5,"variance":1.25,"min":1.0,"max":4.0}`.
-`GET /v1/statistics/{id}/snapshot` returns that same evidence without changing it.
-Variance is population variance. The summary accumulator retains sufficient
-statistics rather than storing or replaying the input stream.
+The response is `{"id":"..."}`, with `Location: /v1/stats/{id}`. Feed it one observation:
 
-Post a snapshot to `/v1/statistics/{id}/merge` to combine independent partial results.
-The source accumulator remains unchanged. `POST /v1/statistics/{id}/reset` clears the
-recipient. A snapshot with zero observations has zero-valued fields.
+```http
+POST /v1/stats/{id}/update
+Content-Type: application/json
 
-The initial accumulator type is `summary`. Update batches accept 1–100,000 finite
-values. Updates and merges are validated before replacing the accumulator's state;
-overflow or invalid input leaves its previous evidence intact. Counts are limited to
-2^53 observations, matching the exact integral weight range of the accumulator.
+{"value":42.0}
+```
+
+The first update returns `{"totalWeights":1.0,"mean":42.0}`. Updates return the
+current native snapshot, and `GET /v1/stats/{id}` reads it without changing it.
+
+To add one to every observation automatically, use the native composition:
+
+```json
+{
+  "transform": {
+    "expr": {"add":["x",1.0]},
+    "inner": {"ewma":{"alpha":0.1}}
+  }
+}
+```
+
+The same `{"value":42.0}` update then returns a mean of `43.0`. Filters, weighting,
+feedback, groups, and other native decorators use this same Kumulant format.
+Grouped snapshots retain their native `results` structure.
+
+### Observation shapes
+
+Send one observation per request. Fields depend on the model's input modality:
+
+| Model | Update body |
+| --- | --- |
+| Series stat | `{"value":42.0}` |
+| Discrete stat | `{"value":42}` |
+| Paired stat | `{"x":1.0,"y":2.0}` |
+| Vector stat | `{"x":[1.0,2.0]}` |
+| Regression stat | `{"x":[1.0,2.0],"y":3.0}` |
+| Ordinary bandit | `{"arm":0,"reward":0.8}` |
+| Contextual bandit | `{"arm":0,"x":[1.0,2.0],"reward":0.8}` |
+
+All updates accept an optional finite `weight`, defaulting to `1.0`. Zero weights
+and negative weights follow Kumulant's native semantics. Stat updates also accept
+`timestampNanos`; otherwise the server uses its monotonic clock. Time-dependent
+reads can specify `GET /v1/stats/{id}?timestampNanos=...` using that same clock domain.
+
+Numeric inputs must be finite JSON numbers, and discrete observations and timestamps
+must be integers. Unknown fields, missing inputs, and incorrect context dimensions
+return `400` before the observation is applied. Native model validation still applies.
+Undefined or non-finite numbers in statistical results are returned as JSON `null`.
+
+### Bandits
+
+Create an ordinary bandit using a native spec:
+
+```json
+{"multiArmed":{"nbrArms":2,"policy":{"greedy":{}}}}
+```
+
+`POST /v1/stats/{id}/choose` with `{}` returns `{"arm":0}`. Report a reward through
+`/update`; subsequent choices use the retained evidence. Set `?seed=42` on creation
+to choose a reproducible random source; the default seed is `0`.
+
+For a contextual bandit, creation can use:
+
+```json
+{
+  "regressionContextual": {
+    "nbrArms":2,
+    "regression":{"bayesianRegression":{"featureSize":2}},
+    "posterior":{"linUcb":{}},
+    "exploration":1.0
+  }
+}
+```
+
+Choose with `{"x":[1.0,2.0]}` and report the same context with the resulting arm
+and reward. Bandit reads and updates return an `arms` array of native snapshots.
+Pooled regressors also include `global`; tracked bandits include their `inner`
+snapshot and configured observation statistics. Decorators retain Kumulant's
+native update and scoring semantics.
+
+`POST /v1/stats/{id}/reset` resets a stat or bandit to its configured baseline and
+returns the snapshot. `DELETE /v1/stats/{id}` releases it. `GET /v1/stats` lists
+identifiers. The experimental summary-only `/v1/statistics` routes are replaced by
+this collection.
 
 ## Combo optimizers
 

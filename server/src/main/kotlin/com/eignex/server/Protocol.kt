@@ -35,36 +35,6 @@ internal data class ProblemQuery(
 }
 
 @Serializable
-internal data class CreateStatistics(val type: String = "summary") {
-    init { require(type == "summary") { "unsupported statistic type '$type'" } }
-}
-
-@Serializable
-internal data class StatisticsUpdate(val values: List<Double>) {
-    init {
-        require(values.isNotEmpty() && values.size <= 100_000) { "values must contain 1 to 100000 observations" }
-        require(values.all(Double::isFinite)) { "values must be finite" }
-    }
-}
-
-@Serializable
-internal data class SummarySnapshot(
-    val count: Long,
-    val mean: Double,
-    val variance: Double,
-    val min: Double,
-    val max: Double,
-) {
-    init {
-        require(count in 0..9_007_199_254_740_992L) { "invalid observation count" }
-        require(listOf(mean, variance, min, max).all(Double::isFinite)) { "summary values must be finite" }
-        require(variance >= 0.0 && min <= mean && mean <= max) { "invalid summary" }
-        require(count != 0L || listOf(mean, variance, min, max).all { it == 0.0 }) { "invalid empty summary" }
-        require(count != 1L || (variance == 0.0 && min == mean && mean == max)) { "invalid singleton summary" }
-    }
-}
-
-@Serializable
 internal data class CreateOptimizer(
     val space: DecisionSpaceDef,
     val seed: Int = 0,

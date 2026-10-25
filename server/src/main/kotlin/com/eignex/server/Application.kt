@@ -25,9 +25,6 @@ import io.ktor.server.routing.routing
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.serialization.SerializationException
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.encodeToJsonElement
-import kotlinx.serialization.json.put
 
 /** Start the API-only server for reusable solver and learner state. */
 fun main() {
@@ -95,39 +92,7 @@ internal fun Application.resourceApi(state: ServerState = ServerState()) {
                 })
             }
         }
-        route("/v1/statistics") {
-            get { call.respond(state.statistics.list()) }
-            post {
-                call.receive<CreateStatistics>()
-                call.created("statistics", state.statistics.create { StatisticsResource() })
-            }
-            get("/{id}") {
-                val id = call.resourceId()
-                call.respond(state.statistics.access(id) { resource, _ -> buildJsonObject {
-                    put("id", id)
-                    put("type", resource.type)
-                    put("snapshot", wireJson.encodeToJsonElement(resource.snapshot()))
-                } })
-            }
-            delete("/{id}") {
-                state.statistics.delete(call.resourceId())
-                call.respond(HttpStatusCode.NoContent)
-            }
-            get("/{id}/snapshot") {
-                call.respond(state.statistics.access(call.resourceId()) { resource, _ -> resource.snapshot() })
-            }
-            post("/{id}/updates") {
-                val request = call.receive<StatisticsUpdate>()
-                call.respond(state.statistics.access(call.resourceId()) { resource, control -> resource.update(request, control) })
-            }
-            post("/{id}/merge") {
-                val request = call.receive<SummarySnapshot>()
-                call.respond(state.statistics.access(call.resourceId()) { resource, control -> resource.merge(request, control) })
-            }
-            post("/{id}/reset") {
-                call.respond(state.statistics.access(call.resourceId()) { resource, _ -> resource.reset() })
-            }
-        }
+        statsRoutes(state)
         route("/v1/optimizers") {
             get { call.respond(state.optimizers.list()) }
             post {
@@ -169,7 +134,7 @@ internal fun Application.resourceApi(state: ServerState = ServerState()) {
     }
 }
 
-private fun ApplicationCall.resourceId(): String = parameters["id"].orEmpty()
+internal fun ApplicationCall.resourceId(): String = parameters["id"].orEmpty()
 private fun ApplicationCall.trialId(): Long = requireNotNull(parameters["trialId"]?.toLongOrNull()) { "invalid trial id" }
 private suspend fun ApplicationCall.created(collection: String, resource: ResourceInfo) {
     response.headers.append(HttpHeaders.Location, "/v1/$collection/${resource.id}")

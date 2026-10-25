@@ -22,7 +22,6 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.serialization.encodeToString
@@ -74,64 +73,6 @@ class ApplicationTest {
         val result = client.send("/v1/problems/${problem.id}/solve", "{}")
         assertEquals(HttpStatusCode.OK, result.status)
         assertEquals("unsat", result.objectBody().getValue("verdict").jsonPrimitive.content)
-    }
-
-    @Test
-    fun `statistics retain evidence across updates and reads`() = testApplication {
-        application { resourceApi() }
-        val stat = client.create("statistics")
-        assertEquals(HttpStatusCode.OK, client.send("/v1/statistics/${stat.id}/updates", """{"values":[1,2]}""").status)
-        val updated = client.send("/v1/statistics/${stat.id}/updates", """{"values":[3,4]}""")
-        val expected = SummarySnapshot(4, 2.5, 1.25, 1.0, 4.0)
-        assertEquals(expected, wireJson.decodeFromString<SummarySnapshot>(updated.bodyAsText()))
-        assertEquals(expected, client.snapshot(stat.id))
-        assertEquals(expected, client.snapshot(stat.id))
-        val empty = client.create("statistics")
-        assertEquals(0L, client.snapshot(empty.id).count)
-        assertEquals(4L, client.snapshot(stat.id).count)
-    }
-
-    @Test
-    fun `statistic snapshots merge without replay and reset affects only their owner`() = testApplication {
-        application { resourceApi() }
-        val first = client.create("statistics")
-        val second = client.create("statistics")
-        client.send("/v1/statistics/${first.id}/updates", """{"values":[1,2]}""")
-        client.send("/v1/statistics/${second.id}/updates", """{"values":[3,4]}""")
-        val source = client.snapshot(second.id)
-        val merged = client.send("/v1/statistics/${first.id}/merge", wireJson.encodeToString(source))
-        assertEquals(HttpStatusCode.OK, merged.status)
-        assertEquals(SummarySnapshot(4, 2.5, 1.25, 1.0, 4.0), client.snapshot(first.id))
-        assertEquals(source, client.snapshot(second.id))
-        assertEquals(HttpStatusCode.OK, client.post("/v1/statistics/${first.id}/reset").status)
-        assertEquals(0L, client.snapshot(first.id).count)
-        assertEquals(source, client.snapshot(second.id))
-    }
-
-    @Test
-    fun `invalid statistic updates and merges leave existing evidence intact`() = testApplication {
-        application { resourceApi() }
-        val stat = client.create("statistics")
-        client.send("/v1/statistics/${stat.id}/updates", """{"values":[1,2]}""")
-        val before = client.snapshot(stat.id)
-        val overflow = client.send("/v1/statistics/${stat.id}/updates", """{"values":[1e308,-1e308]}""")
-        assertEquals(HttpStatusCode.BadRequest, overflow.status)
-        val invalid = client.send("/v1/statistics/${stat.id}/merge", """{"count":2,"mean":1,"variance":-1,"min":0,"max":2}""")
-        assertEquals(HttpStatusCode.BadRequest, invalid.status)
-        assertEquals(before, client.snapshot(stat.id))
-    }
-
-    @Test
-    fun `concurrent updates to one accumulator lose no evidence`() = testApplication {
-        application { resourceApi() }
-        val stat = client.create("statistics")
-        val statuses = coroutineScope {
-            (1..20).map {
-                async { client.send("/v1/statistics/${stat.id}/updates", """{"values":[1]}""").status }
-            }.awaitAll()
-        }
-        assertTrue(statuses.all { it == HttpStatusCode.OK })
-        assertEquals(SummarySnapshot(20, 1.0, 0.0, 1.0, 1.0), client.snapshot(stat.id))
     }
 
     @Test
@@ -218,31 +159,31 @@ class ApplicationTest {
     @Test
     fun `resource deletion releases retained capacity`() = testApplication {
         application { resourceApi(ServerState(capacity = 1)) }
-        val first = client.create("statistics")
-        val rejected = client.send("/v1/statistics", "{}")
+        val first = client.create("stats", """{"sum":{}}""")
+        val rejected = client.send("/v1/stats", """{"sum":{}}""")
         assertEquals(HttpStatusCode.ServiceUnavailable, rejected.status)
         assertEquals("1", rejected.headers[HttpHeaders.RetryAfter])
-        assertEquals(HttpStatusCode.NoContent, client.delete("/v1/statistics/${first.id}").status)
-        assertEquals(HttpStatusCode.NotFound, client.get("/v1/statistics/${first.id}").status)
-        assertNotNull(client.create("statistics").id)
+        assertEquals(HttpStatusCode.NoContent, client.delete("/v1/stats/${first.id}").status)
+        assertEquals(HttpStatusCode.NotFound, client.get("/v1/stats/${first.id}").status)
+        assertNotNull(client.create("stats", """{"sum":{}}""").id)
     }
 
     @Test
     fun `invalid input is rejected directly without creating partial resources`() = testApplication {
         application { resourceApi() }
         val bodies = listOf("{", """{"type":"unknown"}""", """{"typo":1}""")
-        for (body in bodies) assertEquals(HttpStatusCode.BadRequest, client.send("/v1/statistics", body).status)
+        for (body in bodies) assertEquals(HttpStatusCode.BadRequest, client.send("/v1/stats", body).status)
         val badSchema = wireJson.encodeToString(CreateProblem(SchemaDef(mapOf("invalid" to NamedConstraint(BoolRef("missing"))))))
         assertEquals(HttpStatusCode.BadRequest, client.send("/v1/problems", badSchema).status)
         assertEquals("[]", client.get("/v1/problems").bodyAsText())
-        assertEquals("[]", client.get("/v1/statistics").bodyAsText())
-        assertNotNull(client.create("statistics"))
+        assertEquals("[]", client.get("/v1/stats").bodyAsText())
+        assertNotNull(client.create("stats", """{"sum":{}}"""))
     }
 
     @Test
     fun `unknown resources and trials return not found`() = testApplication {
         application { resourceApi() }
-        for (collection in listOf("problems", "statistics", "optimizers")) {
+        for (collection in listOf("problems", "stats", "optimizers")) {
             assertEquals(HttpStatusCode.NotFound, client.get("/v1/$collection/missing").status)
             assertEquals(HttpStatusCode.NotFound, client.delete("/v1/$collection/missing").status)
         }
@@ -281,7 +222,7 @@ class ApplicationTest {
     @Test
     fun `large request bodies are rejected and health stays available`() = testApplication {
         application { resourceApi() }
-        val response = client.send("/v1/statistics", " ".repeat(2 * 1024 * 1024 + 1))
+        val response = client.send("/v1/stats", " ".repeat(2 * 1024 * 1024 + 1))
         assertEquals(HttpStatusCode.PayloadTooLarge, response.status)
         assertEquals(HttpStatusCode.OK, client.get("/health").status)
     }
@@ -295,8 +236,9 @@ internal suspend fun HttpClient.send(path: String, body: String): HttpResponse =
 internal suspend fun HttpClient.create(collection: String, body: String = "{}"): ResourceInfo {
     val response = send("/v1/$collection", body)
     assertEquals(HttpStatusCode.Created, response.status, response.bodyAsText())
-    val resource = wireJson.decodeFromString<ResourceInfo>(response.bodyAsText())
-    assertEquals("/v1/$collection/${resource.id}", response.headers[HttpHeaders.Location])
+    val body = response.objectBody()
+    val resource = ResourceInfo(body.getValue("id").jsonPrimitive.content, body["type"]?.jsonPrimitive?.content.orEmpty())
+    assertEquals("/v1/${collection.substringBefore('?')}/${resource.id}", response.headers[HttpHeaders.Location])
     return resource
 }
 
@@ -306,6 +248,5 @@ internal suspend fun HttpClient.suggest(id: String, count: Int): JsonArray {
     assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
     return response.objectBody().getValue("trials").jsonArray
 }
-internal suspend fun HttpClient.snapshot(id: String): SummarySnapshot = wireJson.decodeFromString(get("/v1/statistics/$id/snapshot").bodyAsText())
 internal suspend fun HttpResponse.objectBody(): JsonObject = wireJson.parseToJsonElement(bodyAsText()).jsonObject
 internal suspend fun HttpResponse.arrayBody(): JsonArray = wireJson.parseToJsonElement(bodyAsText()).jsonArray

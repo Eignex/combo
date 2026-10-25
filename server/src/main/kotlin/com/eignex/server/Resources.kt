@@ -18,8 +18,6 @@ import com.eignex.klause.propagation.bake
 import com.eignex.klause.solver.SolveResult
 import com.eignex.klause.solver.result.SampleResult
 import com.eignex.klause.util.Cancellation
-import com.eignex.kumulant.stat.summary.SummaryResult
-import com.eignex.kumulant.stat.summary.SummaryStat
 import io.ktor.http.HttpStatusCode
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
@@ -81,49 +79,6 @@ internal class ProblemResource(private val definition: CreateProblem) : ManagedR
     )
 
     override fun close() = session.close()
-}
-
-internal class StatisticsResource : ManagedResource {
-    override val type = "kumulant.summary"
-    private var stat = SummaryStat()
-    private var count = 0L
-
-    fun snapshot(): SummarySnapshot {
-        val read = stat.read()
-        return SummarySnapshot(count, read.mean, read.variance, read.min, read.max)
-    }
-
-    fun update(request: StatisticsUpdate, control: OperationControl): SummarySnapshot {
-        val next = copyStat()
-        for (value in request.values) {
-            control.checkpoint()
-            next.update(value)
-        }
-        return commit(next, count + request.values.size, control)
-    }
-
-    fun merge(snapshot: SummarySnapshot, control: OperationControl): SummarySnapshot {
-        val next = copyStat()
-        next.merge(SummaryResult(snapshot.count.toDouble(), snapshot.mean, snapshot.variance, snapshot.min, snapshot.max))
-        return commit(next, count + snapshot.count, control)
-    }
-
-    fun reset(): SummarySnapshot {
-        stat.reset()
-        count = 0
-        return snapshot()
-    }
-
-    private fun copyStat() = SummaryStat().also { it.merge(stat.read()) }
-
-    private fun commit(next: SummaryStat, nextCount: Long, control: OperationControl): SummarySnapshot {
-        val read = next.read()
-        val snapshot = SummarySnapshot(nextCount, read.mean, read.variance, read.min, read.max)
-        control.checkpoint()
-        stat = next
-        count = nextCount
-        return snapshot
-    }
 }
 
 internal class OptimizerResource(private val definition: CreateOptimizer) : ManagedResource {
@@ -208,12 +163,12 @@ internal class OptimizerResource(private val definition: CreateOptimizer) : Mana
 
 internal class ServerState(private val runner: OperationRunner = OperationRunner(), capacity: Int = 1000) : AutoCloseable {
     val problems = ResourceStore<ProblemResource>(runner, capacity)
-    val statistics = ResourceStore<StatisticsResource>(runner, capacity)
+    val stats = ResourceStore<StatsResource>(runner, capacity)
     val optimizers = ResourceStore<OptimizerResource>(runner, capacity)
 
     override fun close() {
         problems.close()
-        statistics.close()
+        stats.close()
         optimizers.close()
         runner.close()
     }
