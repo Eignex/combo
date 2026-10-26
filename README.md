@@ -706,3 +706,10 @@ The winner uses only confirmation measurements. This is opt-in: our
 [noisy refinement study](benchmarks/noisy-bo/report.md) finds substantial opportunity
 cost at small budgets, and additional recommendation search does not consistently
 improve true regret. GP, forest, racing, and search defaults remain unchanged.
+
+The [GP follow-up diagnostics](benchmarks/gp-followups/report.md) separate fixed-history
+recommendation search from model error and compare joint acquisition sampling at 256,
+1,024, and 4,096 draws. Larger searches help the noiseless quadratic but do not consistently
+fix noisy recommendations. Joint q=4 rankings remain sensitive to the sampling budget;
+increasing `samples` trades computation for a more stable finite-sample estimate, without
+a convergence guarantee. Acquisition, model-fitting, and recommendation budgets remain independent.

@@ -13,8 +13,9 @@ import kotlin.math.abs
 import kotlin.random.Random
 
 /** Whole-round posterior/factor microbenchmark; cached binding time is included and GP fitting is excluded. */
-fun main() {
-    val output = File("build/reports/gp-refinement/factor-cache.csv")
+fun main(args: Array<String>) {
+    val suffix = args.firstOrNull()?.takeUnless { it == "0" }?.let { "-$it" } ?: ""
+    val output = File("build/reports/gp-refinement/factor-cache$suffix.csv")
     output.parentFile.mkdirs()
     output.writeText(
         "baseline,q,repeat,sets,full_nanos,cached_nanos,full_factor_order,cached_baseline_order," +
@@ -42,7 +43,7 @@ fun main() {
                 ) { listOf(random.nextDouble(), random.nextDouble()) }.sortedWith(featureOrdering)
                 featureMatrix(coordinates, 2)
             }
-            repeat(5) { iteration ->
+            repeat(45) { iteration ->
                 val fullValues = mutableListOf<Double>()
                 val cachedValues = mutableListOf<Double>()
                 var cached: JointGaussianSampler? = null
@@ -98,9 +99,9 @@ fun main() {
                     check(abs(fullValues[i] - cachedValues[i]) < 1e-8)
                     error.update(cachedValues[i], fullValues[i], 0L)
                 }
-                if (iteration >= 2) {
+                if (iteration >= 30) {
                     output.appendText(
-                        "$size,$q,${iteration - 2},20,$fullNanos,$cachedNanos,${size + q},$size,$q," +
+                        "$size,$q,${iteration - 30},20,$fullNanos,$cachedNanos,${size + q},$size,$q," +
                             "${cached!!.baselineFactorizations},${cached!!.candidateFactorizations},${error.read(
                                 0L,
                             ).mean}\n",

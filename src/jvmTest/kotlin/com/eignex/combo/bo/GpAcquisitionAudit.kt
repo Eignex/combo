@@ -67,7 +67,7 @@ fun main() {
                         Random(713),
                     )
                     val normal = Random(Random(713).nextLong())
-                    val normals = List(base.size + 2) {
+                    val normals = List(base.size + 4) {
                         DoubleArray(256).also { row ->
                             for (i in row.indices step 2) {
                                 row[i] = normal.nextNormal()
@@ -101,6 +101,11 @@ fun main() {
                                         }
                                         add(record(listOf(i)))
                                         for (j in i + 1 until pool.size) add(record(listOf(i, j)))
+                                        for (j in i + 1 until pool.size) {
+                                            for (k in j + 1 until pool.size) {
+                                                for (l in k + 1 until pool.size) add(record(listOf(i, j, k, l)))
+                                            }
+                                        }
                                     }
                                 },
                             )

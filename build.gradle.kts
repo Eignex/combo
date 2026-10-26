@@ -194,6 +194,22 @@ tasks.register<JavaExec>("profileGpFactorCache") {
     val compilation = kotlin.targets.getByName("jvm").compilations.getByName("test")
     classpath(compilation.output.allOutputs, compilation.runtimeDependencyFiles)
     mainClass.set("com.eignex.combo.bo.GpFactorCacheBenchmarkKt")
+    args(providers.gradleProperty("followup.fork").orElse("0").get())
     javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(25)) })
     jvmArgs("--enable-native-access=ALL-UNNAMED", "--add-modules=jdk.incubator.vector")
+}
+
+// Frozen recommendation diagnosis, sample convergence, and allocation measurements.
+tasks.register<JavaExec>("auditGpFollowups") {
+    dependsOn("jvmTestClasses")
+    val compilation = kotlin.targets.getByName("jvm").compilations.getByName("test")
+    classpath(compilation.output.allOutputs, compilation.runtimeDependencyFiles)
+    mainClass.set("com.eignex.combo.bo.GpFollowupBenchmarkKt")
+    args(providers.gradleProperty("followup.mode").orElse("recommendation").get(),
+        providers.gradleProperty("followup.fork").orElse("0").get())
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(25)) })
+    jvmArgs("--enable-native-access=ALL-UNNAMED", "--add-modules=jdk.incubator.vector", "-Xmx1g")
+    providers.gradleProperty("followup.jfr").orNull?.let { recording ->
+        jvmArgs("-XX:StartFlightRecording=filename=$recording,settings=profile")
+    }
 }

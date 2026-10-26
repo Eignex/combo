@@ -29,10 +29,10 @@ import kotlin.test.assertTrue
 class JointRefinementTest {
     @Test
     fun `cached EI and log EI match frozen BoTorch values with identical normals`() {
-        val fixtures = File("benchmarks/gp-refinement/frozen.json.gz").inputStream().use {
+        val fixtures = File("benchmarks/gp-followups/frozen-q4.json.gz").inputStream().use {
             Json.parseToJsonElement(GZIPInputStream(it).bufferedReader().readText()).jsonArray
         }
-        val reference = File("benchmarks/gp-refinement/reference.csv").readLines().drop(1).associate { line ->
+        val reference = File("benchmarks/gp-followups/reference-q4.csv").readLines().drop(1).associate { line ->
             val row = line.split(',')
             (row[0] to row[2]) to row[6].toDouble()
         }
