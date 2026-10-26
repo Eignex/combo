@@ -34,7 +34,8 @@ sampling, and shared tree snapshots. Combo owns full-history model fitting and a
 Gaussian and lognormal expected improvement, and their optimization over feasible configurations.
 
 The [Eignex Server](server/README.md) runs Klause, Kumulant, and Combo through one
-HTTP API with reusable problem, statistic, and optimizer resources. Start it with
+HTTP API with a shared model contract for statistics, decisions, and learning from
+outcomes. Start it with
 `./gradlew :server:run`.
 
 Using it requires three steps:

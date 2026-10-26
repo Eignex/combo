@@ -18,7 +18,7 @@ import com.eignex.klause.schema.IntHandle
 import com.eignex.klause.schema.NominalHandle
 import com.eignex.klause.solver.Sample
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonPrimitive
@@ -58,7 +58,7 @@ internal fun assumptions(compiled: CompiledSchema, entries: Map<String, SchemaEn
         result = when (val spec = entries[name]) {
             BoolSpec, is PresenceSpec -> {
                 require(!value.isString) { "'$name' must be Boolean" }
-                result.withBool(compiled.boolVarIdByName.getValue(name), value.boolean)
+                result.withBool(compiled.boolVarIdByName.getValue(name), requireNotNull(value.booleanOrNull) { "'$name' must be Boolean" })
             }
             is IntSpec -> {
                 require(!value.isString) { "'$name' must be an integer" }
@@ -90,7 +90,7 @@ internal fun readContext(space: CompiledDecisionSpace, input: JsonObject): Conte
             require(value != null || handle.isOptional) { "missing context '${handle.name}'" }
             if (value != null) {
                 require(!value.jsonPrimitive.isString) { "context '${handle.name}' must be Boolean" }
-                set(handle, value.jsonPrimitive.boolean)
+                set(handle, requireNotNull(value.jsonPrimitive.booleanOrNull) { "context '${handle.name}' must be Boolean" })
             }
         }
         for (handle in space.contextInts) {

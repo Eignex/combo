@@ -20,6 +20,8 @@ import kotlinx.serialization.json.*
 import kotlin.random.Random
 
 internal sealed class StatsResource : ManagedResource {
+    open val canChoose = false
+    open fun series(): SeriesStat<*>? = null
     abstract fun snapshot(timestampNanos: Long = System.nanoTime()): JsonElement
     abstract fun update(observation: JsonObject): JsonElement
     abstract fun reset(): JsonElement
@@ -51,6 +53,7 @@ internal sealed class StatsResource : ManagedResource {
 
 private class AccumulatorResource(private val stat: Stat<*>) : StatsResource() {
     override val type = "kumulant.stat"
+    override fun series(): SeriesStat<*>? = stat as? SeriesStat<*>
 
     override fun snapshot(timestampNanos: Long): JsonElement = encodeResult(stat.read(timestampNanos))
 
@@ -93,6 +96,7 @@ private class AccumulatorResource(private val stat: Stat<*>) : StatsResource() {
 
 private class BanditResource(private val bandit: Bandit) : StatsResource() {
     override val type = "kumulant.bandit"
+    override val canChoose = true
 
     override fun snapshot(timestampNanos: Long): JsonElement = bandit.snapshotJson()
 

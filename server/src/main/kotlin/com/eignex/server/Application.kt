@@ -15,12 +15,8 @@ import io.ktor.server.plugins.PayloadTooLargeException
 import io.ktor.server.plugins.bodylimit.RequestBodyLimit
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.statuspages.StatusPages
-import io.ktor.server.request.receive
 import io.ktor.server.response.respond
-import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
-import io.ktor.server.routing.post
-import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
@@ -65,78 +61,8 @@ internal fun Application.resourceApi(state: ServerState = ServerState()) {
     }
     routing {
         get("/health") { call.respond(mapOf("status" to "ok")) }
-        route("/v1/problems") {
-            get { call.respond(state.problems.list()) }
-            post {
-                val request = call.receive<CreateProblem>()
-                call.created("problems", state.problems.create(request.timeoutMillis) { ProblemResource(request) })
-            }
-            get("/{id}") {
-                val id = call.resourceId()
-                call.respond(state.problems.access(id) { resource, _ -> resource.describe(id) })
-            }
-            delete("/{id}") {
-                state.problems.delete(call.resourceId())
-                call.respond(HttpStatusCode.NoContent)
-            }
-            post("/{id}/solve") {
-                val request = call.receive<ProblemQuery>()
-                call.respond(state.problems.access(call.resourceId(), request.timeoutMillis) { resource, control ->
-                    resource.solve(request, control)
-                })
-            }
-            post("/{id}/sample") {
-                val request = call.receive<ProblemQuery>()
-                call.respond(state.problems.access(call.resourceId(), request.timeoutMillis) { resource, control ->
-                    resource.sample(request, control)
-                })
-            }
-        }
-        statsRoutes(state)
-        route("/v1/optimizers") {
-            get { call.respond(state.optimizers.list()) }
-            post {
-                val request = call.receive<CreateOptimizer>()
-                call.created("optimizers", state.optimizers.create(request.timeoutMillis) { OptimizerResource(request) })
-            }
-            get("/{id}") {
-                val id = call.resourceId()
-                call.respond(state.optimizers.access(id) { resource, _ -> resource.describe(id) })
-            }
-            delete("/{id}") {
-                state.optimizers.delete(call.resourceId())
-                call.respond(HttpStatusCode.NoContent)
-            }
-            post("/{id}/suggestions") {
-                val request = call.receive<SuggestionRequest>()
-                call.respond(state.optimizers.access(call.resourceId(), request.timeoutMillis) { resource, control ->
-                    resource.suggest(request, control)
-                })
-            }
-            get("/{id}/trials") {
-                call.respond(state.optimizers.access(call.resourceId()) { resource, _ -> resource.trials() })
-            }
-            post("/{id}/trials/{trialId}/complete") {
-                val trialId = call.trialId()
-                val request = call.receive<CompleteTrial>()
-                call.respond(state.optimizers.access(call.resourceId()) { resource, _ -> resource.complete(trialId, request) })
-            }
-            post("/{id}/trials/{trialId}/fail") {
-                val trialId = call.trialId()
-                val request = call.receive<TrialReason>()
-                call.respond(state.optimizers.access(call.resourceId()) { resource, _ -> resource.fail(trialId, request.reason) })
-            }
-            post("/{id}/trials/{trialId}/cancel") {
-                val trialId = call.trialId()
-                call.respond(state.optimizers.access(call.resourceId()) { resource, _ -> resource.cancel(trialId) })
-            }
-        }
+        modelRoutes(state)
     }
 }
 
 internal fun ApplicationCall.resourceId(): String = parameters["id"].orEmpty()
-private fun ApplicationCall.trialId(): Long = requireNotNull(parameters["trialId"]?.toLongOrNull()) { "invalid trial id" }
-private suspend fun ApplicationCall.created(collection: String, resource: ResourceInfo) {
-    response.headers.append(HttpHeaders.Location, "/v1/$collection/${resource.id}")
-    respond(HttpStatusCode.Created, resource)
-}
