@@ -1,6 +1,6 @@
 plugins {
-    id("com.eignex.kmp") version "1.3.3"
-    kotlin("plugin.serialization") version "2.4.10"
+    id("com.eignex.kmp") version "1.3.5"
+    kotlin("plugin.serialization") version "2.4.21"
 }
 
 eignexPublish {
