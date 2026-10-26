@@ -1,0 +1,7 @@
+2907e79290aa0130400753fac884d41b45f0af6c
+Linux LTHCL001 7.0.0-38-generic #38-Ubuntu SMP PREEMPT_DYNAMIC Fri Sep  4 09:10:14 UTC 2026 x86_64 GNU/Linux
+openjdk version "25.0.1" 2025-10-21 LTS
+OpenJDK Runtime Environment Temurin-25.0.1+8 (build 25.0.1+8-LTS)
+OpenJDK 64-Bit Server VM Temurin-25.0.1+8 (build 25.0.1+8-LTS, mixed mode, sharing)
+smoke=false native=false scalar=false mode=performance
+arguments: .\*NormalSamplingBenchmark.\* -p samples=256 -p dimensions=32\,128 -p sampling=pseudo\,sobol -f 2 -wi 3 -i 5 -w 1s -r 1s

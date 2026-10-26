@@ -34,11 +34,23 @@ fun interface JointAcquisitionFactory {
     fun create(context: JointAcquisitionContext, random: Random): JointAcquisition
 }
 
+/** Normal base-sample construction, frozen within a joint acquisition objective. */
+enum class JointNormalSampling {
+    /** Seeded pseudo-random draws paired with their negatives; supports any positive even sample count. */
+    Antithetic,
+
+    /**
+     * Kumulant's LMS-scrambled Sobol normal points. Requires a power-of-two sample count
+     * and at most 1,024 latent coordinates, including the baseline and candidates.
+     */
+    ScrambledSobol,
+}
+
 /**
  * Monte Carlo q-EI using a Gaussian approximation to joint latent moments and a fixed incumbent.
  * Pending points raise the sampled improvement threshold; their own improvement is not counted.
  * Log-response models are sampled in Gaussian log coordinates and scored in original units.
- * Reuses fixed antithetic normal samples, canonicalizes row order, and deduplicates coordinates.
+ * Reuses fixed normal samples (antithetic by default), canonicalizes row order, and deduplicates coordinates.
  * Near-singular covariance can receive relative numerical jitter up to 1e-8; this is not observation noise.
  * Each bound objective retains common normal samples and a baseline factor, and is single-threaded.
  *
@@ -46,12 +58,27 @@ fun interface JointAcquisitionFactory {
  * @property margin Required improvement in original response units.
  */
 class JointExpectedImprovement(val samples: Int = 256, val margin: Double = 0.0) : JointAcquisitionFactory {
+    private var selectedSampling = JointNormalSampling.Antithetic
+
+    /** Normal base-sample policy captured when the objective is created. */
+    val sampling: JointNormalSampling get() = selectedSampling
+
+    /** Select normal base samples; scrambled Sobol requires a power-of-two draw count. */
+    constructor(
+        sampling: JointNormalSampling,
+        samples: Int = 256,
+        margin: Double = 0.0,
+    ) : this(samples, margin) {
+        validateSampling(samples, sampling)
+        selectedSampling = sampling
+    }
+
     init {
         validateJointSettings(samples, margin)
     }
     override fun create(context: JointAcquisitionContext, random: Random): JointAcquisition {
         require(context.incumbent?.isFinite() == true) { "q-EI requires a finite incumbent" }
-        return jointImprovement(context, random, samples, margin, noisy = false)
+        return jointImprovement(context, random, samples, margin, noisy = false, sampling = sampling)
     }
 }
 
@@ -66,12 +93,33 @@ class JointExpectedImprovement(val samples: Int = 256, val margin: Double = 0.0)
  * @property margin Required improvement in original response units.
  */
 class JointNoisyExpectedImprovement(val samples: Int = 256, val margin: Double = 0.0) : JointAcquisitionFactory {
+    private var selectedSampling = JointNormalSampling.Antithetic
+
+    /** Normal base-sample policy captured when the objective is created. */
+    val sampling: JointNormalSampling get() = selectedSampling
+
+    /** Select normal base samples; scrambled Sobol requires a power-of-two draw count. */
+    constructor(
+        sampling: JointNormalSampling,
+        samples: Int = 256,
+        margin: Double = 0.0,
+    ) : this(samples, margin) {
+        validateSampling(samples, sampling)
+        selectedSampling = sampling
+    }
+
     init {
         validateJointSettings(samples, margin)
     }
     override fun create(context: JointAcquisitionContext, random: Random): JointAcquisition {
         require(context.baseline.rows > 0) { "q-NEI requires completed baseline coordinates" }
-        return jointImprovement(context, random, samples, margin, noisy = true)
+        return jointImprovement(context, random, samples, margin, noisy = true, sampling = sampling)
+    }
+}
+
+private fun validateSampling(samples: Int, sampling: JointNormalSampling) {
+    require(sampling != JointNormalSampling.ScrambledSobol || samples and (samples - 1) == 0) {
+        "scrambled Sobol requires a power-of-two sample count"
     }
 }
 
@@ -97,13 +145,39 @@ class JointLogExpectedImprovement(
     val temperature: Double = 1e-6,
     val batchTemperature: Double = 0.01,
 ) : JointAcquisitionFactory {
+    private var selectedSampling = JointNormalSampling.Antithetic
+
+    /** Normal base-sample policy captured when the objective is created. */
+    val sampling: JointNormalSampling get() = selectedSampling
+
+    /** Select normal base samples; scrambled Sobol requires a power-of-two draw count. */
+    constructor(
+        sampling: JointNormalSampling,
+        samples: Int = 256,
+        margin: Double = 0.0,
+        temperature: Double = 1e-6,
+        batchTemperature: Double = 0.01,
+    ) : this(samples, margin, temperature, batchTemperature) {
+        validateSampling(samples, sampling)
+        selectedSampling = sampling
+    }
+
     init {
         validateJointSettings(samples, margin)
         validateTemperatures(temperature, batchTemperature)
     }
     override fun create(context: JointAcquisitionContext, random: Random): JointAcquisition {
         require(context.incumbent?.isFinite() == true) { "q-LogEI requires a finite incumbent" }
-        return jointImprovement(context, random, samples, margin, noisy = false, temperature, batchTemperature)
+        return jointImprovement(
+            context,
+            random,
+            samples,
+            margin,
+            noisy = false,
+            temperature,
+            batchTemperature,
+            sampling,
+        )
     }
 }
 
@@ -123,13 +197,30 @@ class JointLogNoisyExpectedImprovement(
     val temperature: Double = 1e-6,
     val batchTemperature: Double = 0.01,
 ) : JointAcquisitionFactory {
+    private var selectedSampling = JointNormalSampling.Antithetic
+
+    /** Normal base-sample policy captured when the objective is created. */
+    val sampling: JointNormalSampling get() = selectedSampling
+
+    /** Select normal base samples; scrambled Sobol requires a power-of-two draw count. */
+    constructor(
+        sampling: JointNormalSampling,
+        samples: Int = 256,
+        margin: Double = 0.0,
+        temperature: Double = 1e-6,
+        batchTemperature: Double = 0.01,
+    ) : this(samples, margin, temperature, batchTemperature) {
+        validateSampling(samples, sampling)
+        selectedSampling = sampling
+    }
+
     init {
         validateJointSettings(samples, margin)
         validateTemperatures(temperature, batchTemperature)
     }
     override fun create(context: JointAcquisitionContext, random: Random): JointAcquisition {
         require(context.baseline.rows > 0) { "q-LogNEI requires completed baseline coordinates" }
-        return jointImprovement(context, random, samples, margin, noisy = true, temperature, batchTemperature)
+        return jointImprovement(context, random, samples, margin, noisy = true, temperature, batchTemperature, sampling)
     }
 }
 
@@ -145,6 +236,7 @@ private fun jointImprovement(
     noisy: Boolean,
     temperature: Double? = null,
     batchTemperature: Double = 0.01,
+    sampling: JointNormalSampling = JointNormalSampling.Antithetic,
 ): JointAcquisition {
     val dimensions = context.baseline.cols
     require(context.pending.cols == dimensions)
@@ -169,7 +261,7 @@ private fun jointImprovement(
     ) {
         "joint EI requires joint Gaussian moments; marginal-only models are unsupported"
     }
-    val sampler = JointGaussianSampler(posterior, samples, random.nextLong())
+    val sampler = JointGaussianSampler(posterior, samples, random.nextLong(), sampling)
     fun score(value: Double): Double = context.outcome.score(if (logarithmic) exp(value) else value).also {
         require(it.isFinite()) { "nonfinite joint response; rescale responses" }
     }

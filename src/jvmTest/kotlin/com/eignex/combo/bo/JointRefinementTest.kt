@@ -29,47 +29,68 @@ import kotlin.test.assertTrue
 class JointRefinementTest {
     @Test
     fun `cached EI and log EI match frozen BoTorch values with identical normals`() {
-        val fixtures = File("benchmarks/gp-followups/frozen-q4.json.gz").inputStream().use {
-            Json.parseToJsonElement(GZIPInputStream(it).bufferedReader().readText()).jsonArray
-        }
-        val reference = File("benchmarks/gp-followups/reference-q4.csv").readLines().drop(1).associate { line ->
-            val row = line.split(',')
-            (row[0] to row[2]) to row[6].toDouble()
-        }
-        for (entry in fixtures) {
-            val fixture = entry.jsonObject
-            val means = fixture.getValue("means").jsonArray.map { it.jsonPrimitive.double }
-            val covariance = fixture.getValue(
-                "covariance",
-            ).jsonArray.map { it.jsonArray.map { x -> x.jsonPrimitive.double } }
-            val model = MatrixPosterior(means, covariance)
-            val size = fixture.getValue("baseline").jsonPrimitive.int
-            val baseline = jointPoints(*(0 until size).map(Int::toDouble).toDoubleArray())
-            val noisy = fixture.getValue("id").jsonPrimitive.content.endsWith("qnei")
-            val context = JointAcquisitionContext(
-                model,
-                fixture.getValue("incumbent").jsonPrimitive.double,
-                OutcomeSpec(),
-                baseline,
-            )
-            val raw = (if (noisy) JointNoisyExpectedImprovement() else JointExpectedImprovement()).create(
-                context,
-                Random(713),
-            )
-            val log = (if (noisy) JointLogNoisyExpectedImprovement() else JointLogExpectedImprovement()).create(
-                context,
-                Random(713),
-            )
-            for (case in fixture.getValue("sets").jsonArray) {
-                val record = case.jsonObject
-                val indices = record.getValue("indices").jsonArray.map { it.jsonPrimitive.int }
-                val points = jointPoints(*indices.map(Int::toDouble).toDoubleArray())
-                assertEquals(record.getValue("legacy").jsonPrimitive.double, raw.evaluate(points), 1e-9)
-                assertEquals(
-                    reference.getValue(fixture.getValue("id").jsonPrimitive.content to indices.joinToString(";")),
-                    log.evaluate(points),
-                    1e-8,
+        for ((directory, sampling) in listOf(
+            "gp-followups" to JointNormalSampling.Antithetic,
+            "gp-qmc" to JointNormalSampling.ScrambledSobol,
+        )) {
+            val fixtures = File("benchmarks/$directory/frozen-q4.json.gz").inputStream().use {
+                Json.parseToJsonElement(GZIPInputStream(it).bufferedReader().readText()).jsonArray
+            }
+            val reference = File("benchmarks/$directory/reference-q4.csv").readLines().drop(1).associate { line ->
+                val row = line.split(',')
+                (row[0] to row[2]) to row[6].toDouble()
+            }
+            for (entry in fixtures) {
+                val fixture = entry.jsonObject
+                val means = fixture.getValue("means").jsonArray.map { it.jsonPrimitive.double }
+                val covariance = fixture.getValue(
+                    "covariance",
+                ).jsonArray.map { it.jsonArray.map { x -> x.jsonPrimitive.double } }
+                val model = MatrixPosterior(means, covariance)
+                val size = fixture.getValue("baseline").jsonPrimitive.int
+                val baseline = jointPoints(*(0 until size).map(Int::toDouble).toDoubleArray())
+                val noisy = fixture.getValue("id").jsonPrimitive.content.endsWith("qnei")
+                val context = JointAcquisitionContext(
+                    model,
+                    fixture.getValue("incumbent").jsonPrimitive.double,
+                    OutcomeSpec(),
+                    baseline,
                 )
+                val raw = (
+                    if (noisy) {
+                        JointNoisyExpectedImprovement(
+                            sampling,
+                        )
+                    } else {
+                        JointExpectedImprovement(sampling)
+                    }
+                    ).create(
+                    context,
+                    Random(713),
+                )
+                val log = (
+                    if (noisy) {
+                        JointLogNoisyExpectedImprovement(
+                            sampling,
+                        )
+                    } else {
+                        JointLogExpectedImprovement(sampling)
+                    }
+                    ).create(
+                    context,
+                    Random(713),
+                )
+                for (case in fixture.getValue("sets").jsonArray) {
+                    val record = case.jsonObject
+                    val indices = record.getValue("indices").jsonArray.map { it.jsonPrimitive.int }
+                    val points = jointPoints(*indices.map(Int::toDouble).toDoubleArray())
+                    assertEquals(record.getValue("legacy").jsonPrimitive.double, raw.evaluate(points), 1e-9)
+                    assertEquals(
+                        reference.getValue(fixture.getValue("id").jsonPrimitive.content to indices.joinToString(";")),
+                        log.evaluate(points),
+                        1e-8,
+                    )
+                }
             }
         }
     }
@@ -262,7 +283,7 @@ class JointRefinementTest {
         }
     }
 }
-private class MatrixPosterior(private val means: List<Double>, private val covariance: List<List<Double>>) :
+internal class MatrixPosterior(private val means: List<Double>, private val covariance: List<List<Double>>) :
     FittedSurrogate {
     override val uncertaintyKind = UncertaintyKind.LatentPosterior
     override fun predictJoint(features: DenseMatrix) = JointPredictiveMoments(

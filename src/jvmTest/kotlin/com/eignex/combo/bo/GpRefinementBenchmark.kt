@@ -110,7 +110,16 @@ fun main(args: Array<String>) {
     scoreFrozenReference()
 }
 
-private fun runSuite(name: String, seed: Int, sd: Double, batch: Int, policy: String, output: File) {
+internal fun runSuite(
+    name: String,
+    seed: Int,
+    sd: Double,
+    batch: Int,
+    policy: String,
+    output: File,
+    sampling: JointNormalSampling = JointNormalSampling.Antithetic,
+) {
+    val label = if (sampling == JointNormalSampling.Antithetic) policy else "$policy-sobol"
     val problem = suiteProblem(name)
     val projection = SearchTransform(problem.space)
     val dimensions = projection.featureSize
@@ -155,7 +164,11 @@ private fun runSuite(name: String, seed: Int, sd: Double, batch: Int, policy: St
             SequentialBatchPolicy()
         } else {
             JointBatchPolicy(
-                if (policy.startsWith("log")) JointLogNoisyExpectedImprovement() else JointNoisyExpectedImprovement(),
+                if (policy.startsWith("log")) {
+                    JointLogNoisyExpectedImprovement(sampling)
+                } else {
+                    JointNoisyExpectedImprovement(sampling)
+                },
                 joint,
             )
         },
@@ -206,7 +219,7 @@ private fun runSuite(name: String, seed: Int, sd: Double, batch: Int, policy: St
             val truth = problem.truth(trial.sample)
             best = minOf(best, truth)
             trace.append(
-                "$name,$seed,$sd,$batch,$policy,$calls,$round,${measured[slot]},$truth," +
+                "$name,$seed,$sd,$batch,$label,$calls,$round,${measured[slot]},$truth," +
                     "${trial.sample.sample.reals.joinToString(
                         ";",
                     )}\n",
@@ -230,7 +243,7 @@ private fun runSuite(name: String, seed: Int, sd: Double, batch: Int, policy: St
         output,
         "outcomes.csv",
     ).appendText(
-        "$name,$seed,$sd,$batch,$policy,$calls,$best,${problem.truth(
+        "$name,$seed,$sd,$batch,$label,$calls,$best,${problem.truth(
             recommendation,
         )},${optimizer.fitCount},$suggestions,$recommendNanos,$evaluations\n",
     )

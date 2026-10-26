@@ -4,6 +4,7 @@ import com.eignex.koblas.DenseMatrix
 import com.eignex.koblas.koblas
 import com.eignex.kumulant.math.CholeskyFactor
 import com.eignex.kumulant.math.NotPositiveDefinite
+import com.eignex.kumulant.math.SobolSequence
 import com.eignex.kumulant.math.factorCholesky
 import com.eignex.kumulant.math.nextNormal
 import kotlin.random.Random
@@ -28,7 +29,12 @@ internal fun featureMatrix(rows: List<List<Double>>, dimensions: Int): DenseMatr
 }
 
 /** BO posterior sampling cache: model-specific baseline prediction work and its factor are frozen once. */
-internal class JointGaussianSampler(private val posterior: JointPosterior, private val samples: Int, seed: Long) {
+internal class JointGaussianSampler(
+    private val posterior: JointPosterior,
+    private val samples: Int,
+    private val seed: Long,
+    private val sampling: JointNormalSampling = JointNormalSampling.Antithetic,
+) {
     private val baseline = posterior.baseline
     private val active = baseline.means.toDoubleArray().indices.filter { baseline.covariance[it, it] > 0.0 }
     private val factor: CholeskyFactor?
@@ -58,6 +64,21 @@ internal class JointGaussianSampler(private val posterior: JointPosterior, priva
     }
 
     private fun normalRows(start: Int, count: Int): DenseMatrix {
+        if (sampling == JointNormalSampling.ScrambledSobol && normals.size < start + count) {
+            require(start + count <= SobolSequence.MAX_DIMENSIONS) {
+                "scrambled Sobol supports at most ${SobolSequence.MAX_DIMENSIONS} latent coordinates; use Antithetic"
+            }
+            val first = normals.size
+            val width = start + count - first
+            val sequence = SobolSequence(width, seed, dimensionOffset = first)
+            val point = DoubleArray(width)
+            val columns = List(width) { DoubleArray(samples) }
+            repeat(samples) { draw ->
+                sequence.nextNormal(point)
+                for (coordinate in point.indices) columns[coordinate][draw] = point[coordinate]
+            }
+            normals.addAll(columns)
+        }
         while (normals.size < start + count) {
             normals += DoubleArray(samples).also { values ->
                 for (i in 0 until samples step 2) {
