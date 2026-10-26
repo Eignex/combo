@@ -13,6 +13,7 @@ import com.eignex.kumulant.math.CholeskyFactor
 import com.eignex.kumulant.math.NotPositiveDefinite
 import com.eignex.kumulant.math.factorCholesky
 import com.eignex.kumulant.math.nextNormal
+import com.eignex.kumulant.stat.summary.estimateCorrelatedMean
 import com.eignex.kumulant.stat.summary.estimateMean
 import kotlin.math.PI
 import kotlin.math.exp
@@ -41,9 +42,9 @@ data class GaussianProcessConfig(
     val signalVariance: Double = 1.0,
     /** Observation variance for rows without a supplied noise variance; zero permits exact observations. */
     val noiseVariance: Double = 1e-6,
-    /** Fixed constant prior mean; null estimates one mean from the original training responses. */
+    /** Fixed constant prior mean; null delegates mean estimation to the fitting policy. */
     val mean: Double? = null,
-    /** Number of bounded coordinate-search likelihood candidates; zero fixes supplied parameters. */
+    /** Covariance candidates after the initial fit; zero fixes supplied covariance parameters. */
     val hyperparameterTrials: Int = 24,
     /** Include unknown observation noise in likelihood search; supplied row variances remain fixed. */
     val learnNoise: Boolean = false,
@@ -82,7 +83,9 @@ internal class GaussianProcessModel private constructor(
     private val alpha: DoubleArray,
     val numericalJitter: Double,
     val logMarginalLikelihood: Double,
+    private val logParameterPenalty: Double,
 ) {
+    val logFitScore: Double get() = logMarginalLikelihood + logParameterPenalty
     private val size get() = data.features.rows
     private val dimensions get() = data.features.cols
 
@@ -163,7 +166,7 @@ internal class GaussianProcessModel private constructor(
                 },
             ),
         )
-        return build(all, config, parameters)
+        return build(all, config, parameters, retainedPenalty = logParameterPenalty)
     }
 
     fun drawFunction(random: Random): SampledFunction {
@@ -203,7 +206,12 @@ internal class GaussianProcessModel private constructor(
     }
 
     companion object {
-        fun fit(input: TrainingData, config: GaussianProcessConfig): GaussianProcessModel {
+        fun fit(
+            input: TrainingData,
+            config: GaussianProcessConfig,
+            fitting: GaussianProcessFitting = GaussianProcessFitting(),
+            random: Random = Random(0),
+        ): GaussianProcessModel {
             validateWeights(input)
             require(config.lengthScales == null || config.lengthScales.size == input.features.cols)
             val data = TrainingData(
@@ -230,18 +238,46 @@ internal class GaussianProcessModel private constructor(
                 },
                 config.mean ?: estimate?.mean ?: 0.0,
             )
-            var best = build(data, config, initial)
+            val noiseCenter = initial.noiseVariance.takeIf { learnNoise }
+            fun candidate(parameters: GaussianProcessParameters): GaussianProcessModel = build(
+                data,
+                config,
+                parameters,
+                profileMean = config.mean == null &&
+                    fitting.meanEstimation == GaussianMeanEstimation.CovarianceWeighted,
+                regularization = fitting.regularization,
+                noiseCenter = noiseCenter,
+            )
+            var best = candidate(initial)
             if (data.features.rows == 0) return best
             val coordinates = input.features.cols + 1 + if (learnNoise) 1 else 0
+            val total = config.hyperparameterTrials.toLong() + 1
+            val starts = if (fitting.search == GaussianHyperparameterSearch.Multistart) {
+                minOf(fitting.starts.toLong(), total).toInt()
+            } else {
+                1
+            }
             var origin = initial
-            repeat(config.hyperparameterTrials) { trial ->
-                if (trial % 2 == 0) origin = best.parameters
-                val coordinate = (trial / 2) % coordinates
-                val cycle = trial / (2 * coordinates)
-                val step = ln(2.0) / (1 + cycle / 2) * if (trial % 2 == 0) -1.0 else 1.0
-                val proposal = perturb(origin, coordinate, step)
-                val candidate = build(data, config, proposal)
-                if (candidate.logMarginalLikelihood > best.logMarginalLikelihood) best = candidate
+            for (start in 0 until starts) {
+                val budget = total / starts + if (start < total % starts) 1 else 0
+                var local = if (start == 0) {
+                    best
+                } else {
+                    var point = initial
+                    repeat(coordinates) { coordinate ->
+                        point = perturb(point, coordinate, random.nextDouble(-ln(4.0), ln(4.0)))
+                    }
+                    candidate(point).also { if (it.logFitScore > best.logFitScore) best = it }
+                }
+                repeat((budget - 1).toInt()) { trial ->
+                    if (trial % 2 == 0) origin = local.parameters
+                    val coordinate = (trial / 2) % coordinates
+                    val cycle = trial / (2 * coordinates)
+                    val step = ln(2.0) / (1 + cycle / 2) * if (trial % 2 == 0) -1.0 else 1.0
+                    val proposal = candidate(perturb(origin, coordinate, step))
+                    if (proposal.logFitScore > local.logFitScore) local = proposal
+                    if (proposal.logFitScore > best.logFitScore) best = proposal
+                }
             }
             return best
         }
@@ -277,6 +313,10 @@ internal class GaussianProcessModel private constructor(
             data: TrainingData,
             config: GaussianProcessConfig,
             parameters: GaussianProcessParameters,
+            profileMean: Boolean = false,
+            regularization: GaussianProcessRegularization? = null,
+            noiseCenter: Double? = null,
+            retainedPenalty: Double = 0.0,
         ): GaussianProcessModel {
             val matrix = covariance(data.features, data.features, config.kernel, parameters)
             for (i in 0 until matrix.rows) {
@@ -285,7 +325,12 @@ internal class GaussianProcessModel private constructor(
                 )?.takeUnless { it.isNaN() } ?: parameters.noiseVariance
             }
             val (factor, jitter) = stabilized(matrix, config, parameters.signalVariance)
-            val centered = DoubleArray(data.responses.size) { data.responses[it] - parameters.mean }
+            val fittedParameters = if (profileMean && data.responses.size > 0) {
+                parameters.copy(mean = estimateCorrelatedMean(data.responses, factor).mean)
+            } else {
+                parameters
+            }
+            val centered = DoubleArray(data.responses.size) { data.responses[it] - fittedParameters.mean }
             val alpha = factor.solve(centered)
             val quadratic = koblas.vectorKernels.dot(centered, 0, alpha, 0, alpha.size)
             val likelihood = if (alpha.isEmpty()) {
@@ -299,7 +344,8 @@ internal class GaussianProcessModel private constructor(
                         )
             }
             require(likelihood.isFinite() && alpha.all { it.isFinite() }) { "Nonfinite GP fit; rescale responses" }
-            return GaussianProcessModel(data, config, parameters, factor, alpha, jitter, likelihood)
+            val penalty = retainedPenalty + (regularization?.penalty(fittedParameters, noiseCenter) ?: 0.0)
+            return GaussianProcessModel(data, config, fittedParameters, factor, alpha, jitter, likelihood, penalty)
         }
     }
 }

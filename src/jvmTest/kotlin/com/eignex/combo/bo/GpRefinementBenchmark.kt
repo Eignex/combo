@@ -1,5 +1,7 @@
 package com.eignex.combo.bo
 
+import com.eignex.combo.bo.model.GaussianProcessConfig
+import com.eignex.combo.bo.model.GaussianProcessFitting
 import com.eignex.combo.decisions.DecisionSpace
 import com.eignex.combo.shared.WitnessBatch
 import com.eignex.combo.shared.WitnessSearch
@@ -118,8 +120,11 @@ internal fun runSuite(
     policy: String,
     output: File,
     sampling: JointNormalSampling = JointNormalSampling.Antithetic,
+    config: GaussianProcessConfig = GaussianProcessConfig(),
+    fitting: GaussianProcessFitting = GaussianProcessFitting(),
+    labelOverride: String? = null,
 ) {
-    val label = if (sampling == JointNormalSampling.Antithetic) policy else "$policy-sobol"
+    val label = labelOverride ?: if (sampling == JointNormalSampling.Antithetic) policy else "$policy-sobol"
     val problem = suiteProblem(name)
     val projection = SearchTransform(problem.space)
     val dimensions = projection.featureSize
@@ -149,7 +154,7 @@ internal fun runSuite(
         JointPoolSearch(projection, pool, candidateCount = 16, starts = 2, passes = 1)
     }
     val optimizer = BayesianOptimizer(
-        projection, GaussianProcessSurrogate(),
+        projection, GaussianProcessSurrogate(fitting, config),
         acquisitionOptimizer = LocalAndRandomSearch(
             projection,
             pool,

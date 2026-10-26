@@ -351,6 +351,38 @@ for rows whose variance is unspecified. Supplied row variances remain fixed. Set
 `hyperparameterTrials = 0` to fix kernel/noise parameters. Mean and variance configuration
 uses training-response units, after any requested standardization or response transform.
 
+Optional fitting policies are configured separately, preserving the default empirical mean and
+unregularized coordinate search:
+
+```kotlin
+import com.eignex.combo.bo.model.GaussianHyperparameterSearch
+import com.eignex.combo.bo.model.GaussianMeanEstimation
+import com.eignex.combo.bo.model.GaussianProcessFitting
+import com.eignex.combo.bo.model.GaussianProcessRegularization
+
+val surrogate = GaussianProcessSurrogate(
+    fitting = GaussianProcessFitting(
+        meanEstimation = GaussianMeanEstimation.CovarianceWeighted,
+        regularization = GaussianProcessRegularization(),
+        search = GaussianHyperparameterSearch.Multistart,
+        starts = 4,
+    ),
+    config = GaussianProcessConfig(hyperparameterTrials = 96),
+)
+```
+
+Covariance-weighted fitting profiles a constant mean at every covariance candidate using
+Kumulant's generalized least-squares estimator. An explicit `mean` overrides estimation;
+conditioning freezes the estimated mean. The regularizer applies Gaussian penalties to log
+covariance parameters, with a dimension-scaled length-scale center. It is a density in log
+coordinates, with constants omitted. The score is exposed separately as `logFitScore`;
+`logMarginalLikelihood` always reports the likelihood alone. Known row noise is never penalized.
+Normalize inputs and standardize responses when using the default regularizer centers.
+Multistart search divides the same total candidate budget among seeded starts, including restart
+points: fitting evaluates one initial covariance plus `hyperparameterTrials` candidates.
+Smaller per-start budgets can weaken refinement. These policies remain opt-in; the
+[fitting refinement report](benchmarks/gp-fitting/report.md) records gains and regressions.
+
 Predictions expose latent function uncertainty conditional on fitted parameters, excluding
 observation noise and uncertainty about the fitted parameters themselves. Numerical jitter
 is separate from noise and reported on `FittedGaussianProcess`. Unit statistical weights

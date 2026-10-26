@@ -37,11 +37,11 @@ kotlin {
         for ((sourceSet, modules) in mapOf(
             "jvmMain" to mapOf(
                 "klause-jvm" to "0.0.1-20261023.210726-928",
-                "kumulant-jvm" to "0.3.4-20261026.185804-89",
+                "kumulant-jvm" to "0.3.4-20261026.220730-94",
             ),
             "linuxX64Main" to mapOf(
                 "klause-linuxx64" to "0.0.1-20261023.210726-927",
-                "kumulant-linuxx64" to "0.3.4-20261026.185804-89",
+                "kumulant-linuxx64" to "0.3.4-20261026.220730-94",
             ),
         )) {
             getByName(sourceSet).dependencies {
@@ -65,10 +65,10 @@ kotlin {
         }
         // Public numerical APIs use Koblas directly, independently of the statistical libraries.
         jvmMain.dependencies {
-            api("com.eignex:koblas-jvm:0.1.1-20261025.142922-272")
+            api("com.eignex:koblas-jvm:0.1.1-20261026.172701-274")
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
         }
-        linuxX64Main.dependencies { api("com.eignex:koblas-linuxx64:0.1.1-20261025.142922-268") }
+        linuxX64Main.dependencies { api("com.eignex:koblas-linuxx64:0.1.1-20261026.172701-270") }
         commonTest.dependencies {
             implementation(kotlin("test"))
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
@@ -222,6 +222,19 @@ tasks.register<JavaExec>("refineGpSampling") {
     mainClass.set("com.eignex.combo.bo.GpSamplingBenchmarkKt")
     args(providers.gradleProperty("qmc.mode").orElse("frozen").get(),
         providers.gradleProperty("qmc.seeds").orElse("").get())
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(25)) })
+    jvmArgs("--enable-native-access=ALL-UNNAMED", "--add-modules=jdk.incubator.vector", "-Xmx1g")
+}
+
+// Controlled frozen-history fitting ablations and independent whole-loop confirmation.
+tasks.register<JavaExec>("refineGpFitting") {
+    dependsOn("jvmTestClasses")
+    val compilation = kotlin.targets.getByName("jvm").compilations.getByName("test")
+    classpath(compilation.output.allOutputs, compilation.runtimeDependencyFiles)
+    mainClass.set("com.eignex.combo.bo.GpFittingBenchmarkKt")
+    args(providers.gradleProperty("fitting.mode").orElse("frozen").get(),
+        providers.gradleProperty("fitting.variants").orElse("baseline24,baseline96,combined96").get(),
+        providers.gradleProperty("fitting.seeds").orElse("1901,1902,1903,1904,1905,1906").get())
     javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(25)) })
     jvmArgs("--enable-native-access=ALL-UNNAMED", "--add-modules=jdk.incubator.vector", "-Xmx1g")
 }
