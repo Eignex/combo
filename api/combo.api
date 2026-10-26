@@ -690,6 +690,7 @@ public final class com/eignex/combo/bo/FittedGaussianProcess : com/eignex/combo/
 	public fun condition (Lcom/eignex/combo/bo/TrainingData;)Lcom/eignex/combo/bo/FittedGaussianProcess;
 	public synthetic fun condition (Lcom/eignex/combo/bo/TrainingData;)Lcom/eignex/combo/bo/FittedSurrogate;
 	public fun drawFunction (Lkotlin/random/Random;)Lcom/eignex/combo/bo/SampledFunction;
+	public final fun getLogFitScore ()D
 	public final fun getLogMarginalLikelihood ()D
 	public final fun getNumericalJitter ()D
 	public final fun getParameters ()Lcom/eignex/combo/bo/model/GaussianProcessParameters;
@@ -776,9 +777,12 @@ public final class com/eignex/combo/bo/GaussianProcessSurrogate : com/eignex/com
 	public fun <init> ()V
 	public fun <init> (Lcom/eignex/combo/bo/model/GaussianProcessConfig;)V
 	public synthetic fun <init> (Lcom/eignex/combo/bo/model/GaussianProcessConfig;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lcom/eignex/combo/bo/model/GaussianProcessFitting;Lcom/eignex/combo/bo/model/GaussianProcessConfig;)V
+	public synthetic fun <init> (Lcom/eignex/combo/bo/model/GaussianProcessFitting;Lcom/eignex/combo/bo/model/GaussianProcessConfig;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun fit (Lcom/eignex/combo/bo/TrainingData;Lkotlin/random/Random;)Lcom/eignex/combo/bo/FittedGaussianProcess;
 	public synthetic fun fit (Lcom/eignex/combo/bo/TrainingData;Lkotlin/random/Random;)Lcom/eignex/combo/bo/FittedSurrogate;
 	public final fun getConfig ()Lcom/eignex/combo/bo/model/GaussianProcessConfig;
+	public final fun getFitting ()Lcom/eignex/combo/bo/model/GaussianProcessFitting;
 }
 
 public final class com/eignex/combo/bo/HistoryData : com/eignex/combo/shared/LearnerData {
@@ -1584,12 +1588,28 @@ public final class com/eignex/combo/bo/model/ForestMoments {
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class com/eignex/combo/bo/model/GaussianHyperparameterSearch : java/lang/Enum {
+	public static final field Coordinate Lcom/eignex/combo/bo/model/GaussianHyperparameterSearch;
+	public static final field Multistart Lcom/eignex/combo/bo/model/GaussianHyperparameterSearch;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/eignex/combo/bo/model/GaussianHyperparameterSearch;
+	public static fun values ()[Lcom/eignex/combo/bo/model/GaussianHyperparameterSearch;
+}
+
 public final class com/eignex/combo/bo/model/GaussianKernel : java/lang/Enum {
 	public static final field Matern52 Lcom/eignex/combo/bo/model/GaussianKernel;
 	public static final field Rbf Lcom/eignex/combo/bo/model/GaussianKernel;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public static fun valueOf (Ljava/lang/String;)Lcom/eignex/combo/bo/model/GaussianKernel;
 	public static fun values ()[Lcom/eignex/combo/bo/model/GaussianKernel;
+}
+
+public final class com/eignex/combo/bo/model/GaussianMeanEstimation : java/lang/Enum {
+	public static final field CovarianceWeighted Lcom/eignex/combo/bo/model/GaussianMeanEstimation;
+	public static final field Empirical Lcom/eignex/combo/bo/model/GaussianMeanEstimation;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/eignex/combo/bo/model/GaussianMeanEstimation;
+	public static fun values ()[Lcom/eignex/combo/bo/model/GaussianMeanEstimation;
 }
 
 public final class com/eignex/combo/bo/model/GaussianProcessConfig {
@@ -1623,6 +1643,25 @@ public final class com/eignex/combo/bo/model/GaussianProcessConfig {
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class com/eignex/combo/bo/model/GaussianProcessFitting {
+	public fun <init> ()V
+	public fun <init> (Lcom/eignex/combo/bo/model/GaussianMeanEstimation;Lcom/eignex/combo/bo/model/GaussianProcessRegularization;Lcom/eignex/combo/bo/model/GaussianHyperparameterSearch;I)V
+	public synthetic fun <init> (Lcom/eignex/combo/bo/model/GaussianMeanEstimation;Lcom/eignex/combo/bo/model/GaussianProcessRegularization;Lcom/eignex/combo/bo/model/GaussianHyperparameterSearch;IILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lcom/eignex/combo/bo/model/GaussianMeanEstimation;
+	public final fun component2 ()Lcom/eignex/combo/bo/model/GaussianProcessRegularization;
+	public final fun component3 ()Lcom/eignex/combo/bo/model/GaussianHyperparameterSearch;
+	public final fun component4 ()I
+	public final fun copy (Lcom/eignex/combo/bo/model/GaussianMeanEstimation;Lcom/eignex/combo/bo/model/GaussianProcessRegularization;Lcom/eignex/combo/bo/model/GaussianHyperparameterSearch;I)Lcom/eignex/combo/bo/model/GaussianProcessFitting;
+	public static synthetic fun copy$default (Lcom/eignex/combo/bo/model/GaussianProcessFitting;Lcom/eignex/combo/bo/model/GaussianMeanEstimation;Lcom/eignex/combo/bo/model/GaussianProcessRegularization;Lcom/eignex/combo/bo/model/GaussianHyperparameterSearch;IILjava/lang/Object;)Lcom/eignex/combo/bo/model/GaussianProcessFitting;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getMeanEstimation ()Lcom/eignex/combo/bo/model/GaussianMeanEstimation;
+	public final fun getRegularization ()Lcom/eignex/combo/bo/model/GaussianProcessRegularization;
+	public final fun getSearch ()Lcom/eignex/combo/bo/model/GaussianHyperparameterSearch;
+	public final fun getStarts ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class com/eignex/combo/bo/model/GaussianProcessParameters {
 	public fun <init> (Ljava/util/List;DDD)V
 	public final fun component1 ()Ljava/util/List;
@@ -1635,6 +1674,29 @@ public final class com/eignex/combo/bo/model/GaussianProcessParameters {
 	public final fun getLengthScales ()Ljava/util/List;
 	public final fun getMean ()D
 	public final fun getNoiseVariance ()D
+	public final fun getSignalVariance ()D
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/eignex/combo/bo/model/GaussianProcessRegularization {
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/Double;DDDLjava/lang/Double;D)V
+	public synthetic fun <init> (Ljava/lang/Double;DDDLjava/lang/Double;DILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/Double;
+	public final fun component2 ()D
+	public final fun component3 ()D
+	public final fun component4 ()D
+	public final fun component5 ()Ljava/lang/Double;
+	public final fun component6 ()D
+	public final fun copy (Ljava/lang/Double;DDDLjava/lang/Double;D)Lcom/eignex/combo/bo/model/GaussianProcessRegularization;
+	public static synthetic fun copy$default (Lcom/eignex/combo/bo/model/GaussianProcessRegularization;Ljava/lang/Double;DDDLjava/lang/Double;DILjava/lang/Object;)Lcom/eignex/combo/bo/model/GaussianProcessRegularization;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getLengthScale ()Ljava/lang/Double;
+	public final fun getLengthScaleLogDeviation ()D
+	public final fun getNoiseLogDeviation ()D
+	public final fun getNoiseVariance ()Ljava/lang/Double;
+	public final fun getSignalLogDeviation ()D
 	public final fun getSignalVariance ()D
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
