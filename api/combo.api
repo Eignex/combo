@@ -870,9 +870,12 @@ public final class com/eignex/combo/bo/JointExpectedImprovement : com/eignex/com
 	public fun <init> ()V
 	public fun <init> (ID)V
 	public synthetic fun <init> (IDILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lcom/eignex/combo/bo/JointNormalSampling;ID)V
+	public synthetic fun <init> (Lcom/eignex/combo/bo/JointNormalSampling;IDILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun create (Lcom/eignex/combo/bo/JointAcquisitionContext;Lkotlin/random/Random;)Lcom/eignex/combo/bo/JointAcquisition;
 	public final fun getMargin ()D
 	public final fun getSamples ()I
+	public final fun getSampling ()Lcom/eignex/combo/bo/JointNormalSampling;
 }
 
 public final class com/eignex/combo/bo/JointLocalAndRandomSearch : com/eignex/combo/bo/JointAcquisitionOptimizer {
@@ -892,10 +895,13 @@ public final class com/eignex/combo/bo/JointLogExpectedImprovement : com/eignex/
 	public fun <init> ()V
 	public fun <init> (IDDD)V
 	public synthetic fun <init> (IDDDILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lcom/eignex/combo/bo/JointNormalSampling;IDDD)V
+	public synthetic fun <init> (Lcom/eignex/combo/bo/JointNormalSampling;IDDDILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun create (Lcom/eignex/combo/bo/JointAcquisitionContext;Lkotlin/random/Random;)Lcom/eignex/combo/bo/JointAcquisition;
 	public final fun getBatchTemperature ()D
 	public final fun getMargin ()D
 	public final fun getSamples ()I
+	public final fun getSampling ()Lcom/eignex/combo/bo/JointNormalSampling;
 	public final fun getTemperature ()D
 }
 
@@ -903,10 +909,13 @@ public final class com/eignex/combo/bo/JointLogNoisyExpectedImprovement : com/ei
 	public fun <init> ()V
 	public fun <init> (IDDD)V
 	public synthetic fun <init> (IDDDILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lcom/eignex/combo/bo/JointNormalSampling;IDDD)V
+	public synthetic fun <init> (Lcom/eignex/combo/bo/JointNormalSampling;IDDDILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun create (Lcom/eignex/combo/bo/JointAcquisitionContext;Lkotlin/random/Random;)Lcom/eignex/combo/bo/JointAcquisition;
 	public final fun getBatchTemperature ()D
 	public final fun getMargin ()D
 	public final fun getSamples ()I
+	public final fun getSampling ()Lcom/eignex/combo/bo/JointNormalSampling;
 	public final fun getTemperature ()D
 }
 
@@ -914,9 +923,20 @@ public final class com/eignex/combo/bo/JointNoisyExpectedImprovement : com/eigne
 	public fun <init> ()V
 	public fun <init> (ID)V
 	public synthetic fun <init> (IDILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lcom/eignex/combo/bo/JointNormalSampling;ID)V
+	public synthetic fun <init> (Lcom/eignex/combo/bo/JointNormalSampling;IDILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun create (Lcom/eignex/combo/bo/JointAcquisitionContext;Lkotlin/random/Random;)Lcom/eignex/combo/bo/JointAcquisition;
 	public final fun getMargin ()D
 	public final fun getSamples ()I
+	public final fun getSampling ()Lcom/eignex/combo/bo/JointNormalSampling;
+}
+
+public final class com/eignex/combo/bo/JointNormalSampling : java/lang/Enum {
+	public static final field Antithetic Lcom/eignex/combo/bo/JointNormalSampling;
+	public static final field ScrambledSobol Lcom/eignex/combo/bo/JointNormalSampling;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/eignex/combo/bo/JointNormalSampling;
+	public static fun values ()[Lcom/eignex/combo/bo/JointNormalSampling;
 }
 
 public final class com/eignex/combo/bo/JointPoolSearch : com/eignex/combo/bo/JointAcquisitionOptimizer {

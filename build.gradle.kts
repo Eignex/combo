@@ -30,18 +30,18 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-core:1.11.0")
+            compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-core:1.12.0")
         }
         // Pin platform artifacts directly: KMP snapshot roots redirect to mutable
         // platform versions and lose dependency exclusions across that redirect.
         for ((sourceSet, modules) in mapOf(
             "jvmMain" to mapOf(
                 "klause-jvm" to "0.0.1-20261023.210726-928",
-                "kumulant-jvm" to "0.3.4-20261025.053320-73",
+                "kumulant-jvm" to "0.3.4-20261026.185804-89",
             ),
             "linuxX64Main" to mapOf(
                 "klause-linuxx64" to "0.0.1-20261023.210726-927",
-                "kumulant-linuxx64" to "0.3.4-20261025.053320-73",
+                "kumulant-linuxx64" to "0.3.4-20261026.185804-89",
             ),
         )) {
             getByName(sourceSet).dependencies {
@@ -65,13 +65,13 @@ kotlin {
         }
         // Public numerical APIs use Koblas directly, independently of the statistical libraries.
         jvmMain.dependencies {
-            api("com.eignex:koblas-jvm:0.1.1-20261024.213917-268")
-            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
+            api("com.eignex:koblas-jvm:0.1.1-20261025.142922-272")
+            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
         }
-        linuxX64Main.dependencies { api("com.eignex:koblas-linuxx64:0.1.1-20261024.213917-264") }
+        linuxX64Main.dependencies { api("com.eignex:koblas-linuxx64:0.1.1-20261025.142922-268") }
         commonTest.dependencies {
             implementation(kotlin("test"))
-            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
+            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
         }
     }
 }
@@ -212,4 +212,16 @@ tasks.register<JavaExec>("auditGpFollowups") {
     providers.gradleProperty("followup.jfr").orNull?.let { recording ->
         jvmArgs("-XX:StartFlightRecording=filename=$recording,settings=profile")
     }
+}
+
+// Paired frozen and fresh whole-loop comparison of normal base-sample policies.
+tasks.register<JavaExec>("refineGpSampling") {
+    dependsOn("jvmTestClasses")
+    val compilation = kotlin.targets.getByName("jvm").compilations.getByName("test")
+    classpath(compilation.output.allOutputs, compilation.runtimeDependencyFiles)
+    mainClass.set("com.eignex.combo.bo.GpSamplingBenchmarkKt")
+    args(providers.gradleProperty("qmc.mode").orElse("frozen").get(),
+        providers.gradleProperty("qmc.seeds").orElse("").get())
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(25)) })
+    jvmArgs("--enable-native-access=ALL-UNNAMED", "--add-modules=jdk.incubator.vector", "-Xmx1g")
 }

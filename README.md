@@ -413,8 +413,8 @@ counts whole-set acquisition evaluations for joint search; these are more expens
 single-point scores and should not be compared as equal computational units.
 
 All joint acquisitions approximate joint moments as Gaussian, or sample Gaussian log-response
-moments before exponentiating for a log-transformed outcome. Fixed antithetic normal
-samples make each bound objective reproducible; candidate row permutations and duplicates
+moments before exponentiating for a log-transformed outcome. Fixed normal base samples
+make each bound objective reproducible; candidate row permutations and duplicates
 do not change its value. Kumulant supplies normal draws, summaries, and Cholesky factors;
 Koblas supplies matrix products. Near-singular joint covariance receives bounded relative
 jitter up to `1e-8` only after factorization fails. Exactly deterministic coordinates remain
@@ -429,6 +429,20 @@ Both must be positive. Candidate sets containing only baseline coordinates have 
 incremental utility (`-Infinity` in log units), which joint search accepts as a valid score.
 These acquisitions are approximate, and temperature and sample count affect the approximation.
 
+Antithetic sampling remains the default. Select Kumulant's scrambled Sobol normal points explicitly:
+
+```kotlin
+val acquisition = JointLogNoisyExpectedImprovement(
+    sampling = JointNormalSampling.ScrambledSobol,
+    samples = 1024,
+)
+```
+
+The same sampling option is available on all four joint improvement factories. Sobol requires
+power-of-two draw counts and supports at most 1,024 latent baseline-plus-candidate coordinates.
+The [sampling study](benchmarks/gp-qmc/report.md) finds modest ranking gains at larger budgets
+and mixed whole-loop results, so sampler and draw-count defaults remain unchanged.
+
 Each bound acquisition caches its baseline posterior work, Cholesky factor, latent draws,
 and improvement thresholds. Candidate sets use triangular solves and a conditional covariance
 factor of order at most the novel batch size. The baseline factor still costs cubic time once
@@ -441,7 +455,7 @@ joint predictions. Bound posterior results are read-only by contract.
 
 GP conditioning, acquisition definitions, and feasible search stay in Combo. Kumulant owns
 normal sampling, statistical summaries, and factorization; Koblas supplies matrix products.
-No additional numerical kernels or GP-specific APIs are added to either dependency.
+The Sobol sequence is a general integration primitive that Kumulant exposes independently of BO.
 
 q-NEI is an improvement criterion, not an information-gain policy for repeated measurements.
 All joint policies remain opt-in; sequential batching and model defaults are unchanged.

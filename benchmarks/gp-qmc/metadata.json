@@ -1,0 +1,81 @@
+{
+  "combo_base": "0bc5998bb50764883db8b83edd4144ed6713931a",
+  "kumulant_tested_head": "2907e79290aa0130400753fac884d41b45f0af6c",
+  "kumulant_merge": "494d5fbc02ded927c6fd7f34f39ada1017fcee32",
+  "frozen_input": "benchmarks/gp-followups/posteriors.json.gz",
+  "frozen_posteriors": 20,
+  "frozen_points_per_posterior": 6,
+  "q": [
+    1,
+    2,
+    4
+  ],
+  "samples": [
+    256,
+    1024,
+    4096
+  ],
+  "random_streams": 8,
+  "stream_seeds": [
+    7123,
+    7124,
+    7125,
+    7126,
+    7127,
+    7128,
+    7129,
+    7130
+  ],
+  "reference": "benchmarks/gp-followups/sobol.csv",
+  "reference_samples": 65536,
+  "reference_scrambles": 3,
+  "normal_transform": "AS241 on 52-bit cell midpoints",
+  "directions": "Joe-Kuo D(6), first 1024 coordinates",
+  "fresh_seeds": [
+    1801,
+    1802,
+    1803,
+    1804,
+    1805,
+    1806
+  ],
+  "fresh_batches": [
+    1,
+    4
+  ],
+  "noise_sd": [
+    0,
+    0.03
+  ],
+  "evaluations_per_run": 32,
+  "fresh_runs": 192,
+  "fresh_evaluations": 6144,
+  "samplers": [
+    "Antithetic",
+    "ScrambledSobol"
+  ],
+  "default": "Antithetic",
+  "normal_quality_integral": "E[cos(0.2 * sum(X))] = exp(-0.02 * dimensions), X ~ N(0, I)",
+  "normal_quality_seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "local_combo_tests": 271,
+  "kumulant_jvm_tests": 1800,
+  "kumulant_linux_x64_tests": 1749,
+  "published_kumulant": {
+    "jvm": "0.3.4-20261026.185804-89",
+    "linuxx64": "0.3.4-20261026.185804-89"
+  },
+  "koblas_pins": {
+    "jvm": "0.1.1-20261025.142922-272",
+    "linuxx64": "0.1.1-20261025.142922-268"
+  },
+  "serialization_version": "1.12.0"
+}
