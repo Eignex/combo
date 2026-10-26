@@ -178,23 +178,23 @@ private fun jointImprovement(
         for (row in fixed.indices) best = maxOf(best, score(sampler.baselineDraws[row, draw]))
         best
     }
+    val fixedKeys = fixed.toSet()
+    val values = DoubleArray(samples)
+    val smoothing = temperature?.let { LogImprovementSmoothing(it, batchTemperature) }
+    var improvements = DoubleArray(0)
     return JointAcquisition { candidates ->
         require(candidates.cols == dimensions)
-        val novel = (featureKeys(candidates).distinct() - fixed.toSet()).sortedWith(featureOrdering)
+        val novel = (featureKeys(candidates).distinct() - fixedKeys).sortedWith(featureOrdering)
         if (novel.isEmpty()) return@JointAcquisition if (temperature == null) 0.0 else Double.NEGATIVE_INFINITY
         val draws = sampler.draw(featureMatrix(novel, dimensions))
-        val values = DoubleArray(samples) { draw ->
-            val improvements = DoubleArray(novel.size) { row ->
-                (score(draws[row, draw]) - thresholds[draw] - margin).also { require(it.isFinite()) }
+        if (improvements.size != novel.size) improvements = DoubleArray(novel.size)
+        val logBatchSize = ln(novel.size.toDouble())
+        for (draw in 0 until samples) {
+            for (row in novel.indices) {
+                improvements[row] = (score(draws[row, draw]) - thresholds[draw] - margin)
+                    .also { require(it.isFinite()) }
             }
-            if (temperature == null) {
-                maxOf(
-                    0.0,
-                    improvements.max(),
-                )
-            } else {
-                logSmoothedBatchImprovement(improvements, temperature, batchTemperature)
-            }
+            values[draw] = smoothing?.evaluate(improvements, logBatchSize) ?: maxOf(0.0, improvements.max())
         }
         val shift = if (temperature == null) 0.0 else values.max()
         val utility = MeanStat()
@@ -212,32 +212,34 @@ private fun jointImprovement(
     }
 }
 
-// Acquisition-specific smoothing, evaluated directly in log units instead of logging rounded EI.
-private fun logSmoothedBatchImprovement(
-    improvements: DoubleArray,
-    temperature: Double,
-    batchTemperature: Double,
-): Double {
-    val logs = DoubleArray(improvements.size) { i ->
-        val difference = improvements[i]
-        val t = difference / temperature
-        val logSoftplus = ln(temperature) + when {
-            t > 20.0 -> ln(difference) - ln(temperature)
-            t < -40.0 -> t
-            else -> ln(ln1p(exp(t)))
+// Acquisition-specific smoothing and scratch state; the bound objective is already single-threaded.
+private class LogImprovementSmoothing(private val temperature: Double, private val batchTemperature: Double) {
+    private val logTemperature = ln(temperature)
+    private val weights = MeanStat()
+
+    fun evaluate(improvements: DoubleArray, logBatchSize: Double): Double {
+        for (i in improvements.indices) {
+            val difference = improvements[i]
+            val t = difference / temperature
+            val logSoftplus = logTemperature + when {
+                t > 20.0 -> ln(difference) - logTemperature
+                t < -40.0 -> t
+                else -> ln(ln1p(exp(t)))
+            }
+            val ratio = ln(abs(difference)) - logTemperature
+            val logDenominator = if (ratio > 0.0) 2.0 * ratio + ln1p(exp(-2.0 * ratio)) else ln1p(exp(2.0 * ratio))
+            val tail = ln(0.1) + logTemperature - logDenominator
+            val largest = maxOf(logSoftplus, tail)
+            improvements[i] = largest + ln1p(exp(minOf(logSoftplus, tail) - largest))
         }
-        val ratio = ln(abs(difference)) - ln(temperature)
-        val logDenominator = if (ratio > 0.0) 2.0 * ratio + ln1p(exp(-2.0 * ratio)) else ln1p(exp(2.0 * ratio))
-        val tail = ln(0.1) + ln(temperature) - logDenominator
-        val largest = maxOf(logSoftplus, tail)
-        largest + ln1p(exp(minOf(logSoftplus, tail) - largest))
+        if (improvements.size == 1) return improvements[0]
+        val largest = improvements.max()
+        weights.reset()
+        for (value in improvements) {
+            val gap = (largest - value) / batchTemperature
+            val weight = if (gap > 1e150) 0.0 else 2.0 / (2.0 + 2.0 * gap + gap * gap)
+            weights.update(weight, 0L)
+        }
+        return largest + batchTemperature * (ln(weights.read(0L).mean) + logBatchSize)
     }
-    val largest = logs.max()
-    val weights = MeanStat()
-    for (value in logs) {
-        val gap = (largest - value) / batchTemperature
-        val weight = if (gap > 1e150) 0.0 else 2.0 / (2.0 + 2.0 * gap + gap * gap)
-        weights.update(weight, 0L)
-    }
-    return largest + batchTemperature * (ln(weights.read(0L).mean) + ln(logs.size.toDouble()))
 }

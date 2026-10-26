@@ -1,0 +1,16 @@
+first_combo_site,sampled_weight_bytes,samples
+com/eignex/combo/bo/JointGaussianSampler.normalRows,4453479264,866
+com/eignex/combo/bo/JointGaussianSampler.draw,4433451888,1123
+com/eignex/combo/bo/JointGaussianSampler.<init>,4215588576,944
+com/eignex/combo/bo/model/GaussianProcessKt.covariance,2363839464,399
+com/eignex/combo/bo/model/GaussianProcessModel.jointFeatures,1637779344,232
+com/eignex/combo/bo/GpAcquisitionAllocationControlKt.legacyGpImprovement$lambda$3,1388705440,375
+com/eignex/combo/bo/GpAcquisitionAllocationControlKt.logSmoothedBatchImprovement,1346759880,439
+com/eignex/combo/bo/GpAcquisitionAllocationControlKt.legacyGpImprovement,75106944,7
+com/eignex/combo/bo/JointGaussianSamplerKt.featureKeys,72613936,23
+com/eignex/combo/bo/JointGaussianSamplerKt.featureMatrix,64427096,18
+com/eignex/combo/bo/JointAcquisitionKt.jointImprovement,39729520,13
+com/eignex/combo/bo/JointGaussianSamplerKt.jointFactor,2618552,5
+com/eignex/combo/bo/LogImprovementSmoothing.evaluate,1571080,1
+com/eignex/combo/bo/JointAcquisitionKt.jointImprovement$lambda$4,523712,1
+com/eignex/combo/bo/model/GaussianProcessModel.jointPosterior,195344,1

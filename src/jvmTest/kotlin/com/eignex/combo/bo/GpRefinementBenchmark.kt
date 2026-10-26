@@ -33,7 +33,7 @@ private class SixDimensions : DecisionSpace() {
     val e by floatVar(0.0, 1.0)
     val f by floatVar(0.0, 1.0)
 }
-private fun suiteProblem(name: String): RefinementProblem {
+internal fun suiteProblem(name: String): RefinementProblem {
     val model = when (name) {
         "multimodal3" -> ThreeDimensions()
         "ellipsoid6" -> SixDimensions()
