@@ -180,9 +180,11 @@ data class ScalarRef(
 enum class ScalarKind {
     BoolDecision,
     IntDecision,
+    FloatDecision,
     NominalDecision,
     BoolContext,
     IntContext,
+    FloatContext,
     NominalContext,
 }
 

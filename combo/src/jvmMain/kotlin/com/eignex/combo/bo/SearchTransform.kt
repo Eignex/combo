@@ -42,6 +42,7 @@ class SearchTransform(override val space: CompiledDecisionSpace) : FeatureEncode
     val dimension: Int get() {
         val contexts = (
             space.contextBools.map { it.name } + space.contextInts.map { it.name } +
+                space.contextFloats.map { it.name } +
                 space.contextBools.mapNotNull { it.isKnownGate?.name } +
                 space.contextInts.mapNotNull { it.isKnownGate?.name }
             ).toSet()
@@ -57,7 +58,7 @@ class SearchTransform(override val space: CompiledDecisionSpace) : FeatureEncode
      */
     fun sampleUnit(units: Vector, anchor: BanditSample, context: Context = Context.Empty): BanditSample? {
         require(units.size == featureSize && units.toDoubleArray().all { it >= 0.0 && it < 1.0 })
-        val assumptions = space.assumptionsFor(context)
+        val assumptions = space.discreteAssumptionsFor(context)
         val bools = anchor.sample.bools
         val ints = anchor.sample.ints
         val reals = anchor.sample.reals
@@ -76,6 +77,7 @@ class SearchTransform(override val space: CompiledDecisionSpace) : FeatureEncode
             if (!active(name, activation)) indicators.values.forEachIndexed { index, id -> bools[id] = index == 0 }
         }
         for ((name, slot, domain) in slots) {
+            if (space.contextFloats.any { it.name == name }) continue
             val intId = space.compiled.intVarIdByName[name]
             if (intId != null && intId in assumptions.ints) {
                 ints[intId] = assumptions.ints.getValue(intId)
@@ -99,7 +101,7 @@ class SearchTransform(override val space: CompiledDecisionSpace) : FeatureEncode
             }
         }
         val proposed = Sample(bools, ints, reals, exactReals = exact)
-        return proposed.takeIf { space.matches(it, assumptions) && validator.valid(it) }?.let(::BanditSample)
+        return proposed.takeIf { space.matches(it, context) && validator.valid(it) }?.let(::BanditSample)
     }
 
     /**
@@ -146,7 +148,7 @@ class SearchTransform(override val space: CompiledDecisionSpace) : FeatureEncode
         return sample.takeIf {
             space.matches(
                 it,
-                space.assumptionsFor(context),
+                context,
             ) && validator.valid(it)
         }?.let(::BanditSample)
     }

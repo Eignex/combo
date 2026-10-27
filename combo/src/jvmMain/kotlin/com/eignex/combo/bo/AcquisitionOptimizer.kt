@@ -3,6 +3,8 @@ package com.eignex.combo.bo
 import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.CompiledDecisionSpace
 import com.eignex.combo.decisions.Context
+import com.eignex.combo.decisions.conditionedProblem
+import com.eignex.combo.decisions.unframed
 import com.eignex.combo.decisions.FeatureEncoder
 import com.eignex.combo.shared.SolverCoordinateLayout
 import com.eignex.combo.shared.WitnessRequest
@@ -111,9 +113,9 @@ class LocalAndRandomSearch(
     }
 
     override fun maximize(acquisition: Acquisition, request: AcquisitionRequest, random: Random): CandidateSelection {
-        val assumptions = space.assumptionsFor(request.context)
+        val assumptions = space.discreteAssumptionsFor(request.context)
         val excluded = request.excluded.map { it.assignmentKey() }.toSet()
-        val anchors = request.anchors.filter { space.matches(it, assumptions) && validator.valid(it) }
+        val anchors = request.anchors.filter { space.matches(it, request.context) && validator.valid(it) }
         val generated = witnesses.witnesses(
             WitnessRequest(
                 candidateCount,
@@ -121,6 +123,7 @@ class LocalAndRandomSearch(
                 anchors = anchors.take(candidateCount),
                 exclude = request.excluded,
                 maxAttempts = maxAttempts,
+                context = request.context,
             ),
             random,
         )
@@ -135,7 +138,7 @@ class LocalAndRandomSearch(
         var guideTies = 0
         fun evaluate(points: List<Sample>) {
             val valid = points.distinctBy { it.assignmentKey() }.filter {
-                it.assignmentKey() !in explored && space.matches(it, assumptions) && validator.valid(it)
+                it.assignmentKey() !in explored && space.matches(it, request.context) && validator.valid(it)
             }
             if (valid.isEmpty()) return
             for (point in valid) explored[point.assignmentKey()] = point
@@ -184,6 +187,7 @@ class LocalAndRandomSearch(
                         0.25 / (1.0 + step),
                         neighbors,
                         explored.values.toList(),
+                        request.context,
                     ),
                 )
             }
@@ -210,6 +214,7 @@ class LocalAndRandomSearch(
                         radius,
                         neighbors,
                         explored.values.toList(),
+                        request.context,
                     )
                     evaluate(proposals)
                     val available = proposals.mapNotNull { scored[it.assignmentKey()] }
@@ -261,8 +266,12 @@ internal class FeasibleNeighborhood(private val space: CompiledDecisionSpace) {
         radius: Double,
         count: Int,
         seeds: List<Sample>,
+        context: Context = Context.Empty,
     ): List<Sample> {
         if (names.isEmpty()) return emptyList()
+        val scopedSolver = if (context.floats.isEmpty()) solver else {
+            BacktrackSolver(space.conditionedProblem(context).bake())
+        }
         val peers = if (realIds.isEmpty()) {
             emptyList()
         } else {
@@ -277,15 +286,17 @@ internal class FeasibleNeighborhood(private val space: CompiledDecisionSpace) {
                 val peer = peers[random.nextInt(peers.size)]
                 val fraction = if (index == 0) 0.5 else random.nextDouble()
                 return@List interpolateWitness(anchor, peer, fraction)?.takeIf {
-                    space.matches(it, assumptions) && validator.valid(it)
+                    space.matches(it, assumptions) &&
+                        (context === Context.Empty || space.matches(it, context)) && validator.valid(it)
                 }
             }
             val name = names[random.nextInt(names.size)]
+            if (space.contextFloats.any { it.name == name }) return@List null
             val boolId = space.compiled.boolVarIdByName[name]
             val intId = space.compiled.intVarIdByName[name]
             val realId = realIds.entries.firstOrNull { it.value.name == name }?.key
             if (boolId != null && boolId !in assumptions.bools) {
-                solver.sample(
+                scopedSolver.sample(
                     BacktrackParams(
                         maxDecisions = 256L,
                         randomSeed = random.nextLong(),
@@ -293,7 +304,7 @@ internal class FeasibleNeighborhood(private val space: CompiledDecisionSpace) {
                             Assumptions(bools = mapOf(boolId to !anchor.boolValue(boolId))),
                         ),
                     ),
-                ).assignment
+                ).assignment?.unframed()
             } else if (intId != null && intId !in assumptions.ints) {
                 val domain = space.numericDomains.getValue(name)
                 val lo = domain.feature(domain.min)
@@ -311,13 +322,13 @@ internal class FeasibleNeighborhood(private val space: CompiledDecisionSpace) {
                 } else {
                     ((proposed - spec.min) / spec.scale).roundToLong()
                 }
-                solver.sample(
+                scopedSolver.sample(
                     BacktrackParams(
                         maxDecisions = 256L,
                         randomSeed = random.nextLong(),
                         assumptions = assumptions.mergedWith(Assumptions(ints = mapOf(intId to value))),
                     ),
-                ).assignment
+                ).assignment?.unframed()
             } else if (realId != null) {
                 val domain = space.numericDomains.getValue(name)
                 val lo = domain.feature(domain.min)
@@ -333,7 +344,8 @@ internal class FeasibleNeighborhood(private val space: CompiledDecisionSpace) {
                     reals,
                     exactReals = exact,
                 )
-                point.takeIf { space.matches(it, assumptions) && validator.valid(it) }
+                point.takeIf { space.matches(it, assumptions) &&
+                        (context === Context.Empty || space.matches(it, context)) && validator.valid(it) }
             } else {
                 null
             }

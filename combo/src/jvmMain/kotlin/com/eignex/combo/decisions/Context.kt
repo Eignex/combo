@@ -12,6 +12,7 @@ import com.eignex.combo.shared.Learner
 class Context internal constructor(
     internal val bools: Map<BoolContextHandle, Boolean>,
     internal val ints: Map<IntContextHandle, Int>,
+    internal val floats: Map<FloatContextHandle, Double> = emptyMap(),
 ) {
     operator fun get(handle: BoolContextHandle): Boolean = bools[handle] ?: if (handle.isOptional) {
         false
@@ -25,6 +26,11 @@ class Context internal constructor(
         error("missing context value for int handle '${handle.name}'")
     }
 
+    operator fun get(handle: FloatContextHandle): Double =
+        floats[handle] ?: error("missing context value for float handle '${handle.name}'")
+
+    fun isPresent(handle: FloatContextHandle): Boolean = handle in floats
+
     fun isPresent(handle: BoolContextHandle): Boolean = handle in bools
     fun isPresent(handle: IntContextHandle): Boolean = handle in ints
 
@@ -36,6 +42,7 @@ class Context internal constructor(
 class ContextBuilder internal constructor() {
     private val bools = mutableMapOf<BoolContextHandle, Boolean>()
     private val ints = mutableMapOf<IntContextHandle, Int>()
+    private val floats = mutableMapOf<FloatContextHandle, Double>()
 
     fun set(handle: BoolContextHandle, value: Boolean) {
         bools[handle] = value
@@ -44,7 +51,12 @@ class ContextBuilder internal constructor() {
         ints[handle] = value
     }
 
-    internal fun build() = Context(bools.toMap(), ints.toMap())
+    fun set(handle: FloatContextHandle, value: Double) {
+        require(value.isFinite() && value in handle.min..handle.max) { "context '${handle.name}' outside its bounds" }
+        floats[handle] = value
+    }
+
+    internal fun build() = Context(bools.toMap(), ints.toMap(), floats.toMap())
 }
 
 fun context(build: ContextBuilder.() -> Unit): Context = ContextBuilder().apply(build).build()

@@ -480,7 +480,7 @@ class RacingOptimizer(
         require(
             data.configurations.all {
                 it.id in trials && it.sample == trials.getValue(it.id).sample && it.target in 1..keys.size &&
-                    optimizer.space.matches(it.sample.sample, optimizer.space.assumptionsFor(context))
+                    optimizer.space.matches(it.sample.sample, context)
             },
         )
         require(
@@ -496,7 +496,7 @@ class RacingOptimizer(
             data.tasks.all {
                 it.key in keys + (data.confirmation?.keys ?: emptyList()) && optimizer.space.matches(
                     it.sample.sample,
-                    optimizer.space.assumptionsFor(context),
+                    context,
                 )
             },
         )

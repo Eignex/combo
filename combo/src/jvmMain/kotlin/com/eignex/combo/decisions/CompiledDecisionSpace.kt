@@ -33,6 +33,8 @@ class CompiledDecisionSpace internal constructor(
     /** For each sub-space mounted via `optionalDecisionSpace`, the auto-allocated gate
      *  variable that controls its activation. */
     val gates: Map<SubSpace, BoolHandle>,
+    /** Required contexts in real units, including explicit grids. */
+    val contextFloats: List<FloatContextHandle> = emptyList(),
 ) {
     internal val numericDomains: Map<String, NumericDomain> = definition.numericDomains()
 
@@ -61,6 +63,12 @@ class CompiledDecisionSpace internal constructor(
      * default.
      */
     fun assumptionsFor(context: Context): Assumptions {
+        require(context.floats.isEmpty()) { "real context requires conditionedProblem and discreteAssumptionsFor" }
+        return discreteAssumptionsFor(context)
+    }
+
+    /** Discrete portion of a context; combine with [conditionedProblem] for its real pins. */
+    fun discreteAssumptionsFor(context: Context): Assumptions {
         val bools = mutableMapOf<Int, Boolean>()
         val ints = mutableMapOf<Int, Long>()
         for (h in contextBools) {
@@ -97,8 +105,20 @@ class CompiledDecisionSpace internal constructor(
                 ints[id] = context[h].toLong()
             }
         }
+        for (handle in contextFloats) {
+            val value = context[handle]
+            compiled.intVarIdByName[handle.name]?.let { id ->
+                ints[id] = floatBucket(compiled.floatDecoders.getValue(handle.name), value)
+            }
+        }
         return Assumptions(bools, ints)
     }
+
+    /** Verify both real and discrete context pins against a native assignment. */
+    fun matches(sample: Sample, context: Context): Boolean =
+        matches(sample, discreteAssumptionsFor(context)) && contextFloats.all {
+            compiled.decode(it.klauseHandle, sample) == context[it]
+        }
 
     /** True iff [sample] satisfies every pin in [assumptions]. */
     fun matches(sample: Sample, assumptions: Assumptions): Boolean {
@@ -141,6 +161,8 @@ internal fun InteractionHandle.toDef(): InteractionDef =
 private fun Any.toScalarRef(): ScalarRef = when (this) {
     is BoolHandle -> ScalarRef(ScalarKind.BoolDecision, name.split("."))
     is IntHandle -> ScalarRef(ScalarKind.IntDecision, name.split("."))
+    is com.eignex.klause.schema.FloatHandle -> ScalarRef(ScalarKind.FloatDecision, name.split("."))
+    is FloatContextHandle -> ScalarRef(ScalarKind.FloatContext, listOf("context", name))
     is NominalHandle -> ScalarRef(ScalarKind.NominalDecision, name.split("."), labels)
     is BoolContextHandle -> ScalarRef(ScalarKind.BoolContext, listOf("context", name))
     is IntContextHandle -> ScalarRef(ScalarKind.IntContext, listOf("context", name))

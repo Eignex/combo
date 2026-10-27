@@ -2,6 +2,7 @@ package com.eignex.combo.model
 
 import com.eignex.combo.bandit.glm.LinearBandit
 import com.eignex.combo.shared.LinearFeatureProjection
+import com.eignex.combo.decisions.Context
 import com.eignex.klause.propagation.Assumptions
 import com.eignex.klause.solver.Sample
 import com.eignex.klause.solver.objective.LinearObjective
@@ -36,8 +37,9 @@ data class LinearLearning(
         seed: Int,
         maximize: Boolean,
         rewards: SeriesStat<*>? = null,
+        contextOptimizer: ((LinearObjective, Assumptions, Context) -> Sample?)? = null,
     ): LinearBandit<*> = LinearBandit(
         projection, (regression as BayesianRegression).materialize(), MultivariateGaussian, exploration,
-        innerOptimizer, seed, maximize, rewards,
+        innerOptimizer, seed, maximize, rewards, contextOptimizer = contextOptimizer,
     )
 }

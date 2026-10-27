@@ -385,10 +385,11 @@ before the reward arrived. Reading or updating a statistic does not reset the
 learner or add a reward observation. Statistical input values are never sampled by
 the coefficient policy. They remain pinned in constraints as well as predictions.
 
-Learned bindings currently require a scalar `value` selecting an exactly
-representable integer inside a declared integer context domain. Fractional and
-out-of-domain values return `400` without issuing a proposal. This follows the
-current context support; values are never rounded. Linear feedback accepts weights
+Learned bindings require a scalar `value` inside a declared numeric context
+domain. Integer contexts require exact integers. Native float declarations accept
+fractional values: omit `buckets` for continuous real semantics, or specify an
+explicit grid. Values outside the domain or off an explicit grid return `400`
+without issuing a proposal; values are never rounded. Linear feedback accepts weights
 but rejects per-observation `noiseVariance`, which the native linear update API
 does not support. Closed proposals continue to reject repeated feedback.
 
@@ -404,10 +405,13 @@ use Kumulant's canonical JSON, including native expression bindings.
 The current HTTP runtime supports scalar decisions: `"bool"`, `{"int":[min,max]}`,
 `{"float":{"min":0.0,"max":1.0}}`, and `{"nominal":["a","b"]}`.
 Nested assignments use qualified names, such as `child.workers`. Context supports
-bounded integers and Booleans declared at the root. Every context must be supplied;
-optional context is not yet supported. Constraints referring to real variables are
-rejected until evaluation can pin real values soundly; unconstrained bounded real
-decisions remain supported. An observed objective is one finite real outcome;
+bounded integers, Booleans, and native floats declared at the root. Every context must be supplied;
+optional context is not yet supported. Real values are pinned with native equality rows before solving or validating
+an assignment, so constraints are checked against the requested real values.
+Real-valued context interactions use the same native feature projection as
+integer context interactions. The Kotlin DSL exposes `realVar` / `contextReal`
+for continuous declarations and `floatVar` / `contextFloat` with optional grids;
+both retain Klause's canonical float JSON. An observed objective is one finite real outcome;
 constraints cannot depend on it. Attached outcome statistics must accept scalar
 observations. These runtime limits do not introduce another serialization format.
 

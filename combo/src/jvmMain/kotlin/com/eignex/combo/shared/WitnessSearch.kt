@@ -31,6 +31,8 @@ data class WitnessRequest(
     val anchors: List<Sample> = emptyList(),
     val exclude: List<Sample> = emptyList(),
     val maxAttempts: Int = 128,
+    /** Real and discrete context retained for conditioned native search. */
+    val context: com.eignex.combo.decisions.Context = com.eignex.combo.decisions.Context.Empty,
 ) {
     init {
         require(count > 0 && maxAttempts >= 0) { "invalid batch count or attempt allowance" }

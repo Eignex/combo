@@ -36,6 +36,7 @@ abstract class DecisionSpace : SubSpace() {
 
     private val _contextBools = mutableListOf<BoolContextHandle>()
     private val _contextInts = mutableListOf<IntContextHandle>()
+    private val _contextFloats = mutableListOf<FloatContextHandle>()
     private val _interactions = mutableListOf<InteractionHandle>()
 
     internal val contextBools: List<BoolContextHandle> get() = _contextBools
@@ -58,6 +59,20 @@ abstract class DecisionSpace : SubSpace() {
             _contextInts += h
             ReadOnlyProperty { _, _ -> h }
         }
+
+    /** Native floating-point context; omitted buckets retain continuous real semantics. */
+    protected fun contextFloat(min: Double, max: Double, buckets: Int? = null, scale: Scale = Scale.Linear) =
+        PropertyDelegateProvider<DecisionSpace, ReadOnlyProperty<DecisionSpace, FloatContextHandle>> { _, prop ->
+            ctx.root.recordScale(ctx.qualify(prop.name), min, max, scale)
+            val handle = ctx.root.registerFloat(ctx.qualify(prop.name), min, max, buckets, ctx.activeCondition)
+            val context = FloatContextHandle(handle, buckets)
+            _contextFloats += context
+            ReadOnlyProperty { _, _ -> context }
+        }
+
+    /** Continuous real context using the same native declaration as [contextFloat]. */
+    protected fun contextReal(min: Double, max: Double, scale: Scale = Scale.Linear) =
+        contextFloat(min, max, scale = scale)
 
     /**
      * Optional contextual bool: caller may or may not provide a value at choose time.
@@ -138,7 +153,9 @@ abstract class DecisionSpace : SubSpace() {
         val allEntries = ctx.root.definition().entries as Map<String, *>
         // Context variables are klause variables too; tag them so buildLevel doesn't
         // put them in `variables` at the root.
-        val contextNames = (_contextBools.map { it.name } + _contextInts.map { it.name }).toSet()
+        val contextNames = (
+            _contextBools.map { it.name } + _contextInts.map { it.name } + _contextFloats.map { it.name }
+            ).toSet()
         val rootDef = buildLevel(
             node = this,
             prefix = "",
@@ -154,7 +171,9 @@ abstract class DecisionSpace : SubSpace() {
             .associate { it.name to (com.eignex.klause.model.IntSpec(it.min, it.max) as VarSpec) }
         return rootDef.copy(
             name = name,
-            context = ctxBools + ctxInts,
+            context = ctxBools + ctxInts + _contextFloats.associate {
+                it.name to com.eignex.klause.model.FloatSpec(it.min, it.max, it.buckets)
+            },
             optionalContext = ctxBoolsOpt + ctxIntsOpt,
             interactions = _interactions.map { it.toDef() },
             scales = rootDef.scales + ctx.root.scales.filterKeys { it in contextNames },
@@ -278,6 +297,7 @@ abstract class DecisionSpace : SubSpace() {
             compiled = compiled,
             contextBools = _contextBools.toList(),
             contextInts = _contextInts.toList(),
+            contextFloats = _contextFloats.toList(),
             interactions = _interactions.toList(),
             definition = def,
             activeConditions = schema.activeConditions.toMap(),

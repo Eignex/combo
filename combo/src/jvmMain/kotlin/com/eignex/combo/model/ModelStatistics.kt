@@ -4,6 +4,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import com.eignex.klause.model.IntSpec
+import com.eignex.klause.model.FloatSpec
 
 /** Named native accumulators whose snapshots supply the model's statistical inputs. */
 class ModelStatistics(private val definition: ModelDefinition) : AutoCloseable {
@@ -34,11 +35,19 @@ class ModelStatistics(private val definition: ModelDefinition) : AutoCloseable {
         val snapshots = snapshot(timestampNanos)
         return JsonObject(definition.inputs.mapValues { (name, input) ->
             val value = input.readProjection(snapshots, requireNotNull(input.value))
-            val spec = definition.space!!.context.getValue(name) as IntSpec
-            require(value.toInt().toDouble() == value && value >= spec.min && value <= spec.max) {
-                "'$name' must resolve to an exact integer within its context bounds"
+            when (val spec = definition.space!!.context.getValue(name)) {
+                is IntSpec -> {
+                    require(value.toInt().toDouble() == value && value >= spec.min && value <= spec.max) {
+                        "'$name' must resolve to an exact integer within its context bounds"
+                    }
+                    JsonPrimitive(value.toInt())
+                }
+                is FloatSpec -> {
+                    require(value in spec.min..spec.max) { "'$name' outside its context bounds" }
+                    JsonPrimitive(value)
+                }
+                else -> error("'$name' must bind a numeric context")
             }
-            JsonPrimitive(value.toInt())
         })
     }
 

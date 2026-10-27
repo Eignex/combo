@@ -3,6 +3,10 @@ package com.eignex.combo.bandit.glm
 import com.eignex.combo.bo.*
 import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.Context
+import com.eignex.combo.decisions.conditionedProblem
+import com.eignex.klause.backtrack.BacktrackParams
+import com.eignex.klause.backtrack.BacktrackSolver
+import com.eignex.klause.propagation.bake
 import com.eignex.combo.model.LinearLearning
 import com.eignex.combo.shared.*
 import com.eignex.klause.propagation.Assumptions
@@ -21,6 +25,7 @@ class LinearTrialOptimizer(
     private val seed: Int = 0,
     maximize: Boolean = true,
     private val rewards: SeriesStat<*>? = null,
+    contextOptimizer: ((LinearObjective, Assumptions, Context) -> Sample?)? = null,
 ) : TrialOptimizer {
     init {
         require(!projection.hasNonlinearScales) { "linear trial proposals currently require linear scales" }
@@ -29,13 +34,20 @@ class LinearTrialOptimizer(
     private val study = Study(projection.space)
     private var excluded: List<Sample> = emptyList()
     private var round = 0L
-    private val learner = learning.materialize(projection, { objective, assumptions ->
-        if (excluded.isEmpty()) innerOptimizer(objective, assumptions) else {
-            search.witnesses(
-                WitnessRequest(64, assumptions, exclude = excluded), Random(seed.toLong() xor round++),
-            ).witnesses.minByOrNull(objective::evaluate)
-        }
-    }, seed, maximize)
+    private val learner = learning.materialize(projection, innerOptimizer, seed, maximize,
+        contextOptimizer = { objective, assumptions, context ->
+            if (excluded.isNotEmpty()) {
+                search.witnesses(
+                    WitnessRequest(64, assumptions, exclude = excluded, context = context),
+                    Random(seed.toLong() xor round++),
+                ).witnesses.minByOrNull(objective::evaluate)
+            } else if (contextOptimizer != null) contextOptimizer(objective, assumptions, context)
+            else if (projection.space.contextFloats.isEmpty()) innerOptimizer(objective, assumptions)
+            else BacktrackSolver(projection.space.conditionedProblem(context).bake()).minimize(
+                objective, BacktrackParams(maxDecisions = 100_000, assumptions = assumptions),
+            ).assignment
+        },
+    )
 
     /** Successful outcomes, independent of statistical input observations. */
     val observationCount: Long get() = study.store.revision
@@ -57,7 +69,11 @@ class LinearTrialOptimizer(
                 excluded = excluded + sample.sample
             }
         } finally { excluded = emptyList() }
-        val termination = if (samples.size == requested) WitnessTermination.CountReached else WitnessTermination.BudgetExhausted
+        val termination = if (samples.size == requested) {
+            WitnessTermination.CountReached
+        } else {
+            WitnessTermination.BudgetExhausted
+        }
         ProposalBatch(samples, termination)
     }, count, context)
 

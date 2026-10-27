@@ -83,12 +83,11 @@ class Study(val space: CompiledDecisionSpace, val store: ObservationStore = InMe
         check(
             snapshot.owner === identity && snapshot.revision == revision && snapshot.history.revision == store.revision,
         ) { "stale study snapshot" }
-        val assumptions = space.assumptionsFor(context)
         val keys = trials.filter {
             it.status == TrialStatus.Pending
         }.map { it.sample.sample.assignmentKey() }.toMutableSet()
         for (point in proposals.samples) {
-            require(space.matches(point.sample, assumptions) && validator.valid(point.sample)) { "invalid proposal" }
+            require(space.matches(point.sample, context) && validator.valid(point.sample)) { "invalid proposal" }
             require(keys.add(point.sample.assignmentKey())) { "proposal is already pending or duplicated" }
         }
         check(nextId <= Long.MAX_VALUE - proposals.samples.size) { "trial identifiers exhausted" }
@@ -148,15 +147,18 @@ class Study(val space: CompiledDecisionSpace, val store: ObservationStore = InMe
 
     private fun remap(context: Context): Context {
         if (context.bools.keys.all { it in space.contextBools } &&
-            context.ints.keys.all { it in space.contextInts }
+            context.ints.keys.all { it in space.contextInts } &&
+            context.floats.keys.all { it in space.contextFloats }
         ) {
             return context
         }
         val bools = context.bools.entries.associate { it.key.name to it.value }
         val ints = context.ints.entries.associate { it.key.name to it.value }
+        val floats = context.floats.entries.associate { it.key.name to it.value }
         return Context(
             space.contextBools.filter { it.name in bools }.associateWith { bools.getValue(it.name) },
             space.contextInts.filter { it.name in ints }.associateWith { ints.getValue(it.name) },
+            space.contextFloats.filter { it.name in floats }.associateWith { floats.getValue(it.name) },
         )
     }
 
@@ -169,8 +171,8 @@ class Study(val space: CompiledDecisionSpace, val store: ObservationStore = InMe
         require(data.trials.none { it.id in issued }) { "imported trial identifiers already exist" }
         val observations = data.history.observations.map { it.copy(context = remap(it.context)) }
         val trials = data.trials.map { it.copy(context = remap(it.context)) }
-        require(observations.all { space.matches(it.sample.sample, space.assumptionsFor(it.context)) })
-        require(trials.all { space.matches(it.sample.sample, space.assumptionsFor(it.context)) })
+        require(observations.all { space.matches(it.sample.sample, it.context) })
+        require(trials.all { space.matches(it.sample.sample, it.context) })
         for (observation in observations) store.append(observation)
         for (trial in trials) issued[trial.id] = trial
         nextId = maxOf(nextId, data.nextTrialId)

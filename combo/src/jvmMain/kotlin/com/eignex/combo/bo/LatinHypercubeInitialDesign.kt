@@ -67,7 +67,9 @@ class LatinHypercubeInitialDesign(
         val index = position(request.snapshot) + request.offset
         if (index >= size) return null
         val batch = witnesses.witnesses(
-            WitnessRequest(1, space.assumptionsFor(request.context), exclude = request.excluded),
+            WitnessRequest(
+                1, space.discreteAssumptionsFor(request.context), exclude = request.excluded, context = request.context,
+            ),
             random,
         )
         val anchor = batch.witnesses.firstOrNull() ?: return CandidateSelection(null, batch.termination, 0)

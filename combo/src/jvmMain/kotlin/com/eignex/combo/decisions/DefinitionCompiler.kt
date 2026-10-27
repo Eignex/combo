@@ -19,6 +19,7 @@ fun DecisionSpaceDef.compileSpace(): CompiledDecisionSpace = DefinitionCompiler(
 private class DefinitionCompiler(private val definition: DecisionSpaceDef) {
     private val bools = linkedMapOf<String, BoolContextHandle>()
     private val ints = linkedMapOf<String, IntContextHandle>()
+    private val floats = linkedMapOf<String, FloatContextHandle>()
     private val active = linkedMapOf<String, BoolExpr>()
     private val entries = definition.toSchemaDef().entries
 
@@ -38,6 +39,7 @@ private class DefinitionCompiler(private val definition: DecisionSpaceDef) {
             definition,
             active,
             emptyMap(),
+            floats.values.toList(),
         )
     }
 
@@ -70,7 +72,13 @@ private class DefinitionCompiler(private val definition: DecisionSpaceDef) {
             when (spec) {
                 BoolSpec -> bools[name] = BoolContextHandle(BoolHandle(name), gate)
                 is IntSpec -> ints[name] = IntContextHandle(IntHandle(name, spec.min, spec.max), gate)
-                else -> throw IllegalArgumentException("context '$name' must be bool or int")
+                is com.eignex.klause.model.FloatSpec -> {
+                    require(gate == null) { "optional float context is not supported yet" }
+                    floats[name] = FloatContextHandle(
+                        com.eignex.klause.schema.FloatHandle(name, spec.min, spec.max), spec.buckets,
+                    )
+                }
+                else -> throw IllegalArgumentException("context '$name' must be Boolean or numeric")
             }
             activate(name, gate?.name)
         }
@@ -103,6 +111,15 @@ private class DefinitionCompiler(private val definition: DecisionSpaceDef) {
             ScalarKind.NominalDecision -> {
                 require(spec is NominalSpec && spec.labels == ref.labels) { "unknown nominal decision '$name'" }
                 NominalHandle(name, spec.labels)
+            }
+
+            ScalarKind.FloatContext -> requireNotNull(floats[contextName(ref)]) { "unknown context $ref" }
+
+            ScalarKind.FloatDecision -> {
+                require(spec is com.eignex.klause.model.FloatSpec && name !in floats) {
+                    "unknown float decision '$name'"
+                }
+                com.eignex.klause.schema.FloatHandle(name, spec.min, spec.max)
             }
 
             ScalarKind.NominalContext -> throw IllegalArgumentException("nominal contexts are unsupported")

@@ -6,6 +6,7 @@ import com.eignex.klause.model.mapReferences
 import com.eignex.combo.decisions.CompiledDecisionSpace
 import com.eignex.combo.decisions.Context
 import com.eignex.combo.decisions.context
+import com.eignex.combo.decisions.floatAssumptions
 import com.eignex.klause.compile.CompiledSchema
 import com.eignex.klause.model.BoolSpec
 import com.eignex.klause.model.FloatSpec
@@ -26,6 +27,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
+import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.put
 
 /** Check runtime support without introducing a separate variable or expression vocabulary. */
@@ -33,8 +35,8 @@ internal fun requireSupportedSpace(space: DecisionSpaceDef) {
     fun visit(node: DecisionSpaceDef, root: Boolean) {
         require(node.optionalContext.isEmpty()) { "optional context is not supported by this API yet" }
         require(root || node.context.isEmpty()) { "context must be declared at the root" }
-        require(node.context.values.all { it == BoolSpec || it is IntSpec }) {
-            "context must be Boolean or integer"
+        require(node.context.values.all { it == BoolSpec || it is IntSpec || it is FloatSpec }) {
+            "context must be Boolean or numeric"
         }
         node.spaces.values.forEach { visit(it, false) }
         node.optionalSpaces.values.forEach { visit(it, false) }
@@ -42,13 +44,7 @@ internal fun requireSupportedSpace(space: DecisionSpaceDef) {
     visit(space, true)
     val entries = space.toSchemaDef().entries
     requireScalarVariables(entries)
-    val reals = entries.filterValues { it is FloatSpec }.keys
-    for (entry in entries.values) {
-        if (entry is NamedConstraint) entry.expr.mapReferences { name ->
-            require(name !in reals) { "constraints on real variables are not supported by this API yet" }
-            name
-        }
-    }
+
 }
 
 internal fun requireScalarVariables(entries: Map<String, SchemaEntry>) {
@@ -66,12 +62,13 @@ internal inline fun <T> compileInput(compile: () -> T): T = try {
 
 internal fun values(compiled: CompiledSchema, entries: Map<String, SchemaEntry>, sample: Sample): JsonObject =
     buildJsonObject {
+        val assignment = Sample(sample.bools, sample.ints, sample.reals, exactReals = sample.exactReals)
         for ((name, spec) in entries) {
             when (spec) {
-                BoolSpec, is PresenceSpec -> put(name, compiled.decode(BoolHandle(name), sample))
-                is IntSpec -> put(name, compiled.decode(IntHandle(name, spec.min, spec.max), sample))
-                is NominalSpec -> put(name, compiled.decode(NominalHandle(name, spec.labels), sample))
-                is FloatSpec -> put(name, compiled.decode(FloatHandle(name, spec.min, spec.max), sample))
+                BoolSpec, is PresenceSpec -> put(name, compiled.decode(BoolHandle(name), assignment))
+                is IntSpec -> put(name, compiled.decode(IntHandle(name, spec.min, spec.max), assignment))
+                is NominalSpec -> put(name, compiled.decode(NominalHandle(name, spec.labels), assignment))
+                is FloatSpec -> put(name, compiled.decode(FloatHandle(name, spec.min, spec.max), assignment))
                 else -> Unit
             }
         }
@@ -100,7 +97,12 @@ internal fun assumptions(compiled: CompiledSchema, entries: Map<String, SchemaEn
                 }
                 pinned
             }
-            is FloatSpec -> throw IllegalArgumentException("float assumptions are not supported")
+            is FloatSpec -> {
+                val number = requireNotNull(value.takeUnless { it.isString }?.doubleOrNull?.takeIf { it.isFinite() }) {
+                    "'$name' must be a finite number"
+                }
+                result.mergedWith(compiled.floatAssumptions(mapOf(FloatHandle(name, spec.min, spec.max) to number)))
+            }
             else -> throw IllegalArgumentException("unknown variable '$name'")
         }
     }
@@ -108,7 +110,7 @@ internal fun assumptions(compiled: CompiledSchema, entries: Map<String, SchemaEn
 }
 
 internal fun readContext(space: CompiledDecisionSpace, input: JsonObject): Context {
-    val names = (space.contextBools.map { it.name } + space.contextInts.map { it.name }).toSet()
+    val names = (space.contextBools.map { it.name } + space.contextInts.map { it.name } + space.contextFloats.map { it.name }).toSet()
     require(input.keys.all { it in names }) { "unknown context field" }
     return context {
         for (handle in space.contextBools) {
@@ -118,6 +120,13 @@ internal fun readContext(space: CompiledDecisionSpace, input: JsonObject): Conte
                 require(!value.jsonPrimitive.isString) { "context '${handle.name}' must be Boolean" }
                 set(handle, requireNotNull(value.jsonPrimitive.booleanOrNull) { "context '${handle.name}' must be Boolean" })
             }
+        }
+        for (handle in space.contextFloats) {
+            val value = requireNotNull(input[handle.name]) { "missing context '${handle.name}'" }.jsonPrimitive
+            val number = requireNotNull(value.takeUnless { it.isString }?.doubleOrNull?.takeIf { it.isFinite() }) {
+                "context '${handle.name}' must be a finite number"
+            }
+            set(handle, number)
         }
         for (handle in space.contextInts) {
             val value = input[handle.name]

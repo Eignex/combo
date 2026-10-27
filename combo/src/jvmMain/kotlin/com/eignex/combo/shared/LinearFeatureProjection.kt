@@ -5,6 +5,7 @@ import com.eignex.combo.decisions.BoolContextHandle
 import com.eignex.combo.decisions.CompiledDecisionSpace
 import com.eignex.combo.decisions.Context
 import com.eignex.combo.decisions.FeatureEncoder
+import com.eignex.combo.decisions.FloatContextHandle
 import com.eignex.combo.decisions.IntContextHandle
 import com.eignex.combo.decisions.InteractionHandle
 import com.eignex.combo.decisions.Scale
@@ -12,6 +13,7 @@ import com.eignex.combo.shared.integerObjective
 import com.eignex.klause.model.BoolExpr
 import com.eignex.klause.schema.BoolHandle
 import com.eignex.klause.schema.IntHandle
+import com.eignex.klause.schema.FloatHandle
 import com.eignex.klause.schema.NominalHandle
 import com.eignex.klause.solver.Sample
 import com.eignex.klause.solver.objective.LinearObjective
@@ -157,6 +159,8 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
 
         is BoolContextHandle -> scalarFor(handle.klauseHandle, sample)
 
+        is FloatHandle -> sample.float(handle, space)
+        is FloatContextHandle -> scalarFor(handle.klauseHandle, sample)
         is IntContextHandle -> scalarFor(handle.klauseHandle, sample)
 
         else -> error("unsupported handle: $handle")
@@ -196,17 +200,18 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
             val (bucketCoeff, _) = layout.coefficientForInt(i, w)
             intCoefficients[i] = bucketCoeff
         }
+        val realCoefficients = DoubleArray(layout.numRealVars) { weights[layout.realStart + it] }
         for (interaction in layout.interactions) {
-            foldInteraction(interaction, weights, context, boolWeights, intCoefficients)
+            foldInteraction(interaction, weights, context, boolWeights, intCoefficients, realCoefficients)
         }
         DenseVector.wrap(boolWeights).scale(sign)
         DenseVector.wrap(intCoefficients).scale(sign)
-        val realCoefficients = DoubleArray(layout.numRealVars) { sign * weights[layout.realStart + it] }
+        DenseVector.wrap(realCoefficients).scale(sign)
         return integerObjective(space.compiled.problem, boolWeights, intCoefficients, realCoefficients)
     }
 
     /** Convenience: delegates to [CompiledDecisionSpace.assumptionsFor]. */
-    fun assumptionsFor(context: Context) = space.assumptionsFor(context)
+    fun assumptionsFor(context: Context) = space.discreteAssumptionsFor(context)
 
     private fun boolActive(id: Int, sample: Sample): Boolean {
         if (id !in optionalBoolIds) return true
@@ -224,6 +229,7 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
         context: Context,
         boolWeights: DoubleArray,
         intCoefficients: DoubleArray,
+        realCoefficients: DoubleArray,
     ) {
         val start = layout.interactionStart.getValue(it)
         val nominal = it.nominalSide()
@@ -249,24 +255,29 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
             }
 
             lhsIsDecision -> {
-                applyDecisionWeight(it.lhs, w * ctxScalar(it.rhs, context), boolWeights, intCoefficients)
+                applyDecisionWeight(
+                    it.lhs, w * ctxScalar(it.rhs, context), boolWeights, intCoefficients, realCoefficients,
+                )
             }
 
             else -> {
-                applyDecisionWeight(it.rhs, w * ctxScalar(it.lhs, context), boolWeights, intCoefficients)
+                applyDecisionWeight(
+                    it.rhs, w * ctxScalar(it.lhs, context), boolWeights, intCoefficients, realCoefficients,
+                )
             }
         }
     }
 
     private fun isDecisionScalar(handle: Any): Boolean = when (handle) {
-        is BoolContextHandle, is IntContextHandle -> false
-        is BoolHandle, is IntHandle, is NominalHandle -> true
+        is BoolContextHandle, is IntContextHandle, is FloatContextHandle -> false
+        is BoolHandle, is IntHandle, is NominalHandle, is FloatHandle -> true
         else -> false
     }
 
     private fun ctxScalar(handle: Any, context: Context): Double = when (handle) {
         is BoolContextHandle -> if (context[handle]) 1.0 else 0.0
         is IntContextHandle -> context[handle].toDouble()
+        is FloatContextHandle -> context[handle]
         else -> error("expected context handle, got $handle")
     }
 
@@ -275,6 +286,7 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
         weight: Double,
         boolWeights: DoubleArray,
         intCoefficients: DoubleArray,
+        realCoefficients: DoubleArray,
     ) {
         when (decision) {
             is BoolHandle -> {
@@ -288,6 +300,14 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
                     ?: error("interaction references unknown int '${decision.name}'")
                 val (bucketCoeff, _) = layout.coefficientForInt(id, weight)
                 intCoefficients[id] += bucketCoeff
+            }
+
+            is FloatHandle -> {
+                val id = space.compiled.intVarIdByName[decision.name]
+                if (id != null) intCoefficients[id] += layout.coefficientForInt(id, weight).first else {
+                    val real = layout.realHandles.entries.first { it.value.name == decision.name }.key
+                    realCoefficients[real] += weight
+                }
             }
 
             else -> error("unsupported decision in interaction: $decision")

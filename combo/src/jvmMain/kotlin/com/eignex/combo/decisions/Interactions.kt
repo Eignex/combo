@@ -21,8 +21,10 @@ class InteractionHandle internal constructor(val name: String, internal val lhs:
     internal val involvesDecision: Boolean = lhs.isDecision() || rhs.isDecision()
 }
 
-internal fun Any.isDecision(): Boolean = this is BoolHandle || this is IntHandle || this is NominalHandle
-internal fun Any.isContext(): Boolean = this is BoolContextHandle || this is IntContextHandle
+internal fun Any.isDecision(): Boolean = this is BoolHandle || this is IntHandle ||
+    this is com.eignex.klause.schema.FloatHandle || this is NominalHandle
+internal fun Any.isContext(): Boolean =
+    this is BoolContextHandle || this is IntContextHandle || this is FloatContextHandle
 
 internal fun isAllowedInteraction(lhs: Any, rhs: Any): Boolean {
     val l = lhs.isDecision() || lhs.isContext()

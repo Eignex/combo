@@ -49,6 +49,9 @@ abstract class SubSpace internal constructor() {
             ReadOnlyProperty { _, _ -> handle }
         }
 
+    /** Continuous real variable, using Klause's native float declaration without a grid. */
+    protected fun realVar(min: Double, max: Double, scale: Scale = Scale.Linear) = floatVar(min, max, scale = scale)
+
     protected fun nominal(vararg labels: String) =
         PropertyDelegateProvider<SubSpace, ReadOnlyProperty<SubSpace, NominalHandle>> { _, prop ->
             val handle = ctx.root.registerNominal(ctx.qualify(prop.name), labels.toList(), ctx.activeCondition)

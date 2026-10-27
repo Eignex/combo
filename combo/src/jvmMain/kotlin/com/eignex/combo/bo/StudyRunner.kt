@@ -33,8 +33,9 @@ class RandomSuggestionPolicy(
         val batch = witnesses.witnesses(
             WitnessRequest(
                 count,
-                space.assumptionsFor(context),
+                space.discreteAssumptionsFor(context),
                 exclude = snapshot.pending.map { it.sample.sample },
+                context = context,
             ),
             Random(seed.toLong() xor snapshot.round),
         )

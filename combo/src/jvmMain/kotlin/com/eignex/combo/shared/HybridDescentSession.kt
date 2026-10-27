@@ -1,6 +1,9 @@
 package com.eignex.combo.shared
 
 import com.eignex.combo.decisions.CompiledDecisionSpace
+import com.eignex.combo.decisions.Context
+import com.eignex.combo.decisions.conditionedProblem
+import com.eignex.combo.decisions.unframed
 import com.eignex.klause.backtrack.BacktrackParams
 import com.eignex.klause.backtrack.BacktrackSolver
 import com.eignex.klause.localsearch.LocalSearchParams
@@ -32,6 +35,7 @@ class HybridDescentSession(
     private val backtrack: (Random, Assumptions) -> SampleResult,
     private val candidateBatchSize: Int = 8,
     private val poolCapacity: Int = 64,
+    private val conditionedSearch: ((Context) -> WitnessSearch)? = null,
 ) : DescentSession,
     WitnessSearch {
     private val validator = WitnessValidator(space)
@@ -115,6 +119,13 @@ class HybridDescentSession(
     }
 
     override fun witnesses(request: WitnessRequest, random: Random): WitnessBatch {
+        if (request.context.floats.isNotEmpty()) {
+            val scoped = requireNotNull(conditionedSearch) { "this witness provider cannot condition real contexts" }
+            return scoped(request.context).witnesses(request.copy(
+                context = Context.Empty,
+                anchors = request.anchors.filter { space.matches(it, request.context) },
+            ), random)
+        }
         check(depth == 0) { "batch requests require an empty assumption stack" }
         val found = linkedMapOf<AssignmentKey, Sample>()
         val excluded = request.exclude.map { it.assignmentKey() }.toSet()
@@ -209,8 +220,9 @@ class HybridDescentSession(
             backtrack: BacktrackParams = BacktrackParams(maxDecisions = 10_000L),
             candidateBatchSize: Int = 8,
             poolCapacity: Int = 64,
+            context: Context = Context.Empty,
         ): HybridDescentSession {
-            val problem = space.compiled.problem.bake()
+            val problem = space.conditionedProblem(context).bake()
             val local = LocalSearchSession(LocalSearchSolver(problem))
             val complete = BacktrackSolver(problem)
             val proposals = ScaledWitnessProposals(space)
@@ -237,7 +249,9 @@ class HybridDescentSession(
                         } else {
                             proposed
                         }
-                        val sample = result.assignment?.let { proposals.interior(it, rng) }
+                        val sample = result.assignment?.let {
+                            if (context.floats.isEmpty()) proposals.interior(it, rng) else it.unframed()
+                        }
                         when {
                             sample != null -> SampleResult.Found(sample)
                             result is MinimizeResult.Infeasible -> SampleResult.Infeasible(result.core)
@@ -266,13 +280,16 @@ class HybridDescentSession(
                             backtrack.copy(randomSeed = rng.nextLong(), assumptions = assumptions),
                         )
                     ) {
-                        is SolveResult.Sat -> SampleResult.Found(result.assignment)
+                        is SolveResult.Sat -> SampleResult.Found(result.assignment.unframed())
                         is SolveResult.Unsat -> SampleResult.Infeasible(result.core)
                         is SolveResult.Unknown -> SampleResult.Unknown(result.reason)
                     }
                 },
                 candidateBatchSize = candidateBatchSize,
                 poolCapacity = poolCapacity,
+                conditionedSearch = { given ->
+                    klause(space, localSearch, backtrack, candidateBatchSize, poolCapacity, given)
+                },
             )
         }
     }

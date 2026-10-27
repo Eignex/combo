@@ -35,19 +35,19 @@ class ModelRoutesTest {
     }
 
     @Test
-    fun `real constraints are rejected until evaluation can pin them soundly`() = testApplication {
+    fun `real constraints validate pinned assignments before returning feasibility`() = testApplication {
         application { resourceApi() }
-        val response = client.send("/v1/models", """
-            {
-              "space": {
-                "variables": {"x":{"float":{"min":0.0,"max":1.0}}},
-                "constraints": {"bound":{"floatLinear":{"coeffs":[1.0],"varNames":["x"],"op":"LE","bound":0.5}}}
-              }
-            }
-            """.trimIndent())
-        assertEquals(HttpStatusCode.BadRequest, response.status, response.bodyAsText())
-        assertTrue(response.objectBody().getValue("message").jsonPrimitive.content.contains("constraints on real variables"))
-        assertEquals("[]", client.get("/v1/models").bodyAsText())
+        val model = client.model("""
+            {"space":{"variables":{"x":{"float":{"min":0.0,"max":1.0}}},
+              "constraints":{"bound":{"floatLinear":{
+                "coeffs":[1.0],"varNames":["x"],"op":"LE","bound":0.5}}}}}
+        """.trimIndent())
+        val base = "/v1/models/${model.id}"
+        for ((x, status) in listOf(0.25 to "feasible", 0.75 to "infeasible", 0.5 to "feasible")) {
+            val result = client.send("$base/evaluate", """{"values":{"x":$x}}""")
+            assertEquals(HttpStatusCode.OK, result.status, result.bodyAsText())
+            assertEquals(status, result.objectBody().getValue("status").jsonPrimitive.content)
+        }
     }
 
     @Test

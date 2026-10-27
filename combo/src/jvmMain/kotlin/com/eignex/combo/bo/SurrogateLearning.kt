@@ -29,7 +29,7 @@ internal class SurrogateLearning(
     private data class Input(val sample: BanditSample, val context: Context, val features: Vector, val noise: Double?)
     private fun input(sample: BanditSample, context: Context, noise: Double? = null): Input {
         require(
-            projection.space.matches(sample.sample, projection.space.assumptionsFor(context)),
+            projection.space.matches(sample.sample, context),
         ) { "context mismatch" }
         val features = DenseVector.of(projection.encode(sample, context).toDoubleArray())
         require(features.size == projection.featureSize && features.toDoubleArray().all { it.isFinite() })

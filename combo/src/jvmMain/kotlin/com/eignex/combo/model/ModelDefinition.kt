@@ -56,8 +56,9 @@ data class ModelDefinition(
             "statistical inputs cannot shadow decision or context variables"
         }
         if (learned) for ((name, input) in inputs) {
-            require(space?.context?.get(name) is IntSpec && input.value != null) {
-                "learned input '$name' must bind an integer context and select a scalar with value"
+            val spec = space?.context?.get(name)
+            require((spec is IntSpec || spec is FloatSpec) && input.value != null) {
+                "learned input '$name' must bind a numeric context and select a scalar with value"
             }
         }
         if (space != null) {

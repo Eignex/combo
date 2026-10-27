@@ -138,7 +138,7 @@ open class BayesianOptimizer(
         val explore = initialDesign.explore(snapshot, random)
         val base by lazy { learning.model(snapshot.history) }
         val scoped = snapshot.history.observations.filter {
-            space.matches(it.sample.sample, space.assumptionsFor(context)) && candidates.valid(it.sample.sample)
+            space.matches(it.sample.sample, context) && candidates.valid(it.sample.sample)
         }
         val completed = if (repeatPolicy == RepeatPolicy.Never ||
             (repeatPolicy == RepeatPolicy.NoisyOnly && outcome.noise == ObservationNoise.Deterministic)
@@ -172,7 +172,7 @@ open class BayesianOptimizer(
                     return SequentialBatchPolicy().select(snapshot, count, context, this)
                 }
                 val pending = snapshot.pending.filter {
-                    space.matches(it.sample.sample, space.assumptionsFor(context)) && candidates.valid(it.sample.sample)
+                    space.matches(it.sample.sample, context) && candidates.valid(it.sample.sample)
                 }
                 val completedRows = scoped.distinctBy { it.sample.sample.assignmentKey() }
                 val objective = acquisition.create(
@@ -215,9 +215,10 @@ open class BayesianOptimizer(
                     val batch = exploration.witnesses(
                         WitnessRequest(
                             1,
-                            space.assumptionsFor(context),
+                            space.discreteAssumptionsFor(context),
                             exclude = unavailable,
                             anchors = scoped.map { it.sample.sample },
+                            context = context,
                         ),
                         random,
                     )
@@ -323,7 +324,7 @@ open class BayesianOptimizer(
     /** Best actually evaluated configuration; noisy observations are aggregated by statistical weight. */
     fun bestObserved(context: Context = Context.Empty): ObservedBest? {
         val observations = store.snapshot().observations.filter {
-            space.matches(it.sample.sample, space.assumptionsFor(context)) && candidates.valid(it.sample.sample)
+            space.matches(it.sample.sample, context) && candidates.valid(it.sample.sample)
         }
         val groups = if (outcome.noise ==
             ObservationNoise.Noisy

@@ -125,3 +125,17 @@ class MultipleHandle internal constructor(
     override fun hashCode(): Int = name.hashCode()
     override fun toString(): String = "MultipleHandle($name, labels=$labels)"
 }
+
+/** Numeric context in native real units, optionally on an explicitly declared float grid. */
+class FloatContextHandle internal constructor(
+    val klauseHandle: com.eignex.klause.schema.FloatHandle,
+    val buckets: Int? = null,
+) : com.eignex.klause.schema.FloatTerm {
+    val name: String get() = klauseHandle.name
+    val min: Double get() = klauseHandle.min
+    val max: Double get() = klauseHandle.max
+    override fun toFloatExpr(): com.eignex.klause.schema.FloatExpr = klauseHandle.toFloatExpr()
+    override fun equals(other: Any?): Boolean = other is FloatContextHandle && other.name == name
+    override fun hashCode(): Int = name.hashCode()
+    override fun toString(): String = "FloatContextHandle($name)"
+}

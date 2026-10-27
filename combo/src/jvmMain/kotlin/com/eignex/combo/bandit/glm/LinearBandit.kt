@@ -2,6 +2,11 @@ package com.eignex.combo.bandit.glm
 
 import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.Context
+import com.eignex.combo.decisions.conditionedProblem
+import com.eignex.combo.decisions.unframed
+import com.eignex.klause.backtrack.BacktrackParams
+import com.eignex.klause.backtrack.BacktrackSolver
+import com.eignex.klause.propagation.bake
 import com.eignex.combo.shared.HybridDescentSession
 import com.eignex.combo.shared.LinearFeatureProjection
 import com.eignex.combo.shared.NoFeasibleSampleException
@@ -49,6 +54,8 @@ class LinearBandit<R : LinearRegressionResult>(
     override val rewards: SeriesStat<*>? = null,
     override val trainScore: PairedStat<*>? = null,
     override val testScore: PairedStat<*>? = null,
+    /** Optional conditioned optimizer for preserving caller budgets with real context. */
+    val contextOptimizer: ((LinearObjective, Assumptions, Context) -> Sample?)? = null,
 ) : PredictionLearner<LinearLearnerData> {
 
     val space get() = projection.space
@@ -62,7 +69,9 @@ class LinearBandit<R : LinearRegressionResult>(
     private val scaledSearch by lazy { HybridDescentSession.klause(space, candidateBatchSize = 64, poolCapacity = 256) }
 
     private fun scaledChoice(weights: Vector, context: Context, random: Random): BanditSample {
-        val batch = scaledSearch.witnesses(WitnessRequest(64, projection.assumptionsFor(context)), random)
+        val batch = scaledSearch.witnesses(
+            WitnessRequest(64, projection.assumptionsFor(context), context = context), random,
+        )
         val sign = if (maximize) 1.0 else -1.0
         val sample = batch.witnesses.maxByOrNull { raw ->
             val features = projection.encode(BanditSample(raw), context)
@@ -97,9 +106,17 @@ class LinearBandit<R : LinearRegressionResult>(
         if (projection.hasNonlinearScales) return scaledChoice(sampledWeights, context, rng)
         val objective = projection.toObjective(sampledWeights, snapshot.bias, context, maximize)
         val assumptions = projection.assumptionsFor(context)
-        val raw = innerOptimizer(objective, assumptions)
+        val raw = optimize(objective, assumptions, context)
             ?: throw NoFeasibleSampleException("inner optimizer returned no feasible sample")
         return BanditSample(raw)
+    }
+
+    private fun optimize(objective: LinearObjective, assumptions: Assumptions, context: Context): Sample? {
+        contextOptimizer?.let { return it(objective, assumptions, context)?.unframed() }
+        if (space.contextFloats.isEmpty()) return innerOptimizer(objective, assumptions)
+        return BacktrackSolver(space.conditionedProblem(context).bake()).minimize(
+            objective, BacktrackParams(maxDecisions = 100_000, assumptions = assumptions),
+        ).assignment?.unframed()
     }
 
     fun choose(context: Context): BanditSample? = try {
@@ -113,7 +130,7 @@ class LinearBandit<R : LinearRegressionResult>(
         if (projection.hasNonlinearScales) return scaledChoice(snapshot.weights, context, randomSequence.next())
         val objective = projection.toObjective(snapshot.weights, snapshot.bias, context, maximize)
         val assumptions = projection.assumptionsFor(context)
-        val raw = innerOptimizer(objective, assumptions)
+        val raw = optimize(objective, assumptions, context)
             ?: throw NoFeasibleSampleException("inner optimizer returned no feasible sample")
         return BanditSample(raw)
     }

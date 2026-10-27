@@ -130,15 +130,16 @@ private class JointSearch(
     ): JointCandidateSelection {
         require(count > 0)
         val space = projection.space
-        val assumptions = space.assumptionsFor(request.context)
+        val assumptions = space.discreteAssumptionsFor(request.context)
         val validator = WitnessValidator(space)
         val excluded = request.excluded.map { it.assignmentKey() }.toSet()
-        val anchors = request.anchors.filter { space.matches(it, assumptions) && validator.valid(it) }
+        val anchors = request.anchors.filter { space.matches(it, request.context) && validator.valid(it) }
         val generated = witnesses.witnesses(
             WitnessRequest(
                 maxOf(candidateCount, count),
                 assumptions,
                 anchors = anchors,
+                context = request.context,
                 exclude = request.excluded,
                 maxAttempts = (maxOf(candidateCount, count).toLong() * 2).coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
             ),
@@ -148,7 +149,7 @@ private class JointSearch(
         val indices = mutableMapOf<com.eignex.combo.shared.AssignmentKey, Int>()
         fun include(sample: com.eignex.klause.solver.Sample): Int? {
             val key = sample.assignmentKey()
-            if (key in excluded || !space.matches(sample, assumptions) || !validator.valid(sample)) return null
+            if (key in excluded || !space.matches(sample, request.context) || !validator.valid(sample)) return null
             return indices.getOrPut(key) {
                 pool.add(BanditSample(sample))
                 pool.lastIndex
@@ -205,6 +206,7 @@ private class JointSearch(
                         radius,
                         neighbors,
                         anchors + pool.map { it.sample },
+                        request.context,
                     )
                     for (sample in candidates) {
                         val replacement = include(sample) ?: continue

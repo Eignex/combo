@@ -1,6 +1,8 @@
 package com.eignex.server
 
 import com.eignex.combo.model.ModelObjective
+import com.eignex.combo.decisions.conditionedProblem
+import com.eignex.combo.decisions.pinFloats
 import com.eignex.combo.model.LinearLearning
 import com.eignex.combo.bandit.glm.LinearTrialOptimizer
 import com.eignex.combo.bo.TrialOptimizer
@@ -42,6 +44,17 @@ internal class ProblemResource(schema: com.eignex.skema.SchemaDef<SchemaEntry>) 
     private val session = BacktrackSolver(compiled.problem.bake()).session()
 
     fun recommend(goal: ModelObjective?, given: JsonObject, seed: Long, control: OperationControl): JsonObject {
+        val pins = realValues(entries, given)
+        if (pins.isEmpty()) return recommend(session, goal, given, seed, control)
+        return BacktrackSolver(compiled.pinFloats(pins).bake()).session().use {
+            recommend(it, goal, given, seed, control)
+        }
+    }
+
+    private fun recommend(
+        session: com.eignex.klause.solver.Session<BacktrackParams>,
+        goal: ModelObjective?, given: JsonObject, seed: Long, control: OperationControl,
+    ): JsonObject {
         val params = BacktrackParams(
             maxDecisions = 100_000, randomSeed = seed,
             assumptions = assumptions(compiled, entries, given), cancellation = control.cancellation,
@@ -72,9 +85,10 @@ internal class ProblemResource(schema: com.eignex.skema.SchemaDef<SchemaEntry>) 
     }
 
     fun evaluate(input: Map<String, JsonElement>, goal: ModelObjective?, control: OperationControl): JsonObject {
-        val result = checkedAssignment(compiled, entries, JsonObject(input)) { pinned ->
-            session.solve(BacktrackParams(maxDecisions = 100_000, assumptions = pinned, cancellation = control.cancellation))
-        }
+        val result = checkedAssignment(
+            compiled, entries, JsonObject(input),
+            BacktrackParams(maxDecisions = 100_000, cancellation = control.cancellation),
+        )
         control.checkpoint()
         return selection(result, goal)
     }
@@ -132,12 +146,18 @@ internal class OptimizerResource(
                     maxDecisions = 100_000, assumptions = pinned, cancellation = cancellation,
                 )).assignment
             }, seed, maximize, rewards,
+            contextOptimizer = { objective, pinned, context ->
+                BacktrackSolver(space.conditionedProblem(context).bake()).minimize(
+                    objective, BacktrackParams(
+                        maxDecisions = 100_000, assumptions = pinned, cancellation = cancellation,
+                    ),
+                ).assignment
+            },
         )
     }
     private val optimizer: TrialOptimizer = linear ?: requireNotNull(forest)
 
     val observationCount: Long get() = linear?.observationCount ?: requireNotNull(forest).store.revision
-    private val validationSession = BacktrackSolver(space.compiled.problem.bake()).session()
 
     fun recommend(given: JsonObject, target: String, control: OperationControl): JsonObject {
         val context = readContext(space, given)
@@ -154,9 +174,10 @@ internal class OptimizerResource(
 
     fun evaluate(input: JsonObject, given: JsonObject, target: String, control: OperationControl): JsonObject {
         val context = readContext(space, given)
-        val result = checkedAssignment(space.compiled, entries, JsonObject(input + given)) { pinned ->
-            validationSession.solve(BacktrackParams(maxDecisions = 100_000, assumptions = pinned, cancellation = control.cancellation))
-        }
+        val result = checkedAssignment(
+            space.compiled, entries, JsonObject(input + given),
+            BacktrackParams(maxDecisions = 100_000, cancellation = control.cancellation),
+        )
         control.checkpoint()
         return when (result) {
             is SolveResult.Sat -> {
@@ -182,7 +203,6 @@ internal class OptimizerResource(
         }
 
     override fun close() {
-        validationSession.close()
         linearSession.close()
     }
 
