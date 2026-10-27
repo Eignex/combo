@@ -62,15 +62,15 @@ To add one automatically to every observation, compose the statistic:
 {
   "stat": {
     "transform": {
-      "expr": {"add":["x",1.0]},
+      "expr": {"add":[{"input":"x"},1]},
       "inner": {"ewma":{"alpha":0.1}}
     }
   }
 }
 ```
 
-The same observation then produces a mean of `43.0`. Here `"x"` is the input
-reference in the canonical expression format; expressions are structured JSON.
+The same observation then produces a mean of `43.0`. Here `{"input":"x"}` names the incoming value in the canonical expression format;
+expressions are structured JSON.
 The server passes `stat` directly to the native serializable specification.
 Filters, weighting, groups, and other compositions use that same format.
 
@@ -84,13 +84,13 @@ POST /v1/models
 Content-Type: application/json
 
 {
-  "variables": {
-    "workers": {"type":"integer","min":1,"max":8},
-    "load": {"type":"integer","role":"context","min":1,"max":8}
+  "space": {
+    "variables": {"workers":{"int":[1,8]}},
+    "context": {"load":{"int":[1,8]}},
+    "constraints": {
+      "capacity": {"ge":[{"ref":"workers"},{"ref":"load"}]}
+    }
   },
-  "constraints": [
-    {"terms":{"workers":1,"load":-1},"atLeast":0}
-  ],
   "objective": {"minimize":"workers"}
 }
 ```
@@ -120,7 +120,8 @@ It returns `status: "feasible"` and the objective value; `workers: 2` returns
 when evaluating, every decision variable. Context is fixed for that request.
 
 Linear relationships can define objective variables too. For example, declaring
-an integer `cost` and adding `{"terms":{"cost":1,"workers":-2},"equal":0}`
+`"cost":{"int":[0,20]}` and adding the named constraint
+`{"eq":[{"ref":"cost"},{"mul":[2,{"ref":"workers"}]}]}`
 allows `{"minimize":"cost"}`. There is no expression string language.
 
 Without an objective, `/recommend` returns any feasible assignment. Search results
@@ -130,17 +131,16 @@ than claiming a proof of continuous optimality.
 
 ## Decisions with an observed objective
 
-When an objective must be measured, give its variable the role `observed`:
+When an objective must be measured, name it as an `outcome` outside the search
+domain:
 
 ```http
 POST /v1/models
 Content-Type: application/json
 
 {
-  "variables": {
-    "workers": {"type":"integer","min":1,"max":8},
-    "latency": {"role":"observed"}
-  },
+  "space": {"variables":{"workers":{"int":[1,8]}}},
+  "outcome": "latency",
   "objective": {"minimize":"latency"},
   "stat": {"ewma":{"alpha":0.1}},
   "seed": 42
@@ -246,13 +246,26 @@ snapshot structure. `/reset` restores a standalone stat or bandit to its baselin
 
 ## Initial scope and operation limits
 
-Decision variables support bounded integers and reals, Booleans, and categorical
-labels. Context supports bounded integers and Booleans. Constraints currently
-support integer coefficients on integer and Boolean variables, with exactly one
-of `atMost`, `atLeast`, or `equal`. An observed objective is one real outcome;
+The public contract is `com.eignex.combo.model.ModelDefinition` in `:combo`.
+The server consumes that contract directly. Its `space` is the existing
+`DecisionSpaceDef`: native Klause `VarSpec` declarations and `BoolExpr` constraints,
+including structured arithmetic, logical expressions, global constraints, and
+nested spaces. The server has no separate variable or constraint DTO. Statistics
+use Kumulant's canonical JSON, including native expression bindings.
+
+The current HTTP runtime supports scalar decisions: `"bool"`, `{"int":[min,max]}`,
+`{"float":{"min":0.0,"max":1.0}}`, and `{"nominal":["a","b"]}`.
+Nested assignments use qualified names, such as `child.workers`. Context supports
+bounded integers and Booleans declared at the root. Every context must be supplied;
+optional context is not yet supported. Constraints referring to real variables are
+rejected until evaluation can pin real values soundly; unconstrained bounded real
+decisions remain supported. An observed objective is one finite real outcome;
 constraints cannot depend on it. Attached outcome statistics must accept scalar
-observations. Model definitions use ordinary serializable data classes, and
-statistic specifications use their existing canonical JSON without translation.
+observations. These runtime limits do not introduce another serialization format.
+
+This composes the existing decision-space and statistic contracts. General named
+statistics feeding solver variables, joint-statistic bindings, and statistical
+sampling at solve time are not implemented yet.
 
 Malformed input and unsupported operations return `400`; unknown models and
 proposals return `404`. Saturation returns `503` with `Retry-After`.

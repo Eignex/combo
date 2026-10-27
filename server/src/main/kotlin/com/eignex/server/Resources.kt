@@ -1,5 +1,7 @@
 package com.eignex.server
 
+import com.eignex.combo.model.ModelObjective
+
 import com.eignex.combo.bo.BayesianOptimizer
 import com.eignex.combo.bo.ForestSurrogate
 import com.eignex.combo.bo.LocalAndRandomSearch

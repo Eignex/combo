@@ -1,12 +1,20 @@
 package com.eignex.server
 
+import com.eignex.combo.model.ModelDefinition
+import com.eignex.combo.model.ModelQuery
+import com.eignex.combo.model.ModelObservation
+
+import com.eignex.klause.model.VarSpec
 import io.ktor.http.HttpStatusCode
 import kotlinx.serialization.json.*
 
 internal class ModelResource(private val definition: ModelDefinition) : ManagedResource {
     override val type = "model"
+    private val space = definition.space?.also(::requireSupportedSpace)
+    private val variables = space?.toSchemaDef()?.entries.orEmpty().filterValues { it is VarSpec }
+    private val contexts = space?.context.orEmpty().keys
+    private val decisions = variables.keys - contexts
     private val stat = definition.stat?.let { StatsResource.create(it, definition.seed) }
-    private val space = definition.takeIf { it.variables.isNotEmpty() }?.space()
     private val problem = space?.takeUnless { definition.learned }?.let {
         ProblemResource(it.toSchemaDef())
     }
@@ -56,7 +64,6 @@ internal class ModelResource(private val definition: ModelDefinition) : ManagedR
     fun evaluate(query: ModelQuery, control: OperationControl): JsonElement {
         require(query.count == 1) { "evaluate accepts values, given, and timeoutMillis" }
         validateGiven(query.given)
-        val decisions = definition.variables.filterValues { it.role == "decision" }.keys
         require(query.values.keys == decisions) { "values must assign every decision variable" }
         optimizer?.let { return selection(it.evaluate(query.values, query.given, definition.objective!!.name, control)) }
         problem?.let { return selection(it.evaluate(query.values + query.given, definition.objective, control)) }
@@ -107,15 +114,14 @@ internal class ModelResource(private val definition: ModelDefinition) : ManagedR
     }
 
     private fun validateGiven(given: JsonObject) {
-        val contexts = definition.variables.filterValues { it.role == "context" }.keys
         require(given.keys == contexts) { "given must assign every context variable" }
     }
 
     private fun selection(result: JsonObject): JsonObject {
         val assignment = result["values"] as? JsonObject ?: return result
         return JsonObject(result + mapOf(
-            "values" to JsonObject(assignment.filterKeys { definition.variables[it]?.role == "decision" }),
-            "given" to JsonObject(assignment.filterKeys { definition.variables[it]?.role == "context" }),
+            "values" to JsonObject(assignment.filterKeys { it in decisions }),
+            "given" to JsonObject(assignment.filterKeys { it in contexts }),
         ))
     }
 
@@ -124,8 +130,8 @@ internal class ModelResource(private val definition: ModelDefinition) : ManagedR
         val status = trial.status.name.lowercase()
         put("status", if (status == "completed") "observed" else status)
         val allValues = backend.assignment(trial)
-        put("values", JsonObject(allValues.filterKeys { definition.variables[it]?.role == "decision" }))
-        put("given", JsonObject(allValues.filterKeys { definition.variables[it]?.role == "context" }))
+        put("values", JsonObject(allValues.filterKeys { it in decisions }))
+        put("given", JsonObject(allValues.filterKeys { it in contexts }))
         trial.reward?.let { put("observed", buildJsonObject { put(definition.objective!!.name, it) }) }
     }
 

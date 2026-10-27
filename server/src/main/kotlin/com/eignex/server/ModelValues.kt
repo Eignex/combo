@@ -1,5 +1,8 @@
 package com.eignex.server
 
+import com.eignex.combo.decisions.DecisionSpaceDef
+import com.eignex.klause.model.NamedConstraint
+import com.eignex.klause.model.mapReferences
 import com.eignex.combo.decisions.CompiledDecisionSpace
 import com.eignex.combo.decisions.Context
 import com.eignex.combo.decisions.context
@@ -24,6 +27,29 @@ import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 import kotlinx.serialization.json.put
+
+/** Check runtime support without introducing a separate variable or expression vocabulary. */
+internal fun requireSupportedSpace(space: DecisionSpaceDef) {
+    fun visit(node: DecisionSpaceDef, root: Boolean) {
+        require(node.optionalContext.isEmpty()) { "optional context is not supported by this API yet" }
+        require(root || node.context.isEmpty()) { "context must be declared at the root" }
+        require(node.context.values.all { it == BoolSpec || it is IntSpec }) {
+            "context must be Boolean or integer"
+        }
+        node.spaces.values.forEach { visit(it, false) }
+        node.optionalSpaces.values.forEach { visit(it, false) }
+    }
+    visit(space, true)
+    val entries = space.toSchemaDef().entries
+    requireScalarVariables(entries)
+    val reals = entries.filterValues { it is FloatSpec }.keys
+    for (entry in entries.values) {
+        if (entry is NamedConstraint) entry.expr.mapReferences { name ->
+            require(name !in reals) { "constraints on real variables are not supported by this API yet" }
+            name
+        }
+    }
+}
 
 internal fun requireScalarVariables(entries: Map<String, SchemaEntry>) {
     for ((name, entry) in entries) {

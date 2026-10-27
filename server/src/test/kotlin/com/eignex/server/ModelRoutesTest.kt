@@ -15,15 +15,156 @@ import kotlin.test.*
 
 class ModelRoutesTest {
     @Test
+    fun `native nested multiplication and global constraints share the model lifecycle`() = testApplication {
+        application { resourceApi() }
+        val model = client.model("""
+            {
+              "space": {
+                "spaces": {
+                  "child": {
+                    "variables": {
+                      "x": {
+                        "int": [
+                          1,
+                          4
+                        ]
+                      },
+                      "y": {
+                        "int": [
+                          1,
+                          4
+                        ]
+                      }
+                    },
+                    "constraints": {
+                      "product": {
+                        "eq": [
+                          {
+                            "mul": [
+                              {
+                                "ref": "x"
+                              },
+                              {
+                                "ref": "y"
+                              }
+                            ]
+                          },
+                          4
+                        ]
+                      },
+                      "distinct": {
+                        "allDifferent": [
+                          {
+                            "ref": "x"
+                          },
+                          {
+                            "ref": "y"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              },
+              "objective": {
+                "minimize": "child.x"
+              }
+            }
+            """.trimIndent())
+        val response = client.send("/v1/models/${model.id}/recommend", "{}")
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+        assertEquals(1, response.objectBody().getValue("values").jsonObject.getValue("child.x").jsonPrimitive.int)
+        assertEquals(4, response.objectBody().getValue("values").jsonObject.getValue("child.y").jsonPrimitive.int)
+        val rejected = client.send("/v1/models/${model.id}/evaluate", """{"values":{"child.x":2,"child.y":2}}""")
+        assertEquals(HttpStatusCode.OK, rejected.status, rejected.bodyAsText())
+        assertEquals("infeasible", rejected.objectBody().getValue("status").jsonPrimitive.content)
+    }
+
+    @Test
+    fun `real constraints are rejected until evaluation can pin them soundly`() = testApplication {
+        application { resourceApi() }
+        val response = client.send("/v1/models", """
+            {
+              "space": {
+                "variables": {
+                  "x": {
+                    "float": {
+                      "min": 0.0,
+                      "max": 1.0
+                    }
+                  }
+                },
+                "constraints": {
+                  "bound": {
+                    "floatLinear": {
+                      "coeffs": [
+                        1.0
+                      ],
+                      "varNames": [
+                        "x"
+                      ],
+                      "op": "LE",
+                      "bound": 0.5
+                    }
+                  }
+                }
+              }
+            }
+            """.trimIndent())
+        assertEquals(HttpStatusCode.BadRequest, response.status, response.bodyAsText())
+        assertEquals("[]", client.get("/v1/models").bodyAsText())
+    }
+
+    @Test
     fun `known objectives recommend proven optima under each request context`() = testApplication {
         application { resourceApi() }
         val model = client.model("""
-            {"variables":{
-              "workers":{"type":"integer","min":1,"max":8},
-              "load":{"type":"integer","role":"context","min":1,"max":8}},
-             "constraints":[{"terms":{"workers":1,"load":-1},"atLeast":0}],
-             "objective":{"minimize":"workers"}}
-        """.trimIndent())
+            {
+              "space": {
+                "variables": {
+                  "workers": {
+                    "int": [
+                      1,
+                      8
+                    ]
+                  }
+                },
+                "context": {
+                  "load": {
+                    "int": [
+                      1,
+                      8
+                    ]
+                  }
+                },
+                "constraints": {
+                  "constraint0": {
+                    "ge": [
+                      {
+                        "add": [
+                          {
+                            "ref": "workers"
+                          },
+                          {
+                            "mul": [
+                              -1,
+                              {
+                                "ref": "load"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      0
+                    ]
+                  }
+                }
+              },
+              "objective": {
+                "minimize": "workers"
+              }
+            }
+            """.trimIndent())
         for (load in listOf(3, 6, 2)) {
             val response = client.send("/v1/models/${model.id}/recommend", """{"given":{"load":$load}}""")
             assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
@@ -42,10 +183,58 @@ class ModelRoutesTest {
     fun `known objectives can combine variables through linear relationships`() = testApplication {
         application { resourceApi() }
         val model = client.model("""
-            {"variables":{"workers":{"type":"integer","min":1,"max":8},"cost":{"type":"integer","min":0,"max":20}},
-             "constraints":[{"terms":{"cost":1,"workers":-2},"equal":0},{"terms":{"workers":1},"atLeast":3}],
-             "objective":{"minimize":"cost"}}
-        """.trimIndent())
+            {
+              "space": {
+                "variables": {
+                  "workers": {
+                    "int": [
+                      1,
+                      8
+                    ]
+                  },
+                  "cost": {
+                    "int": [
+                      0,
+                      20
+                    ]
+                  }
+                },
+                "constraints": {
+                  "constraint0": {
+                    "eq": [
+                      {
+                        "add": [
+                          {
+                            "ref": "cost"
+                          },
+                          {
+                            "mul": [
+                              -2,
+                              {
+                                "ref": "workers"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      0
+                    ]
+                  },
+                  "constraint1": {
+                    "ge": [
+                      {
+                        "ref": "workers"
+                      },
+                      3
+                    ]
+                  }
+                }
+              },
+              "objective": {
+                "minimize": "cost"
+              }
+            }
+            """.trimIndent())
         val response = client.send("/v1/models/${model.id}/recommend", "{}")
         assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
         assertEquals(6, response.objectBody().getValue("objective").jsonObject.getValue("value").jsonPrimitive.int)
@@ -56,9 +245,32 @@ class ModelRoutesTest {
     fun `maximization and evaluation use the same variable definitions`() = testApplication {
         application { resourceApi() }
         val model = client.model("""
-            {"variables":{"workers":{"type":"integer","min":1,"max":8}},
-             "constraints":[{"terms":{"workers":1},"atMost":4}],"objective":{"maximize":"workers"}}
-        """.trimIndent())
+            {
+              "space": {
+                "variables": {
+                  "workers": {
+                    "int": [
+                      1,
+                      8
+                    ]
+                  }
+                },
+                "constraints": {
+                  "constraint0": {
+                    "le": [
+                      {
+                        "ref": "workers"
+                      },
+                      4
+                    ]
+                  }
+                }
+              },
+              "objective": {
+                "maximize": "workers"
+              }
+            }
+            """.trimIndent())
         val response = client.send("/v1/models/${model.id}/recommend", "{}")
         assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
         assertEquals(4, response.objectBody().getValue("values").jsonObject.getValue("workers").jsonPrimitive.int)
@@ -73,9 +285,44 @@ class ModelRoutesTest {
     fun `infeasible models return a verdict rather than a transport failure`() = testApplication {
         application { resourceApi() }
         val model = client.model("""
-            {"variables":{"flag":{"type":"boolean"}},
-             "constraints":[{"terms":{"flag":1},"equal":1},{"terms":{"flag":1},"equal":0}]}
-        """.trimIndent())
+            {
+              "space": {
+                "variables": {
+                  "flag": "bool"
+                },
+                "constraints": {
+                  "constraint0": {
+                    "eq": [
+                      {
+                        "if": [
+                          {
+                            "ref": "flag"
+                          },
+                          1,
+                          0
+                        ]
+                      },
+                      1
+                    ]
+                  },
+                  "constraint1": {
+                    "eq": [
+                      {
+                        "if": [
+                          {
+                            "ref": "flag"
+                          },
+                          1,
+                          0
+                        ]
+                      },
+                      0
+                    ]
+                  }
+                }
+              }
+            }
+            """.trimIndent())
         val response = client.send("/v1/models/${model.id}/recommend", "{}")
         assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
         assertEquals("infeasible", response.objectBody().getValue("status").jsonPrimitive.content)
@@ -85,9 +332,28 @@ class ModelRoutesTest {
     fun `observed objectives propose experiments and learn from named outcomes`() = testApplication {
         application { resourceApi() }
         val model = client.model("""
-            {"variables":{"workers":{"type":"integer","min":0,"max":3},"latency":{"role":"observed"}},
-             "objective":{"minimize":"latency"},"stat":{"ewma":{"alpha":0.1}}}
-        """.trimIndent())
+            {
+              "space": {
+                "variables": {
+                  "workers": {
+                    "int": [
+                      0,
+                      3
+                    ]
+                  }
+                }
+              },
+              "objective": {
+                "minimize": "latency"
+              },
+              "stat": {
+                "ewma": {
+                  "alpha": 0.1
+                }
+              },
+              "outcome": "latency"
+            }
+            """.trimIndent())
         val early = client.send("/v1/models/${model.id}/recommend", "{}")
         assertEquals(HttpStatusCode.Conflict, early.status)
         assertEquals("insufficient_evidence", early.objectBody().getValue("code").jsonPrimitive.content)
@@ -126,7 +392,17 @@ class ModelRoutesTest {
         application { resourceApi() }
         for ((direction, expected) in listOf("minimize" to false, "maximize" to true)) {
             val model = client.model("""
-                {"variables":{"enabled":{"type":"boolean"},"quality":{"role":"observed"}},"objective":{"$direction":"quality"}}
+            {
+              "space": {
+                "variables": {
+                  "enabled": "bool"
+                }
+              },
+              "objective": {
+                "$direction": "quality"
+              },
+              "outcome": "quality"
+            }
             """.trimIndent())
             for (proposal in client.proposals(model.id, """{"count":2}""")) {
                 val point = proposal.jsonObject
@@ -145,9 +421,55 @@ class ModelRoutesTest {
     fun `each proposal retains its own hard context for later feedback`() = testApplication {
         application { resourceApi() }
         val model = client.model("""
-            {"variables":{"enabled":{"type":"boolean"},"premium":{"type":"boolean","role":"context"},"quality":{"role":"observed"}},
-             "constraints":[{"terms":{"enabled":1,"premium":-1},"equal":0}],"objective":{"maximize":"quality"}}
-        """.trimIndent())
+            {
+              "space": {
+                "variables": {
+                  "enabled": "bool"
+                },
+                "context": {
+                  "premium": "bool"
+                },
+                "constraints": {
+                  "constraint0": {
+                    "eq": [
+                      {
+                        "add": [
+                          {
+                            "if": [
+                              {
+                                "ref": "enabled"
+                              },
+                              1,
+                              0
+                            ]
+                          },
+                          {
+                            "mul": [
+                              -1,
+                              {
+                                "if": [
+                                  {
+                                    "ref": "premium"
+                                  },
+                                  1,
+                                  0
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      0
+                    ]
+                  }
+                }
+              },
+              "objective": {
+                "maximize": "quality"
+              },
+              "outcome": "quality"
+            }
+            """.trimIndent())
         for (premium in listOf(true, false)) {
             val point = client.proposals(model.id, """{"given":{"premium":$premium}}""").single().jsonObject
             assertEquals(premium, point.getValue("values").jsonObject.getValue("enabled").jsonPrimitive.boolean)
@@ -165,8 +487,23 @@ class ModelRoutesTest {
     fun `real valued proposals retain assignments through observation and evaluation`() = testApplication {
         application { resourceApi() }
         val model = client.model("""
-            {"variables":{"rate":{"min":0.1,"max":0.9},"quality":{"role":"observed"}},"objective":{"maximize":"quality"}}
-        """.trimIndent())
+            {
+              "space": {
+                "variables": {
+                  "rate": {
+                    "float": {
+                      "min": 0.1,
+                      "max": 0.9
+                    }
+                  }
+                }
+              },
+              "objective": {
+                "maximize": "quality"
+              },
+              "outcome": "quality"
+            }
+            """.trimIndent())
         val point = client.proposals(model.id).single().jsonObject
         val id = point.getValue("id").jsonPrimitive.long
         val input = point.getValue("values")
@@ -180,8 +517,18 @@ class ModelRoutesTest {
     fun `cancelling a proposal releases its reservation without an outcome`() = testApplication {
         application { resourceApi() }
         val model = client.model("""
-            {"variables":{"enabled":{"type":"boolean"},"quality":{"role":"observed"}},"objective":{"maximize":"quality"}}
-        """.trimIndent())
+            {
+              "space": {
+                "variables": {
+                  "enabled": "bool"
+                }
+              },
+              "objective": {
+                "maximize": "quality"
+              },
+              "outcome": "quality"
+            }
+            """.trimIndent())
         val points = client.proposals(model.id, """{"count":2}""")
         assertTrue(client.proposals(model.id).isEmpty())
         val point = points.first().jsonObject
@@ -199,15 +546,85 @@ class ModelRoutesTest {
         application { resourceApi() }
         for (body in listOf(
             "{}", "[]", """{"engine":"klause"}""",
-            """{"variables":{"x":{"type":"integer","min":1.5,"max":3}}}""",
-            """{"variables":{"x":{"type":"integer","min":1,"max":3}},"objective":{"minimize":"missing"}}""",
-            """{"variables":{"x":{"type":"integer","min":1,"max":3}},"constraints":[{"terms":{"unknown":1},"equal":1}]}""",
-            """{"variables":{"outcome":{"role":"observed"}},"objective":{"minimize":"outcome"}}""",
+            """
+            {
+              "space": {
+                "variables": {
+                  "x": {
+                    "int": [
+                      1.5,
+                      3
+                    ]
+                  }
+                }
+              }
+            }
+            """,
+            """
+            {
+              "space": {
+                "variables": {
+                  "x": {
+                    "int": [
+                      1,
+                      3
+                    ]
+                  }
+                }
+              },
+              "objective": {
+                "minimize": "missing"
+              }
+            }
+            """,
+            """
+            {
+              "space": {
+                "variables": {
+                  "x": {
+                    "int": [
+                      1,
+                      3
+                    ]
+                  }
+                },
+                "constraints": {
+                  "constraint0": {
+                    "eq": [
+                      {
+                        "ref": "unknown"
+                      },
+                      1
+                    ]
+                  }
+                }
+              }
+            }
+            """,
+            """
+            {
+              "space": {},
+              "objective": {
+                "minimize": "outcome"
+              },
+              "outcome": "outcome"
+            }
+            """,
         )) assertEquals(HttpStatusCode.BadRequest, client.send("/v1/models", body).status, body)
         assertEquals("[]", client.get("/v1/models").bodyAsText())
         val model = client.model("""
-            {"variables":{"enabled":{"type":"boolean"},"quality":{"role":"observed"}},"objective":{"maximize":"quality"}}
-        """.trimIndent())
+            {
+              "space": {
+                "variables": {
+                  "enabled": "bool"
+                }
+              },
+              "objective": {
+                "maximize": "quality"
+              },
+              "outcome": "quality"
+            }
+            """.trimIndent())
         val id = client.proposals(model.id).single().jsonObject.getValue("id").jsonPrimitive.long
         for (body in listOf(
             """{"proposal":$id,"values":{"other":1}}""",
@@ -233,7 +650,15 @@ class ModelRoutesTest {
     fun `waiting recommendations respect deadlines without deleting their model`() = testApplication {
         val state = ServerState()
         application { resourceApi(state) }
-        val model = client.model("""{"variables":{"enabled":{"type":"boolean"}}}""")
+        val model = client.model("""
+            {
+              "space": {
+                "variables": {
+                  "enabled": "bool"
+                }
+              }
+            }
+            """)
         val started = CountDownLatch(1)
         val release = CountDownLatch(1)
         coroutineScope {

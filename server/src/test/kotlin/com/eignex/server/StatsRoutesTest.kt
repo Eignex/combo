@@ -17,10 +17,24 @@ import kotlin.test.assertTrue
 
 class StatsRoutesTest {
     @Test
+    fun `native named expression bindings update an ewma`() = testApplication {
+        application { resourceApi() }
+        val stat = client.stat("""
+            {"transform":{"expr":{"bind":{
+              "expr":{"add":[{"ref":"value"},1]},
+              "bindings":{"value":{"input":"x"}}}},
+              "inner":{"ewma":{"alpha":0.1}}}}
+        """.trimIndent())
+        val response = client.send("/v1/models/${stat.id}/observe", """{"value":42}""")
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+        assertEquals(43.0, response.objectBody().getValue("mean").jsonPrimitive.double)
+    }
+
+    @Test
     fun `canonical transformed ewma retains observations across requests`() = testApplication {
         application { resourceApi() }
         val stat = client.stat("""
-            {"transform":{"expr":{"add":["x",1.0]},"inner":{"ewma":{"alpha":0.1}}}}
+            {"transform":{"expr":{"add":[{"input":"x"},1.0]},"inner":{"ewma":{"alpha":0.1}}}}
         """.trimIndent())
         val first = client.send("/v1/models/${stat.id}/observe", """{"value":42.0}""")
         assertEquals(HttpStatusCode.OK, first.status, first.bodyAsText())
@@ -207,7 +221,7 @@ class StatsRoutesTest {
         application { resourceApi() }
         val specs = listOf(
             "{}", "[]", """{"ewma":{"alpha":-0.1}}""", """{"ewma":{"alpha":0.1,"typo":1}}""",
-            """{"transform":{"expr":{"add":["x",1,2]},"inner":{"sum":{}}}}""",
+            """{"transform":{"expr":{"add":[{"input":"x"},1,2]},"inner":{"sum":{}}}}""",
             """{"group":{"stats":{"bad":{"covariance":{}}}}}""",
             """{"regressionContextual":{"nbrArms":2,"regression":{"bayesianRegression":{"featureSize":1}},"posterior":{"pointPosterior":{}}}}""",
         )
@@ -240,7 +254,7 @@ class StatsRoutesTest {
     @Test
     fun `undefined statistical results return standard JSON nulls`() = testApplication {
         application { resourceApi() }
-        val stat = client.stat("""{"transform":{"expr":{"div":["x",0]},"inner":{"mean":{}}}}""")
+        val stat = client.stat("""{"transform":{"expr":{"div":[{"input":"x"},0]},"inner":{"mean":{}}}}""")
         val response = client.send("/v1/models/${stat.id}/observe", """{"value":1}""")
         assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
         assertEquals(JsonNull, response.objectBody().getValue("mean"))

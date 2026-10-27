@@ -2,35 +2,23 @@ package com.eignex.combo.decisions
 
 import com.eignex.klause.compile.CompiledSchema
 import com.eignex.klause.compile.compile
-import com.eignex.klause.model.And
-import com.eignex.klause.model.AtLeast
-import com.eignex.klause.model.AtMost
 import com.eignex.klause.model.BoolExpr
 import com.eignex.klause.model.BoolRef
 import com.eignex.klause.model.BoolSpec
-import com.eignex.klause.model.CardinalityExpr
 import com.eignex.klause.model.FloatLinearConstraint
-import com.eignex.klause.model.Iff
 import com.eignex.klause.model.Implies
-import com.eignex.klause.model.IntAbs
 import com.eignex.klause.model.IntCmpOp
 import com.eignex.klause.model.IntCompare
-import com.eignex.klause.model.IntExpr
-import com.eignex.klause.model.IntIfThenElse
 import com.eignex.klause.model.IntLit
-import com.eignex.klause.model.IntMax
-import com.eignex.klause.model.IntMin
 import com.eignex.klause.model.IntRef
-import com.eignex.klause.model.IntScale
 import com.eignex.klause.model.IntSpec
-import com.eignex.klause.model.IntSum
 import com.eignex.klause.model.NamedConstraint
 import com.eignex.klause.model.NominalEq
 import com.eignex.klause.model.NominalSpec
 import com.eignex.klause.model.Not
-import com.eignex.klause.model.Or
 import com.eignex.klause.model.PresenceSpec
 import com.eignex.klause.model.SchemaEntry
+import com.eignex.klause.model.mapReferences
 import com.eignex.klause.model.VarSpec
 import com.eignex.klause.schema.VariableSchema
 import com.eignex.skema.SchemaDef
@@ -246,51 +234,11 @@ internal fun synthesizePin(qualifiedName: String, spec: VarSpec, gateName: Strin
 /** Walk [expr] and replace every name with `prefix + name`. */
 internal fun qualify(expr: BoolExpr, prefix: String): BoolExpr {
     if (prefix.isEmpty()) return expr
-    return rewriteBool(expr) { name -> prefix + name }
+    return expr.mapReferences { name -> prefix + name }
 }
 
 /** Walk [expr] and strip [prefix] from any name that starts with it. */
 internal fun unqualify(expr: BoolExpr, prefix: String): BoolExpr {
     if (prefix.isEmpty()) return expr
-    return rewriteBool(expr) { name -> if (name.startsWith(prefix)) name.removePrefix(prefix) else name }
-}
-
-private fun rewriteBool(expr: BoolExpr, transform: (String) -> String): BoolExpr = when (expr) {
-    is BoolRef -> BoolRef(transform(expr.name), expr.negated)
-    is NominalEq -> NominalEq(transform(expr.name), expr.label)
-    is Not -> Not(rewriteBool(expr.child, transform))
-    is And -> And(expr.children.map { rewriteBool(it, transform) })
-    is Or -> Or(expr.children.map { rewriteBool(it, transform) })
-    is Implies -> Implies(rewriteBool(expr.left, transform), rewriteBool(expr.right, transform))
-    is Iff -> Iff(rewriteBool(expr.left, transform), rewriteBool(expr.right, transform))
-    is AtMost -> AtMost(expr.children.map { rewriteBool(it, transform) }, expr.k)
-    is AtLeast -> AtLeast(expr.children.map { rewriteBool(it, transform) }, expr.k)
-    is CardinalityExpr -> CardinalityExpr(expr.children.map { rewriteBool(it, transform) }, expr.min, expr.max)
-    is IntCompare -> IntCompare(rewriteInt(expr.left, transform), expr.op, rewriteInt(expr.right, transform))
-    is FloatLinearConstraint -> expr.copy(varNames = expr.varNames.map(transform))
-    else -> expr // AllDifferent, TableConstraint, XorExpr, PseudoBoolean: not yet exercised; pass-through
-}
-
-private fun rewriteInt(expr: IntExpr, transform: (String) -> String): IntExpr = when (expr) {
-    is IntRef -> IntRef(transform(expr.name))
-
-    is IntLit -> expr
-
-    is IntScale -> IntScale(expr.coeff, rewriteInt(expr.child, transform))
-
-    is IntSum -> IntSum(expr.children.map { rewriteInt(it, transform) })
-
-    is IntMin -> IntMin(expr.children.map { rewriteInt(it, transform) })
-
-    is IntMax -> IntMax(expr.children.map { rewriteInt(it, transform) })
-
-    is IntAbs -> IntAbs(rewriteInt(expr.child, transform))
-
-    is IntIfThenElse -> IntIfThenElse(
-        rewriteBool(expr.cond, transform),
-        rewriteInt(expr.thenE, transform),
-        rewriteInt(expr.elseE, transform),
-    )
-
-    else -> expr // IntElement / IntMul / IntDiv / IntMod: pass-through until exercised
+    return expr.mapReferences { name -> name.removePrefix(prefix) }
 }
