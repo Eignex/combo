@@ -2009,25 +2009,33 @@ public abstract class com/eignex/combo/decisions/SubSpace {
 	protected final fun optionalDecisionSpace (Lkotlin/jvm/functions/Function0;)Lkotlin/properties/PropertyDelegateProvider;
 }
 
+public final class com/eignex/combo/model/InsufficientStatisticalEvidence : java/lang/IllegalStateException {
+	public fun <init> (Ljava/lang/String;)V
+}
+
 public final class com/eignex/combo/model/ModelDefinition {
 	public static final field Companion Lcom/eignex/combo/model/ModelDefinition$Companion;
 	public fun <init> ()V
-	public fun <init> (Lcom/eignex/combo/decisions/DecisionSpaceDef;Lcom/eignex/combo/model/ModelObjective;Ljava/lang/String;Lkotlinx/serialization/json/JsonObject;I)V
-	public synthetic fun <init> (Lcom/eignex/combo/decisions/DecisionSpaceDef;Lcom/eignex/combo/model/ModelObjective;Ljava/lang/String;Lkotlinx/serialization/json/JsonObject;IILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lcom/eignex/combo/decisions/DecisionSpaceDef;Lcom/eignex/combo/model/ModelObjective;Ljava/lang/String;Lkotlinx/serialization/json/JsonObject;ILjava/util/Map;Ljava/util/Map;)V
+	public synthetic fun <init> (Lcom/eignex/combo/decisions/DecisionSpaceDef;Lcom/eignex/combo/model/ModelObjective;Ljava/lang/String;Lkotlinx/serialization/json/JsonObject;ILjava/util/Map;Ljava/util/Map;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Lcom/eignex/combo/decisions/DecisionSpaceDef;
 	public final fun component2 ()Lcom/eignex/combo/model/ModelObjective;
 	public final fun component3 ()Ljava/lang/String;
 	public final fun component4 ()Lkotlinx/serialization/json/JsonObject;
 	public final fun component5 ()I
-	public final fun copy (Lcom/eignex/combo/decisions/DecisionSpaceDef;Lcom/eignex/combo/model/ModelObjective;Ljava/lang/String;Lkotlinx/serialization/json/JsonObject;I)Lcom/eignex/combo/model/ModelDefinition;
-	public static synthetic fun copy$default (Lcom/eignex/combo/model/ModelDefinition;Lcom/eignex/combo/decisions/DecisionSpaceDef;Lcom/eignex/combo/model/ModelObjective;Ljava/lang/String;Lkotlinx/serialization/json/JsonObject;IILjava/lang/Object;)Lcom/eignex/combo/model/ModelDefinition;
+	public final fun component6 ()Ljava/util/Map;
+	public final fun component7 ()Ljava/util/Map;
+	public final fun copy (Lcom/eignex/combo/decisions/DecisionSpaceDef;Lcom/eignex/combo/model/ModelObjective;Ljava/lang/String;Lkotlinx/serialization/json/JsonObject;ILjava/util/Map;Ljava/util/Map;)Lcom/eignex/combo/model/ModelDefinition;
+	public static synthetic fun copy$default (Lcom/eignex/combo/model/ModelDefinition;Lcom/eignex/combo/decisions/DecisionSpaceDef;Lcom/eignex/combo/model/ModelObjective;Ljava/lang/String;Lkotlinx/serialization/json/JsonObject;ILjava/util/Map;Ljava/util/Map;ILjava/lang/Object;)Lcom/eignex/combo/model/ModelDefinition;
 	public fun equals (Ljava/lang/Object;)Z
+	public final fun getInputs ()Ljava/util/Map;
 	public final fun getLearned ()Z
 	public final fun getObjective ()Lcom/eignex/combo/model/ModelObjective;
 	public final fun getOutcome ()Ljava/lang/String;
 	public final fun getSeed ()I
 	public final fun getSpace ()Lcom/eignex/combo/decisions/DecisionSpaceDef;
 	public final fun getStat ()Lkotlinx/serialization/json/JsonObject;
+	public final fun getStatistics ()Ljava/util/Map;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
@@ -2147,6 +2155,135 @@ public final synthetic class com/eignex/combo/model/ModelQuery$$serializer : kot
 
 public final class com/eignex/combo/model/ModelQuery$Companion {
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/eignex/combo/model/ModelStatistics : java/lang/AutoCloseable {
+	public fun <init> (Lcom/eignex/combo/model/ModelDefinition;)V
+	public fun close ()V
+	public final fun observe (Ljava/lang/String;Lkotlinx/serialization/json/JsonObject;)Lkotlinx/serialization/json/JsonElement;
+	public final fun reset ()Lkotlinx/serialization/json/JsonObject;
+	public final fun resolve (J)Lcom/eignex/combo/model/ResolvedStatisticalModel;
+	public static synthetic fun resolve$default (Lcom/eignex/combo/model/ModelStatistics;JILjava/lang/Object;)Lcom/eignex/combo/model/ResolvedStatisticalModel;
+	public final fun snapshot (J)Lkotlinx/serialization/json/JsonObject;
+	public static synthetic fun snapshot$default (Lcom/eignex/combo/model/ModelStatistics;JILjava/lang/Object;)Lkotlinx/serialization/json/JsonObject;
+}
+
+public final class com/eignex/combo/model/ResolvedStatisticalModel {
+	public final fun getInputs ()Lkotlinx/serialization/json/JsonObject;
+	public final fun getObjective ()Lcom/eignex/combo/model/ModelObjective;
+	public final fun getSchema ()Lcom/eignex/skema/SchemaDef;
+}
+
+public final class com/eignex/combo/model/ResolvedStatisticalModelKt {
+	public static final fun resolveStatistics (Lcom/eignex/combo/model/ModelDefinition;Ljava/util/Map;)Lcom/eignex/combo/model/ResolvedStatisticalModel;
+}
+
+public abstract class com/eignex/combo/model/StatisticResource : java/lang/AutoCloseable {
+	public static final field Companion Lcom/eignex/combo/model/StatisticResource$Companion;
+	public fun choose (Lkotlinx/serialization/json/JsonObject;)Lkotlinx/serialization/json/JsonElement;
+	public fun close ()V
+	public fun getCanChoose ()Z
+	public fun getObservationCount ()J
+	public abstract fun getType ()Ljava/lang/String;
+	public abstract fun reset ()Lkotlinx/serialization/json/JsonElement;
+	public fun series ()Lcom/eignex/kumulant/core/SeriesStat;
+	public abstract fun snapshot (J)Lkotlinx/serialization/json/JsonElement;
+	public static synthetic fun snapshot$default (Lcom/eignex/combo/model/StatisticResource;JILjava/lang/Object;)Lkotlinx/serialization/json/JsonElement;
+	public abstract fun update (Lkotlinx/serialization/json/JsonObject;)Lkotlinx/serialization/json/JsonElement;
+}
+
+public final class com/eignex/combo/model/StatisticResource$Companion {
+	public final fun create (Lcom/eignex/kumulant/schema/spec/StatSpec;)Lcom/eignex/combo/model/StatisticResource;
+	public final fun create (Lkotlinx/serialization/json/JsonObject;I)Lcom/eignex/combo/model/StatisticResource;
+}
+
+public final class com/eignex/combo/model/StatisticResultsKt {
+	public static final fun encodeStatisticResult (Lcom/eignex/kumulant/core/Result;)Lkotlinx/serialization/json/JsonElement;
+}
+
+public final class com/eignex/combo/model/StatisticalInput {
+	public static final field Companion Lcom/eignex/combo/model/StatisticalInput$Companion;
+	public fun <init> (Ljava/lang/String;Ljava/util/List;Ljava/lang/String;Ljava/util/Map;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/util/List;Ljava/lang/String;Ljava/util/Map;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/util/List;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()Ljava/util/Map;
+	public final fun copy (Ljava/lang/String;Ljava/util/List;Ljava/lang/String;Ljava/util/Map;)Lcom/eignex/combo/model/StatisticalInput;
+	public static synthetic fun copy$default (Lcom/eignex/combo/model/StatisticalInput;Ljava/lang/String;Ljava/util/List;Ljava/lang/String;Ljava/util/Map;ILjava/lang/Object;)Lcom/eignex/combo/model/StatisticalInput;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getPath ()Ljava/util/List;
+	public final fun getProjections ()Ljava/util/Map;
+	public final fun getStatistic ()Ljava/lang/String;
+	public final fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class com/eignex/combo/model/StatisticalInput$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lcom/eignex/combo/model/StatisticalInput$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/eignex/combo/model/StatisticalInput;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/eignex/combo/model/StatisticalInput;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/eignex/combo/model/StatisticalInput$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/eignex/combo/model/StatisticalInt : com/eignex/klause/model/IntTerm {
+	public fun <init> (Ljava/lang/String;)V
+	public final fun getLower ()Lcom/eignex/klause/model/IntExpr;
+	public final fun getMean ()Lcom/eignex/klause/model/IntExpr;
+	public final fun getMedian ()Lcom/eignex/klause/model/IntExpr;
+	public final fun getName ()Ljava/lang/String;
+	public final fun getUpper ()Lcom/eignex/klause/model/IntExpr;
+	public final fun projection (Ljava/lang/String;)Lcom/eignex/klause/model/IntExpr;
+	public fun toIntExpr ()Lcom/eignex/klause/model/IntExpr;
+}
+
+public final class com/eignex/combo/model/StatisticalObservation {
+	public static final field Companion Lcom/eignex/combo/model/StatisticalObservation$Companion;
+	public fun <init> (Ljava/lang/String;Lkotlinx/serialization/json/JsonObject;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Lkotlinx/serialization/json/JsonObject;
+	public final fun copy (Ljava/lang/String;Lkotlinx/serialization/json/JsonObject;)Lcom/eignex/combo/model/StatisticalObservation;
+	public static synthetic fun copy$default (Lcom/eignex/combo/model/StatisticalObservation;Ljava/lang/String;Lkotlinx/serialization/json/JsonObject;ILjava/lang/Object;)Lcom/eignex/combo/model/StatisticalObservation;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getObservation ()Lkotlinx/serialization/json/JsonObject;
+	public final fun getStatistic ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class com/eignex/combo/model/StatisticalObservation$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lcom/eignex/combo/model/StatisticalObservation$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/eignex/combo/model/StatisticalObservation;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/eignex/combo/model/StatisticalObservation;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/eignex/combo/model/StatisticalObservation$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/eignex/combo/model/StatisticalReal : com/eignex/klause/schema/FloatTerm {
+	public fun <init> (Ljava/lang/String;)V
+	public final fun getLower ()Lcom/eignex/klause/schema/FloatTerm;
+	public final fun getMean ()Lcom/eignex/klause/schema/FloatTerm;
+	public final fun getMedian ()Lcom/eignex/klause/schema/FloatTerm;
+	public final fun getName ()Ljava/lang/String;
+	public final fun getUpper ()Lcom/eignex/klause/schema/FloatTerm;
+	public final fun projection (Ljava/lang/String;)Lcom/eignex/klause/schema/FloatTerm;
+	public fun toFloatExpr ()Lcom/eignex/klause/schema/FloatExpr;
 }
 
 public abstract interface class com/eignex/combo/shared/DescentSession {

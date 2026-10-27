@@ -129,7 +129,7 @@ class StatisticalLoweringTest {
             val frozen = statistics.resolve()
             assertEquals(2.0, frozen.inputs.getValue("left.meanX").jsonPrimitive.double)
             assertEquals(3.0, frozen.inputs.getValue("right.meanY").jsonPrimitive.double)
-            statistics.observe("joint", buildJsonObject { put("x", 20); put("y", 30) })
+            statistics.observe("joint", buildJsonObject { put("x", 20); put("y", 31) })
             assertEquals(2.0, frozen.inputs.getValue("left.meanX").jsonPrimitive.double)
             assertEquals(11.0, statistics.resolve().inputs.getValue("left.meanX").jsonPrimitive.double)
         }
