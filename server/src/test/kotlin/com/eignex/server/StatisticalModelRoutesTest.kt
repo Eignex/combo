@@ -1,5 +1,7 @@
 package com.eignex.server
 
+import com.eignex.kumulant.stat.decay.EwmaMeanStat
+
 import io.ktor.client.request.get
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
@@ -45,14 +47,17 @@ class StatisticalModelRoutesTest {
              "statistics":{"latency":{"ewma":{"alpha":1.0}}},
              "inputs":{"latency":{"statistic":"latency","value":"mean"}}}
         """.trimIndent())
+        val native = EwmaMeanStat(1.0)
         for ((value, status) in listOf(80.5 to "feasible", 120.5 to "infeasible")) {
+            native.update(value)
             assertEquals(HttpStatusCode.OK, client.send("/v1/models/${model.id}/observe", """
                 {"statistic":"latency","observation":{"value":$value}}
             """.trimIndent()).status)
             val result = client.send("/v1/models/${model.id}/recommend", "{}")
             assertEquals(HttpStatusCode.OK, result.status)
             assertEquals(status, result.objectBody().getValue("status").jsonPrimitive.content)
-            assertEquals(value, result.objectBody().getValue("inputs").jsonObject.getValue("latency.mean").jsonPrimitive.double)
+            val actual = result.objectBody().getValue("inputs").jsonObject.getValue("latency.mean").jsonPrimitive.double
+            assertEquals(native.read().mean, actual, 1e-10)
         }
     }
 
