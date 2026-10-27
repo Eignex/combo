@@ -27,7 +27,7 @@ internal class ModelResource(private val definition: ModelDefinition) : ManagedR
         val rewards = stat?.let { tracker ->
             requireNotNull(tracker.series()) { "an outcome statistic must accept scalar observations" }
         }
-        OptimizerResource(it, definition.seed, !definition.objective!!.ascending, rewards)
+        OptimizerResource(it, definition.seed, !definition.objective!!.ascending, rewards, definition.learning)
     }
     val capabilities: List<String> = buildList {
         if (space != null) { add("evaluate"); add("recommend") }
@@ -66,7 +66,7 @@ internal class ModelResource(private val definition: ModelDefinition) : ManagedR
             }
         }
         optimizer?.let {
-            return selection(it.recommend(query.given, definition.objective!!.name, control))
+            return selection(it.recommend(learnedGiven(query.given), definition.objective!!.name, control))
         }
         unsupported("recommend")
     }
@@ -75,7 +75,7 @@ internal class ModelResource(private val definition: ModelDefinition) : ManagedR
         require(query.count == 1) { "evaluate accepts values, given, and timeoutMillis" }
         validateGiven(query.given)
         require(query.values.keys == decisions) { "values must assign every decision variable" }
-        optimizer?.let { return selection(it.evaluate(query.values, query.given, definition.objective!!.name, control)) }
+        optimizer?.let { return selection(it.evaluate(query.values, learnedGiven(query.given), definition.objective!!.name, control)) }
         if (space != null) return staticSelection { resource, objective ->
             resource.evaluate(query.values + query.given, objective, control)
         }
@@ -86,7 +86,7 @@ internal class ModelResource(private val definition: ModelDefinition) : ManagedR
         optimizer?.let {
             val query = wireJson.decodeFromJsonElement<ModelQuery>(request)
             require(query.values.isEmpty()) { "propose accepts given, count, and timeoutMillis" }
-            val proposals = it.propose(query.given, query.count, control).map { trial -> proposal(trial, it) }
+            val proposals = it.propose(learnedGiven(query.given), query.count, control).map { trial -> proposal(trial, it) }
             return buildJsonObject {
                 put("status", if (proposals.size == query.count) "ready" else if (proposals.isEmpty()) "unavailable" else "partial")
                 put("proposals", JsonArray(proposals))
@@ -144,15 +144,33 @@ internal class ModelResource(private val definition: ModelDefinition) : ManagedR
     }
 
     private fun validateGiven(given: JsonObject) {
-        require(given.keys == contexts) { "given must assign every context variable" }
+        val supplied = if (definition.learned) contexts - definition.inputs.keys else contexts
+        require(given.keys == supplied) { "given must assign every caller context; statistical inputs cannot be overridden" }
     }
+
+    private fun learnedGiven(given: JsonObject): JsonObject {
+        validateGiven(given)
+        val bound = try {
+            statistics.context()
+        } catch (error: InsufficientStatisticalEvidence) {
+            throw ApiException(HttpStatusCode.Conflict, "insufficient_evidence", error.message.orEmpty())
+        }
+        return JsonObject(given + bound)
+    }
+
+    private fun boundInputs(assignment: JsonObject): Map<String, JsonElement> =
+        if (!definition.learned || definition.inputs.isEmpty()) emptyMap() else mapOf(
+            "inputs" to JsonObject(definition.inputs.map { (name, input) ->
+                "$name.${input.value}" to assignment.getValue(name)
+            }.toMap()),
+        )
 
     private fun selection(result: JsonObject): JsonObject {
         val assignment = result["values"] as? JsonObject ?: return result
         return JsonObject(result + mapOf(
             "values" to JsonObject(assignment.filterKeys { it in decisions }),
-            "given" to JsonObject(assignment.filterKeys { it in contexts }),
-        ) + ((result["objective"] as? JsonObject)?.let {
+            "given" to JsonObject(assignment.filterKeys { it in contexts && it !in definition.inputs }),
+        ) + boundInputs(assignment) + ((result["objective"] as? JsonObject)?.let {
             mapOf("objective" to JsonObject(it + ("name" to JsonPrimitive(definition.objective!!.name))))
         } ?: emptyMap()))
     }
@@ -163,7 +181,8 @@ internal class ModelResource(private val definition: ModelDefinition) : ManagedR
         put("status", if (status == "completed") "observed" else status)
         val allValues = backend.assignment(trial)
         put("values", JsonObject(allValues.filterKeys { it in decisions }))
-        put("given", JsonObject(allValues.filterKeys { it in contexts }))
+        put("given", JsonObject(allValues.filterKeys { it in contexts && it !in definition.inputs }))
+        for ((name, value) in boundInputs(allValues)) put(name, value)
         trial.reward?.let { put("observed", buildJsonObject { put(definition.objective!!.name, it) }) }
     }
 

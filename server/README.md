@@ -322,12 +322,75 @@ val constraint = latency lt 100.0
 ```
 
 The binding must be declared in `ModelDefinition.inputs`. Statistical inputs
-currently support feasibility and known-objective models. Attaching these inputs
-to a learned objective, candidate-dependent statistical predictions, and posterior
-sampling are not implemented. Native bands retain Kumulant's own meaning; the
+support feasibility, known objectives, and learned objectives as described below.
+Candidate-dependent statistical predictions and sampling statistical input
+distributions are not implemented. Native bands retain Kumulant's own meaning; the
 integration does not interpret a scale multiplier as a calibrated confidence level.
 Before solving, each referenced statistic needs a positive-weight observation
 (`409 insufficient_evidence` otherwise).
+
+## Learning with statistical context
+
+A learned objective can use statistics as context. Declare the context's native
+domain and bind a scalar projection to it:
+
+```json
+{
+  "space": {
+    "variables": {"workers":{"int":[1,8]}},
+    "context": {"load":{"int":[1,8]}},
+    "constraints": {
+      "capacity":{"ge":[{"ref":"workers"},{"ref":"load"}]}
+    },
+    "interactions": [{
+      "name":"workers_load",
+      "lhs":{"kind":"IntContext","path":["context","load"]},
+      "rhs":{"kind":"IntDecision","path":["workers"]}
+    }]
+  },
+  "statistics": {"demand":"mean"},
+  "inputs": {"load":{"statistic":"demand","value":"mean"}},
+  "outcome":"reward",
+  "objective":{"maximize":"reward"},
+  "learning": {
+    "regression":{"bayesianRegression":{"featureSize":3}},
+    "posterior":"multivariateGaussian"
+  }
+}
+```
+
+Here the features are workers, load, and their interaction. The regression and
+posterior use Kumulant's existing specifications and canonical serialization.
+The regression contains its prior; `posterior` independently specifies how to draw
+coefficients. This initial linear option supports Bayesian regression with the
+multivariate Gaussian sampler. The declared feature count must match the native
+projection, including contexts and interactions. `exploration` defaults to `1.0`.
+This trial adapter currently requires linear numeric scales.
+Omitting `learning` retains the default history-based optimizer.
+
+Feed demand with `{"statistic":"demand","observation":{"value":4}}`, then
+call `/propose` with `{}`. The statistic supplies load; callers must omit bound
+contexts from `given`. Other contexts still need to be supplied. The selected
+value appears as `"inputs":{"load.mean":4}` in the result.
+
+Each request reads one snapshot per statistic, and every proposal in its batch
+uses the same resolved context. Linear proposals draw a coefficient vector once
+per proposal and optimize under that draw. Outstanding reservations are excluded;
+when exclusions are present, selection ranks a bounded pool of feasible candidates.
+Recommendations optimize the posterior mean. Both use the existing native linear
+feature projection, including context interactions.
+
+Feedback trains on the proposal's retained context, even if statistics changed
+before the reward arrived. Reading or updating a statistic does not reset the
+learner or add a reward observation. Statistical input values are never sampled by
+the coefficient policy. They remain pinned in constraints as well as predictions.
+
+Learned bindings currently require a scalar `value` selecting an exactly
+representable integer inside a declared integer context domain. Fractional and
+out-of-domain values return `400` without issuing a proposal. This follows the
+current context support; values are never rounded. Linear feedback accepts weights
+but rejects per-observation `noiseVariance`, which the native linear update API
+does not support. Closed proposals continue to reject repeated feedback.
 
 ## Initial scope and operation limits
 

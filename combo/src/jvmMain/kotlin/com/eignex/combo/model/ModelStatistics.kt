@@ -2,6 +2,8 @@ package com.eignex.combo.model
 
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import com.eignex.klause.model.IntSpec
 
 /** Named native accumulators whose snapshots supply the model's statistical inputs. */
 class ModelStatistics(private val definition: ModelDefinition) : AutoCloseable {
@@ -20,6 +22,27 @@ class ModelStatistics(private val definition: ModelDefinition) : AutoCloseable {
 
     /** Freeze one snapshot per statistic, then lower ordinary Klause constraints against it. */
     fun resolve(timestampNanos: Long = System.nanoTime()): ResolvedStatisticalModel {
+        require(!definition.learned) { "learned models resolve statistics as context" }
+        requireEvidence()
+        return definition.resolveStatistics(snapshot(timestampNanos))
+    }
+
+    /** Freeze statistical context for one learned decision; retain it with any resulting proposal. */
+    fun context(timestampNanos: Long = System.nanoTime()): JsonObject {
+        require(definition.learned) { "statistical context requires a learned model" }
+        requireEvidence()
+        val snapshots = snapshot(timestampNanos)
+        return JsonObject(definition.inputs.mapValues { (name, input) ->
+            val value = input.readProjection(snapshots, requireNotNull(input.value))
+            val spec = definition.space!!.context.getValue(name) as IntSpec
+            require(value.toInt().toDouble() == value && value >= spec.min && value <= spec.max) {
+                "'$name' must resolve to an exact integer within its context bounds"
+            }
+            JsonPrimitive(value.toInt())
+        })
+    }
+
+    private fun requireEvidence() {
         for (input in definition.inputs.values) {
             if (statistics.getValue(input.statistic).observationCount == 0L) {
                 throw InsufficientStatisticalEvidence(
@@ -27,7 +50,6 @@ class ModelStatistics(private val definition: ModelDefinition) : AutoCloseable {
                 )
             }
         }
-        return definition.resolveStatistics(snapshot(timestampNanos))
     }
 
     override fun close() = statistics.values.forEach { it.close() }

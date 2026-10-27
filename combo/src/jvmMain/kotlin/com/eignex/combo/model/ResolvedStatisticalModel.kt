@@ -163,14 +163,7 @@ private class StatisticalLowering(
     }
 
     private fun output(name: String, input: StatisticalInput, projection: String): Double {
-        val root = requireNotNull(snapshots[input.statistic]) { "missing snapshot '${input.statistic}'" }
-        val source = root.at(input.path)
-        val path = input.projections[projection] ?: listOf(projection)
-        val primitive = source.at(path) as? JsonPrimitive
-        val value = requireNotNull(primitive?.takeUnless { it.isString }?.doubleOrNull?.takeIf { it.isFinite() }) {
-            "'$name.$projection' must select a finite numeric result; " +
-                "available fields: ${(source as? JsonObject)?.keys.orEmpty()}"
-        }
+        val value = input.readProjection(snapshots, projection)
         selected["$name.$projection"] = JsonPrimitive(value)
         return value
     }
@@ -181,14 +174,6 @@ private class StatisticalLowering(
         val upper = output(name, input, "upper")
         require(lower <= upper) { "'$name' has an inverted interval" }
         lower to upper
-    }
-
-    private fun JsonElement.at(path: List<String>): JsonElement = path.fold(this) { node, part ->
-        when (node) {
-            is JsonObject -> node[part]
-            is JsonArray -> part.toIntOrNull()?.let { node.getOrNull(it) }
-            else -> null
-        } ?: throw IllegalArgumentException("missing statistic result path '${path.joinToString("/")}'")
     }
 
     private companion object {

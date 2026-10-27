@@ -1,6 +1,10 @@
 package com.eignex.server
 
 import com.eignex.combo.model.ModelObjective
+import com.eignex.combo.model.LinearLearning
+import com.eignex.combo.bandit.glm.LinearTrialOptimizer
+import com.eignex.combo.bo.TrialOptimizer
+import com.eignex.combo.shared.LinearFeatureProjection
 
 import com.eignex.combo.bo.BayesianOptimizer
 import com.eignex.combo.bo.ForestSurrogate
@@ -96,8 +100,9 @@ internal class OptimizerResource(
     seed: Int,
     maximize: Boolean,
     rewards: SeriesStat<*>? = null,
+    learning: LinearLearning? = null,
 ) : ManagedResource {
-    override val type = "combo.forest_ei"
+    override val type = if (learning == null) "combo.forest_ei" else "combo.linear"
     private val entries = definition.toSchemaDef().entries.also(::requireScalarVariables)
     private val space: CompiledDecisionSpace = compileInput { definition.compileSpace() }
     private var activeControl: OperationControl? = null
@@ -110,16 +115,28 @@ internal class OptimizerResource(
         poolCapacity = 256,
     )
     private val projection = SearchTransform(space)
-    private val optimizer = BayesianOptimizer(
+    private val forest = if (learning == null) BayesianOptimizer(
         projection, ForestSurrogate(),
         acquisitionOptimizer = LocalAndRandomSearch(projection, search),
         exploration = search,
         randomSeed = seed,
         outcome = OutcomeSpec(maximize = maximize),
         rewards = rewards,
-    )
+    ) else null
+    private val linearSession = BacktrackSolver(space.compiled.problem.bake()).session()
+    private val linear = learning?.let { config ->
+        LinearTrialOptimizer(
+            LinearFeatureProjection(space), config, search,
+            { objective, pinned ->
+                linearSession.minimize(objective, BacktrackParams(
+                    maxDecisions = 100_000, assumptions = pinned, cancellation = cancellation,
+                )).assignment
+            }, seed, maximize, rewards,
+        )
+    }
+    private val optimizer: TrialOptimizer = linear ?: requireNotNull(forest)
 
-    val observationCount: Long get() = optimizer.store.revision
+    val observationCount: Long get() = linear?.observationCount ?: requireNotNull(forest).store.revision
     private val validationSession = BacktrackSolver(space.compiled.problem.bake()).session()
 
     fun recommend(given: JsonObject, target: String, control: OperationControl): JsonObject {
@@ -127,7 +144,7 @@ internal class OptimizerResource(
         requireEvidence()
         activeControl = control
         val sample = try {
-            optimizer.recommendOrThrow(context)
+            linear?.recommend(context) ?: requireNotNull(forest).recommendOrThrow(context)
         } catch (_: NoFeasibleSampleException) {
             return buildJsonObject { put("status", "unknown") }
         } finally { activeControl = null }
@@ -161,10 +178,13 @@ internal class OptimizerResource(
         buildJsonObject {
             put("status", "estimated")
             put("values", values(space.compiled, entries, sample.sample))
-            put("objective", buildJsonObject { put("name", target); put("estimate", optimizer.predict(sample, context).let { if (it.isFinite()) JsonPrimitive(it) else JsonNull }) })
+            put("objective", buildJsonObject { put("name", target); put("estimate", (linear?.predict(sample, context) ?: requireNotNull(forest).predict(sample, context)).let { if (it.isFinite()) JsonPrimitive(it) else JsonNull }) })
         }
 
-    override fun close() = validationSession.close()
+    override fun close() {
+        validationSession.close()
+        linearSession.close()
+    }
 
     fun propose(given: JsonObject, count: Int, control: OperationControl): com.eignex.combo.bo.TrialBatch {
         val context = readContext(space, given)

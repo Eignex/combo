@@ -28,15 +28,16 @@ data class ModelDefinition(
     val statistics: Map<String, StatSpec> = emptyMap(),
     /** Statistical input names used by native Klause references. */
     val inputs: Map<String, StatisticalInput> = emptyMap(),
+    /** Optional native linear regression and posterior; absent keeps the default history-based learner. */
+    val learning: LinearLearning? = null,
 ) {
     /** Whether the objective is measured through proposal feedback. */
     val learned: Boolean get() = outcome != null
 
     init {
         require(space != null || stat != null || statistics.isNotEmpty()) { "declare a decision space or a statistic" }
-        require(inputs.isEmpty() || (space != null && outcome == null)) {
-            "statistical inputs currently require a decision space with a known objective"
-        }
+        require(inputs.isEmpty() || space != null) { "statistical inputs require a decision space" }
+        require(learning == null || learned) { "linear learning requires a measured outcome" }
         require(statistics.keys.all { it.isNotBlank() }) { "statistic names must be nonempty" }
         for ((name, input) in inputs) {
             require(name.isNotBlank() && input.statistic in statistics) { "unknown statistic for input '$name'" }
@@ -48,8 +49,16 @@ data class ModelDefinition(
             "an objective or outcome requires a decision space"
         }
         val variables = space?.toSchemaDef()?.entries?.filterValues { it is VarSpec }.orEmpty()
-        require(variables.keys.none { name -> inputs.keys.any { name == it || name.startsWith("$it.") } }) {
+        val boundContexts = if (learned) inputs.keys else emptySet()
+        require(variables.keys.none { name ->
+            name !in boundContexts && inputs.keys.any { name == it || name.startsWith("$it.") }
+        }) {
             "statistical inputs cannot shadow decision or context variables"
+        }
+        if (learned) for ((name, input) in inputs) {
+            require(space?.context?.get(name) is IntSpec && input.value != null) {
+                "learned input '$name' must bind an integer context and select a scalar with value"
+            }
         }
         if (space != null) {
             val hasDecision = variables.keys.any { it !in space.context && it !in space.optionalContext }
