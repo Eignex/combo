@@ -66,7 +66,7 @@ class StatisticalLoweringTest {
         assertTrue(feasible(explicit))
         val impossible = explicit.copy(space = explicit.space!!.copy(constraints = mapOf(
             "limit" to ((latency.upper * workers) le 240),
-            "workers" to (workers ge 3),
+            "minimum_workers" to (workers ge 3),
         )))
         assertFalse(feasible(impossible))
     }
