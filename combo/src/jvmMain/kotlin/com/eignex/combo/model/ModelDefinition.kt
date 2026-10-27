@@ -17,9 +17,11 @@ import kotlinx.serialization.json.JsonObject
 @Serializable
 data class ModelDefinition(
     val space: DecisionSpaceDef? = null,
+    /** Named variable or measured outcome to optimize; absent means feasibility only. */
     val objective: ModelObjective? = null,
     val outcome: String? = null,
     val stat: JsonObject? = null,
+    /** Seed for reproducible solver choices and experimental proposals. */
     val seed: Int = 0,
 ) {
     /** Whether the objective is measured through proposal feedback. */
@@ -55,8 +57,15 @@ data class ModelDefinition(
 
 /** Select one named numeric variable or measured outcome to minimize or maximize. */
 @Serializable
-data class ModelObjective(val minimize: String? = null, val maximize: String? = null) {
+data class ModelObjective(
+    /** Name to minimize; mutually exclusive with [maximize]. */
+    val minimize: String? = null,
+    /** Name to maximize; mutually exclusive with [minimize]. */
+    val maximize: String? = null,
+) {
+    /** Name selected by this objective. */
     val name: String get() = minimize ?: maximize!!
+    /** Whether smaller objective values are preferred. */
     val ascending: Boolean get() = minimize != null
 
     init {
@@ -67,9 +76,13 @@ data class ModelObjective(val minimize: String? = null, val maximize: String? = 
 /** Inputs to evaluating, recommending, or proposing decisions. */
 @Serializable
 data class ModelQuery(
+    /** Named context values held fixed for this request. */
     val given: JsonObject = JsonObject(emptyMap()),
+    /** Complete decision assignment when evaluating a supplied configuration. */
     val values: JsonObject = JsonObject(emptyMap()),
+    /** Requested proposal batch size, from 1 to 64. */
     val count: Int = 1,
+    /** Operation deadline including admission waiting, from 1 to 300,000 milliseconds. */
     val timeoutMillis: Long = 30_000,
 ) {
     init {
@@ -81,9 +94,13 @@ data class ModelQuery(
 /** Feedback for one retained proposal, using its original decision and context. */
 @Serializable
 data class ModelObservation(
+    /** Identifier of the pending proposal whose original assignment is retained. */
     val proposal: Long,
+    /** Measured values keyed by outcome name. */
     val values: JsonObject,
+    /** Positive finite observation weight. */
     val weight: Double = 1.0,
+    /** Optional nonnegative finite measurement variance in outcome units squared. */
     val noiseVariance: Double? = null,
 ) {
     init {
