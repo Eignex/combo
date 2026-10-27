@@ -60,7 +60,9 @@ class StatisticalLoweringTest {
         )
         val error = assertFailsWith<IllegalArgumentException> { ambiguous.resolveStatistics(snapshot) }
         assertTrue(error.message.orEmpty().contains(".upper"))
-        val explicit = ambiguous.copy(space = ambiguous.space!!.copy(constraints = mapOf("limit" to ((latency.upper * workers) le 240))))
+        val explicit = ambiguous.copy(space = ambiguous.space!!.copy(
+            constraints = mapOf("limit" to ((latency.upper * workers) le 240)),
+        ))
         assertTrue(feasible(explicit))
         val impossible = explicit.copy(space = explicit.space!!.copy(constraints = mapOf(
             "limit" to ((latency.upper * workers) le 240),

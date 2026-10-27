@@ -22,7 +22,9 @@ class ModelStatistics(private val definition: ModelDefinition) : AutoCloseable {
     fun resolve(timestampNanos: Long = System.nanoTime()): ResolvedStatisticalModel {
         for (input in definition.inputs.values) {
             if (statistics.getValue(input.statistic).observationCount == 0L) {
-                throw InsufficientStatisticalEvidence("observe '${input.statistic}' before resolving statistical inputs")
+                throw InsufficientStatisticalEvidence(
+                    "observe '${input.statistic}' before resolving statistical inputs",
+                )
             }
         }
         return definition.resolveStatistics(snapshot(timestampNanos))

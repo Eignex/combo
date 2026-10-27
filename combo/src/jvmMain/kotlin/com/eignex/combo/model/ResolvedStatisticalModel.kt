@@ -28,7 +28,8 @@ private class StatisticalLowering(
     private val model: ModelDefinition,
     private val snapshots: Map<String, JsonElement>,
 ) {
-    private val entries = LinkedHashMap(requireNotNull(model.space) { "a decision space is required" }.toSchemaDef().entries)
+    private val space = requireNotNull(model.space) { "a decision space is required" }
+    private val entries = LinkedHashMap(space.toSchemaDef().entries)
     private val constants = linkedMapOf<Pair<String, Boolean>, String>()
     private val selected = linkedMapOf<String, JsonElement>()
     private val intervals = hashMapOf<String, Pair<Double, Double>>()
@@ -51,12 +52,19 @@ private class StatisticalLowering(
 
     private fun uncertain(expr: BoolExpr): Boolean {
         var found = false
-        expr.mapReferences { name -> if (uncertain(name)) found = true; name }
+        expr.mapReferences { name ->
+            found = found || uncertain(name)
+            name
+        }
         return found
     }
 
     private fun lower(expr: BoolExpr): BoolExpr = when (expr) {
         is And -> expr.copy(children = expr.children.map(::lower))
+        is Or -> {
+            require(!uncertain(expr)) { "uncertain disjunctions require explicit projections" }
+            expr.copy(children = expr.children.map(::lower))
+        }
         is IntCompare -> integerComparison(expr)
         is FloatLinearConstraint -> realComparison(expr)
         is ContinuousRealEquality -> {
@@ -101,8 +109,12 @@ private class StatisticalLowering(
             is IntScale -> affine(expr.child, factor * BigInteger.valueOf(expr.coeff.toLong()), out)
             is IntSum -> expr.children.forEach { affine(it, factor, out) }
             is IntMul -> when {
-                expr.left is IntLit -> affine(expr.right, factor * BigInteger.valueOf((expr.left as IntLit).value.toLong()), out)
-                expr.right is IntLit -> affine(expr.left, factor * BigInteger.valueOf((expr.right as IntLit).value.toLong()), out)
+                expr.left is IntLit -> affine(
+                    expr.right, factor * BigInteger.valueOf((expr.left as IntLit).value.toLong()), out,
+                )
+                expr.right is IntLit -> affine(
+                    expr.left, factor * BigInteger.valueOf((expr.right as IntLit).value.toLong()), out,
+                )
                 else -> throw IllegalArgumentException(PROJECTION_MESSAGE)
             }
             else -> throw IllegalArgumentException(PROJECTION_MESSAGE)
@@ -110,7 +122,10 @@ private class StatisticalLowering(
     }
 
     private fun realComparison(expr: FloatLinearConstraint): BoolExpr {
-        require(expr.coeffs.all { it.isFinite() } && expr.bound.isFinite()) { "linear coefficients and bounds must be finite" }
+        require(expr.coeffs.all { it.isFinite() } && expr.bound.isFinite()) {
+            "linear coefficients and bounds must be finite"
+        }
+        if (!uncertain(expr)) return expr.mapReferences { scalar(it, real = true) }
         val coefficients = linkedMapOf<String, BigDecimal>()
         for ((name, coefficient) in expr.varNames.zip(expr.coeffs.toList())) {
             coefficients[name] = (coefficients[name] ?: BigDecimal.ZERO) + BigDecimal(coefficient)
@@ -153,7 +168,8 @@ private class StatisticalLowering(
         val path = input.projections[projection] ?: listOf(projection)
         val primitive = source.at(path) as? JsonPrimitive
         val value = requireNotNull(primitive?.takeUnless { it.isString }?.doubleOrNull?.takeIf { it.isFinite() }) {
-            "'$name.$projection' must select a finite numeric result; available fields: ${(source as? JsonObject)?.keys.orEmpty()}"
+            "'$name.$projection' must select a finite numeric result; " +
+                "available fields: ${(source as? JsonObject)?.keys.orEmpty()}"
         }
         selected["$name.$projection"] = JsonPrimitive(value)
         return value
@@ -176,7 +192,8 @@ private class StatisticalLowering(
     }
 
     private companion object {
-        const val PROJECTION_MESSAGE = "nonlinear uncertainty requires an explicit projection such as .lower, .upper, .mean, or .median"
+        const val PROJECTION_MESSAGE =
+            "nonlinear uncertainty requires an explicit projection such as .lower, .upper, .mean, or .median"
     }
 }
 

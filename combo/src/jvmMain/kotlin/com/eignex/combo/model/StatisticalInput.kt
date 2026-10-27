@@ -23,7 +23,9 @@ data class StatisticalInput(
     init {
         require(statistic.isNotBlank()) { "statistic must be nonempty" }
         require(value == null || value.isNotBlank()) { "value projection must be nonempty" }
-        require(projections.keys.all { it.isNotBlank() && '.' !in it }) { "projection names must be simple nonempty names" }
+        require(projections.keys.all { it.isNotBlank() && '.' !in it }) {
+            "projection names must be simple nonempty names"
+        }
     }
 }
 

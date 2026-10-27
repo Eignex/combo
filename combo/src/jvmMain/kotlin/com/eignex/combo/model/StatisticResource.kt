@@ -49,7 +49,9 @@ sealed class StatisticResource : AutoCloseable {
 
         /** Decode the canonical accumulator or bandit vocabulary. */
         fun create(definition: JsonObject, seed: Int): StatisticResource {
-            val serializers = listOf(StatSpec.serializer(), UnivariateBanditSpec.serializer(), ContextualBanditSpec.serializer())
+            val serializers = listOf(
+                StatSpec.serializer(), UnivariateBanditSpec.serializer(), ContextualBanditSpec.serializer(),
+            )
             for (serializer in serializers) {
                 val spec = try {
                     SchemaJson.decodeFromJsonElement(serializer, definition)
@@ -58,8 +60,10 @@ sealed class StatisticResource : AutoCloseable {
                 }
                 val resource = when (spec) {
                     is StatSpec -> AccumulatorResource(spec.materialize())
-                    is UnivariateBanditSpec -> BanditResource(spec.materialize(Random(seed), nowNanos = System::nanoTime))
-                    is ContextualBanditSpec -> BanditResource(spec.materialize(Random(seed), nowNanos = System::nanoTime))
+                    is UnivariateBanditSpec ->
+                        BanditResource(spec.materialize(Random(seed), nowNanos = System::nanoTime))
+                    is ContextualBanditSpec ->
+                        BanditResource(spec.materialize(Random(seed), nowNanos = System::nanoTime))
                     else -> error("unsupported Kumulant specification")
                 }
                 resource.snapshot()

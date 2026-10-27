@@ -52,9 +52,8 @@ data class ModelDefinition(
             "statistical inputs cannot shadow decision or context variables"
         }
         if (space != null) {
-            require(inputs.isNotEmpty() || variables.keys.any { it !in space.context && it !in space.optionalContext }) {
-                "declare a decision variable"
-            }
+            val hasDecision = variables.keys.any { it !in space.context && it !in space.optionalContext }
+            require(inputs.isNotEmpty() || hasDecision) { "declare a decision variable" }
         }
         if (outcome != null) {
             require(outcome.isNotBlank() && outcome !in variables) { "outcome must name a separate measured value" }
