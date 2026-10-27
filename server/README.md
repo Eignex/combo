@@ -244,6 +244,91 @@ and the reward. Bandit state includes an `arms` array; pooled regressors also
 include `global`. Tracked bandits and grouped statistics retain their native
 snapshot structure. `/reset` restores a standalone stat or bandit to its baseline.
 
+## Statistical inputs in decision constraints
+
+A model can own named native statistics and bind their outputs into Klause
+constraints. Input names are references, not additional decision variables:
+
+```json
+{
+  "space": {
+    "variables": {"capacity":{"int":[0,200]}},
+    "constraints": {
+      "enough": {"ge":[{"ref":"capacity"},{"ref":"latency"}]}
+    }
+  },
+  "objective": {"minimize":"capacity"},
+  "statistics": {"timings":{"band":{"inner":"variance","k":1}}},
+  "inputs": {"latency":{"statistic":"timings"}}
+}
+```
+
+Observe the statistic using its existing native input fields:
+
+```json
+{"statistic":"timings","observation":{"value":80}}
+```
+
+After observations of 80 and 120, this native band has lower/upper outputs of
+80 and 120. A recommendation chooses capacity 120, because `capacity >= latency`
+must hold throughout the interval. The response includes the selected projections
+under `inputs`; only capacity appears under decision `values`. Each solve reads
+one snapshot per named statistic, then creates fixed native declarations. The
+solver cannot choose a convenient statistical value, and callers cannot override
+inputs through `given` or `values`.
+
+Bare interval references support comparisons and linear integer arithmetic with
+known integer coefficients, including negative coefficients and cancellation.
+Equality must hold at both endpoints; inequality must exclude the entire interval.
+Conjunctions and implication with a decision-only condition are supported.
+Uncertain disjunctions, compound negations, and nonlinear arithmetic require
+explicit projections. For example:
+
+```json
+{"le":[{"mul":[{"ref":"latency.upper"},{"ref":"workers"}]},1000]}
+```
+
+A projection selects its same-named native numeric output. Optional aliases use
+structured paths: `"projections":{"mean":["center"]}` exposes a band's center as
+`latency.mean`. `path` selects a nested result object, so multiple inputs can view
+one shared joint statistic; its paired/vector observation is still updated once.
+All views use the same snapshot. Correlations are not used to tighten the interval
+bounds in this version.
+
+For a fixed scalar input, select its output with `value`:
+
+```json
+{
+  "statistics":{"latency":{"ewma":{"alpha":0.1}}},
+  "inputs":{"latency":{"statistic":"latency","value":"mean"}}
+}
+```
+
+The snippet above supplies fields to a model with a decision space. Explicit
+projections can also be named objectives, such as `"minimize":"latency.mean"`.
+Missing, nonfinite, or inverted interval outputs are errors. Integer expressions
+require exactly representable 32-bit integer projections; values are never rounded.
+Fractional projections work with native `floatLinear` constraints and the real DSL.
+
+The Kotlin handles `StatisticalInt("latency")` and `StatisticalReal("latency")`
+implement Klause's existing term interfaces. Their `upper`, `lower`, `mean`,
+`median`, and `projection(name)` members produce ordinary Klause references.
+They introduce no serialized expression nodes. For example, using Klause's
+existing operators:
+
+```kotlin
+val latency = StatisticalReal("latency")
+val constraint = latency lt 100.0
+```
+
+The binding must be declared in `ModelDefinition.inputs`. Statistical inputs
+currently support feasibility and known-objective models. Attaching these inputs
+to a learned objective, candidate-dependent statistical predictions, and posterior
+sampling are not implemented. Native bands retain Kumulant's own meaning; the
+integration does not interpret a scale multiplier as a calibrated confidence level.
+Before solving, each referenced statistic needs a positive-weight observation
+(`409 insufficient_evidence` otherwise).
+
 ## Initial scope and operation limits
 
 The public contract is `com.eignex.combo.model.ModelDefinition` in `:combo`.
@@ -263,9 +348,9 @@ decisions remain supported. An observed objective is one finite real outcome;
 constraints cannot depend on it. Attached outcome statistics must accept scalar
 observations. These runtime limits do not introduce another serialization format.
 
-This composes the existing decision-space and statistic contracts. General named
-statistics feeding solver variables, joint-statistic bindings, and statistical
-sampling at solve time are not implemented yet.
+Statistical bindings are owned by Combo and lower into native Klause declarations.
+Klause and Kumulant are consumed unchanged; the server defines no binding DTO or
+expression vocabulary.
 
 Malformed input and unsupported operations return `400`; unknown models and
 proposals return `404`. Saturation returns `503` with `Retry-After`.

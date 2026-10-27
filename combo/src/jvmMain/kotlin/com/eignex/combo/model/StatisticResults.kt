@@ -1,8 +1,9 @@
 @file:OptIn(kotlinx.serialization.InternalSerializationApi::class)
 
-package com.eignex.server
+package com.eignex.combo.model
 
 import com.eignex.kumulant.core.Result
+import com.eignex.skema.SchemaJson
 import com.eignex.kumulant.core.ResultList
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.PolymorphicSerializer
@@ -10,10 +11,10 @@ import kotlinx.serialization.json.*
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.serializer
 
-private val resultJson = Json(wireJson) {
+private val resultJson = Json(SchemaJson) {
     allowSpecialFloatingPointValues = true
     serializersModule = SerializersModule {
-        include(wireJson.serializersModule)
+        include(SchemaJson.serializersModule)
         polymorphicDefaultSerializer(Result::class, ::resultSerializer)
     }
 }
@@ -24,7 +25,8 @@ private fun resultSerializer(result: Result): KSerializer<Result> = when (result
     else -> result::class.serializer()
 } as KSerializer<Result>
 
-internal fun encodeResult(result: Result): JsonElement =
+/** Encode a native Kumulant result, preserving its structure and representing nonfinite values as null. */
+fun encodeStatisticResult(result: Result): JsonElement =
     resultJson.encodeToJsonElement(resultSerializer(result), result).finiteNumbers()
 
 // Undefined statistical values remain distinguishable without emitting non-standard JSON numbers.

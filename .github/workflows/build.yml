@@ -42,6 +42,8 @@ jobs:
           cache-read-only: false
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
       - run: ./gradlew check lintDocs :server:installDist
+      - name: Generate library API report
+        run: ./gradlew :combo:apiDump
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v7

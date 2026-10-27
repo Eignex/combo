@@ -5,6 +5,7 @@ import com.eignex.klause.model.BoolSpec
 import com.eignex.klause.model.FloatSpec
 import com.eignex.klause.model.IntSpec
 import com.eignex.klause.model.VarSpec
+import com.eignex.kumulant.schema.spec.StatSpec
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 
@@ -23,18 +24,35 @@ data class ModelDefinition(
     val stat: JsonObject? = null,
     /** Seed for reproducible solver choices and experimental proposals. */
     val seed: Int = 0,
+    /** Named, native Kumulant specifications sharing this model's lifetime. */
+    val statistics: Map<String, StatSpec> = emptyMap(),
+    /** Statistical input names used by native Klause references. */
+    val inputs: Map<String, StatisticalInput> = emptyMap(),
 ) {
     /** Whether the objective is measured through proposal feedback. */
     val learned: Boolean get() = outcome != null
 
     init {
-        require(space != null || stat != null) { "declare a decision space or a statistic" }
+        require(space != null || stat != null || statistics.isNotEmpty()) { "declare a decision space or a statistic" }
+        require(inputs.isEmpty() || (space != null && outcome == null)) {
+            "statistical inputs currently require a decision space with a known objective"
+        }
+        require(statistics.keys.all { it.isNotBlank() }) { "statistic names must be nonempty" }
+        for ((name, input) in inputs) {
+            require(name.isNotBlank() && input.statistic in statistics) { "unknown statistic for input '$name'" }
+            require(inputs.keys.none { it != name && (it.startsWith("$name.") || name.startsWith("$it.")) }) {
+                "statistical input names cannot overlap"
+            }
+        }
         require(space != null || (objective == null && outcome == null)) {
             "an objective or outcome requires a decision space"
         }
         val variables = space?.toSchemaDef()?.entries?.filterValues { it is VarSpec }.orEmpty()
+        require(variables.keys.none { name -> inputs.keys.any { name == it || name.startsWith("$it.") } }) {
+            "statistical inputs cannot shadow decision or context variables"
+        }
         if (space != null) {
-            require(variables.keys.any { it !in space.context && it !in space.optionalContext }) {
+            require(inputs.isNotEmpty() || variables.keys.any { it !in space.context && it !in space.optionalContext }) {
                 "declare a decision variable"
             }
         }
@@ -44,8 +62,12 @@ data class ModelDefinition(
         } else {
             objective?.let {
                 val spec = variables[it.name]
-                require(spec == BoolSpec || spec is IntSpec || spec is FloatSpec) {
+                val input = inputs.entries.firstOrNull { (name, _) -> it.name == name || it.name.startsWith("$name.") }
+                require(spec == BoolSpec || spec is IntSpec || spec is FloatSpec || input != null) {
                     "objective must name a numeric or Boolean variable"
+                }
+                require(input == null || it.name != input.key || input.value.value != null) {
+                    "select an explicit statistical projection for the objective"
                 }
             }
         }
@@ -110,3 +132,12 @@ data class ModelObservation(
         }
     }
 }
+
+/** Update one named statistic using its unchanged native observation fields. */
+@Serializable
+data class StatisticalObservation(
+    /** Statistic declared in [ModelDefinition.statistics]. */
+    val statistic: String,
+    /** Native scalar, discrete, paired, vector, or regression observation. */
+    val observation: JsonObject,
+)

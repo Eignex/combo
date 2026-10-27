@@ -1,5 +1,6 @@
-package com.eignex.server
+package com.eignex.combo.model
 
+import com.eignex.skema.SchemaJson
 import com.eignex.koblas.DenseVector
 import com.eignex.koblas.Vector
 import com.eignex.kumulant.bandit.ContextualBandit
@@ -19,21 +20,39 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.*
 import kotlin.random.Random
 
-internal sealed class StatsResource : ManagedResource {
+/** Native Kumulant accumulator or bandit with its existing JSON inputs and outputs. */
+sealed class StatisticResource : AutoCloseable {
+    /** Internal statistical modality, independent of the model's public capabilities. */
+    abstract val type: String
+    /** Successful positive-weight observations, used to reject uninitialized bound inputs. */
+    open val observationCount: Long get() = 0
+    /** Whether this resource selects bandit arms. */
     open val canChoose = false
+    /** Scalar accumulator view for attaching an outcome tracker. */
     open fun series(): SeriesStat<*>? = null
+    /** Read one native snapshot at the supplied monotonic timestamp. */
     abstract fun snapshot(timestampNanos: Long = System.nanoTime()): JsonElement
+    /** Feed an observation using the native modality fields. */
     abstract fun update(observation: JsonObject): JsonElement
+    /** Reset to the native statistic baseline. */
     abstract fun reset(): JsonElement
 
+    /** Choose an arm using an ordinary or contextual native bandit. */
     open fun choose(request: JsonObject): JsonElement = throw IllegalArgumentException("choose requires a bandit")
 
+    override fun close() = Unit
+
+    /** Construct resources with the native Kumulant serializers and materializers. */
     companion object {
-        fun create(definition: JsonObject, seed: Int): StatsResource {
+        /** Construct a typed native accumulator without a JSON decoding round trip. */
+        fun create(spec: StatSpec): StatisticResource = AccumulatorResource(spec.materialize())
+
+        /** Decode the canonical accumulator or bandit vocabulary. */
+        fun create(definition: JsonObject, seed: Int): StatisticResource {
             val serializers = listOf(StatSpec.serializer(), UnivariateBanditSpec.serializer(), ContextualBanditSpec.serializer())
             for (serializer in serializers) {
                 val spec = try {
-                    wireJson.decodeFromJsonElement(serializer, definition)
+                    SchemaJson.decodeFromJsonElement(serializer, definition)
                 } catch (_: SerializationException) {
                     continue
                 }
@@ -51,11 +70,13 @@ internal sealed class StatsResource : ManagedResource {
     }
 }
 
-private class AccumulatorResource(private val stat: Stat<*>) : StatsResource() {
+private class AccumulatorResource(private val stat: Stat<*>) : StatisticResource() {
+    override var observationCount: Long = 0
+        private set
     override val type = "kumulant.stat"
     override fun series(): SeriesStat<*>? = stat as? SeriesStat<*>
 
-    override fun snapshot(timestampNanos: Long): JsonElement = encodeResult(stat.read(timestampNanos))
+    override fun snapshot(timestampNanos: Long): JsonElement = encodeStatisticResult(stat.read(timestampNanos))
 
     override fun update(observation: JsonObject): JsonElement {
         val weight = observation.number("weight", 1.0)
@@ -85,16 +106,18 @@ private class AccumulatorResource(private val stat: Stat<*>) : StatsResource() {
             }
             else -> error("unsupported accumulator modality")
         }
+        if (weight > 0.0) observationCount++
         return snapshot(timestamp)
     }
 
     override fun reset(): JsonElement {
         stat.reset()
+        observationCount = 0
         return snapshot()
     }
 }
 
-private class BanditResource(private val bandit: Bandit) : StatsResource() {
+private class BanditResource(private val bandit: Bandit) : StatisticResource() {
     override val type = "kumulant.bandit"
     override val canChoose = true
 
@@ -151,23 +174,23 @@ private fun ContextualBandit.context(request: JsonObject): Vector {
 
 private fun Bandit.snapshotJson(): JsonObject = buildJsonObject {
     when (val bandit = this@snapshotJson) {
-        is PerArmBandit<*> -> put("arms", JsonArray(bandit.snapshot().map(::encodeResult)))
+        is PerArmBandit<*> -> put("arms", JsonArray(bandit.snapshot().map(::encodeStatisticResult)))
         is TrackedUnivariateBandit<*> -> {
             put("inner", bandit.inner.snapshotJson())
-            bandit.chooseResult()?.let { put("choose", encodeResult(it)) }
-            bandit.updateArmRewardResult()?.let { put("updateArmReward", encodeResult(it)) }
+            bandit.chooseResult()?.let { put("choose", encodeStatisticResult(it)) }
+            bandit.updateArmRewardResult()?.let { put("updateArmReward", encodeStatisticResult(it)) }
         }
         is TrackedContextualBandit<*> -> {
             put("inner", bandit.inner.snapshotJson())
-            bandit.chooseResult()?.let { put("choose", encodeResult(it)) }
-            bandit.updateJointResult()?.let { put("updateJoint", encodeResult(it)) }
-            bandit.updateMarginalResult()?.let { put("updateMarginal", encodeResult(it)) }
-            bandit.updateArmRewardResult()?.let { put("updateArmReward", encodeResult(it)) }
+            bandit.chooseResult()?.let { put("choose", encodeStatisticResult(it)) }
+            bandit.updateJointResult()?.let { put("updateJoint", encodeStatisticResult(it)) }
+            bandit.updateMarginalResult()?.let { put("updateMarginal", encodeStatisticResult(it)) }
+            bandit.updateArmRewardResult()?.let { put("updateArmReward", encodeStatisticResult(it)) }
         }
         else -> error("unsupported bandit snapshot")
     }
     if (this@snapshotJson is RegressionContextualBandit<*>) {
-        globalSnapshot()?.let { put("global", encodeResult(it)) }
+        globalSnapshot()?.let { put("global", encodeStatisticResult(it)) }
     }
 }
 
