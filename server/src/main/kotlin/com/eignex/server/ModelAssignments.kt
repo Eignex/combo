@@ -11,6 +11,13 @@ import com.eignex.klause.schema.FloatHandle
 import com.eignex.klause.solver.SolveResult
 import kotlinx.serialization.json.*
 
+/** A row-only conditioning keeps all coordinate ids and exact values, but changes the solver's frame. */
+internal fun com.eignex.klause.solver.Sample.compatibilitySnapshot(): com.eignex.klause.solver.Sample =
+    com.eignex.klause.solver.Sample(
+        bools, ints, reals, exactReals = exactReals, exactInts = exactInts,
+        algebraicReals = algebraicReals, symbolicReals = symbolicReals,
+    )
+
 internal fun realValues(entries: Map<String, SchemaEntry>, input: JsonObject): Map<FloatHandle, Double> =
     input.filterKeys { entries[it] is FloatSpec }.map { (name, element) ->
         val spec = entries.getValue(name) as FloatSpec
@@ -33,6 +40,6 @@ internal fun checkedAssignment(
     val result = BacktrackSolver(problem.bake()).solve(params.copy(assumptions = pins))
     return if (result is SolveResult.Sat) {
         val sample = result.assignment
-        SolveResult.Sat(com.eignex.klause.solver.Sample(sample.bools, sample.ints, sample.reals, exactReals = sample.exactReals))
+        SolveResult.Sat(sample.compatibilitySnapshot())
     } else result
 }

@@ -36,12 +36,11 @@ abstract class DecisionSpace : SubSpace() {
 
     private val _contextBools = mutableListOf<BoolContextHandle>()
     private val _contextInts = mutableListOf<IntContextHandle>()
-    private val _contextFloats = mutableListOf<FloatContextHandle>()
+    private val floatContexts = mutableListOf<FloatContextHandle>()
     private val _interactions = mutableListOf<InteractionHandle>()
 
     internal val contextBools: List<BoolContextHandle> get() = _contextBools
     internal val contextInts: List<IntContextHandle> get() = _contextInts
-    internal val contextFloats: List<FloatContextHandle> get() = _contextFloats
     internal val interactions: List<InteractionHandle> get() = _interactions
 
     protected fun contextBool() =
@@ -67,7 +66,7 @@ abstract class DecisionSpace : SubSpace() {
             ctx.root.recordScale(ctx.qualify(prop.name), min, max, scale)
             val handle = ctx.root.registerFloat(ctx.qualify(prop.name), min, max, buckets, ctx.activeCondition)
             val context = FloatContextHandle(handle, buckets)
-            _contextFloats += context
+            floatContexts += context
             ReadOnlyProperty { _, _ -> context }
         }
 
@@ -155,7 +154,7 @@ abstract class DecisionSpace : SubSpace() {
         // Context variables are klause variables too; tag them so buildLevel doesn't
         // put them in `variables` at the root.
         val contextNames = (
-            _contextBools.map { it.name } + _contextInts.map { it.name } + _contextFloats.map { it.name }
+            _contextBools.map { it.name } + _contextInts.map { it.name } + floatContexts.map { it.name }
             ).toSet()
         val rootDef = buildLevel(
             node = this,
@@ -172,7 +171,7 @@ abstract class DecisionSpace : SubSpace() {
             .associate { it.name to (com.eignex.klause.model.IntSpec(it.min, it.max) as VarSpec) }
         return rootDef.copy(
             name = name,
-            context = ctxBools + ctxInts + _contextFloats.associate {
+            context = ctxBools + ctxInts + floatContexts.associate {
                 it.name to com.eignex.klause.model.FloatSpec(it.min, it.max, it.buckets)
             },
             optionalContext = ctxBoolsOpt + ctxIntsOpt,
@@ -298,7 +297,7 @@ abstract class DecisionSpace : SubSpace() {
             compiled = compiled,
             contextBools = _contextBools.toList(),
             contextInts = _contextInts.toList(),
-            contextFloats = _contextFloats.toList(),
+            contextFloats = floatContexts.toList(),
             interactions = _interactions.toList(),
             definition = def,
             activeConditions = schema.activeConditions.toMap(),

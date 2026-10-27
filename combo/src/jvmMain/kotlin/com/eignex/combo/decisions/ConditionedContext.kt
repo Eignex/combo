@@ -10,7 +10,10 @@ import kotlin.math.roundToLong
 
 /** A row-only rewrite keeps every coordinate; drop the temporary problem's frame before original decoding. */
 internal fun com.eignex.klause.solver.Sample.unframed(): com.eignex.klause.solver.Sample =
-    com.eignex.klause.solver.Sample(bools, ints, reals, exactReals = exactReals)
+    com.eignex.klause.solver.Sample(
+        bools, ints, reals, exactReals = exactReals, exactInts = exactInts,
+        algebraicReals = algebraicReals, symbolicReals = symbolicReals,
+    )
 
 /** Add native real equality rows without changing any solver coordinate or model feature index. */
 fun CompiledDecisionSpace.conditionedProblem(context: Context): Problem =

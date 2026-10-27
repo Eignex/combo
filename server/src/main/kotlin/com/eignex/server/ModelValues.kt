@@ -62,7 +62,7 @@ internal inline fun <T> compileInput(compile: () -> T): T = try {
 
 internal fun values(compiled: CompiledSchema, entries: Map<String, SchemaEntry>, sample: Sample): JsonObject =
     buildJsonObject {
-        val assignment = Sample(sample.bools, sample.ints, sample.reals, exactReals = sample.exactReals)
+        val assignment = sample.compatibilitySnapshot()
         for ((name, spec) in entries) {
             when (spec) {
                 BoolSpec, is PresenceSpec -> put(name, compiled.decode(BoolHandle(name), assignment))
