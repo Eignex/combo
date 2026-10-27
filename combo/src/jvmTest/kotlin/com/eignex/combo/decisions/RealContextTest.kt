@@ -7,6 +7,7 @@ import com.eignex.klause.backtrack.BacktrackSolver
 import com.eignex.klause.model.FloatLinearConstraint
 import com.eignex.klause.model.FloatSpec
 import com.eignex.klause.model.IntCmpOp
+import com.eignex.klause.model.IntSpec
 import com.eignex.klause.propagation.bake
 import com.eignex.klause.solver.SolveResult
 import com.eignex.koblas.DenseVector
@@ -26,6 +27,42 @@ private class RealContextSpace(private val grid: Int? = null) : DecisionSpace() 
 }
 
 class RealContextTest {
+    @Test
+    fun `fractional context changes an integer decision through a native linear interaction`() {
+        val space = DecisionSpaceDef(
+            variables = mapOf("workers" to IntSpec(0, 1)),
+            context = mapOf("load" to FloatSpec(-1.0, 1.0)),
+            interactions = listOf(InteractionDef(
+                "load_workers",
+                ScalarRef(ScalarKind.FloatContext, listOf("context", "load")),
+                ScalarRef(ScalarKind.IntDecision, listOf("workers")),
+            )),
+        ).compileSpace()
+        val projection = LinearFeatureProjection(space)
+        val prior = DoubleArray(projection.featureSize)
+        prior[projection.layout.intStart + space.compiled.intVarIdByName.getValue("workers")] = 1.0
+        prior[projection.layout.interactionsStart] = 2.0
+        val learning = LinearLearning(
+            BayesianRegression(projection.featureSize, priorMean = DenseVector.of(prior)), MultivariateGaussian,
+        )
+        BacktrackSolver(space.compiled.problem.bake()).session().use { session ->
+            val learner = learning.materialize(
+                projection,
+                { objective, pins -> session.minimize(objective, BacktrackParams(assumptions = pins)).assignment },
+                seed = 42, maximize = true,
+            )
+            val handle = space.contextFloats.single()
+            for ((load, expected) in listOf(0.75 to 1L, -0.75 to 0L, 0.75 to 1L)) {
+                val given = context { set(handle, load) }
+                val result = learner.optimalOrThrow(given)
+                assertTrue(space.matches(result.sample, given))
+                assertEquals(expected, space.compiled.decode(
+                    com.eignex.klause.schema.IntHandle("workers", 0, 1), result.sample,
+                ))
+            }
+        }
+    }
+
     @Test
     fun `real contexts remain pinned across changing requests and fold into native linear objectives`() {
         val space = RealContextSpace().compileSpace()
