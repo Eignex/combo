@@ -8,6 +8,7 @@ import com.eignex.klause.model.FloatLinearConstraint
 import com.eignex.klause.model.FloatSpec
 import com.eignex.klause.model.IntCmpOp
 import com.eignex.klause.propagation.bake
+import com.eignex.klause.solver.SolveResult
 import com.eignex.koblas.DenseVector
 import com.eignex.kumulant.schema.spec.BayesianRegression
 import com.eignex.kumulant.stat.regression.glm.MultivariateGaussian
@@ -69,8 +70,9 @@ class RealContextTest {
         val given = context { set(handle, 2.5) }
         val result = BacktrackSolver(space.conditionedProblem(given).bake()).solve(
             BacktrackParams(assumptions = space.discreteAssumptionsFor(given)),
-        ).assignment!!
-        assertTrue(space.matches(result.unframed(), given))
+        )
+        assertIs<SolveResult.Sat>(result)
+        assertTrue(space.matches(result.assignment.unframed(), given))
         assertFailsWith<IllegalArgumentException> {
             space.discreteAssumptionsFor(context { set(handle, 2.25) })
         }

@@ -41,6 +41,7 @@ abstract class DecisionSpace : SubSpace() {
 
     internal val contextBools: List<BoolContextHandle> get() = _contextBools
     internal val contextInts: List<IntContextHandle> get() = _contextInts
+    internal val contextFloats: List<FloatContextHandle> get() = _contextFloats
     internal val interactions: List<InteractionHandle> get() = _interactions
 
     protected fun contextBool() =

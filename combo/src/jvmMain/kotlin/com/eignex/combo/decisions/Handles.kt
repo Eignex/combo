@@ -128,11 +128,16 @@ class MultipleHandle internal constructor(
 
 /** Numeric context in native real units, optionally on an explicitly declared float grid. */
 class FloatContextHandle internal constructor(
+    /** Existing Klause term used in constraints and projections. */
     val klauseHandle: com.eignex.klause.schema.FloatHandle,
+    /** Explicit grid size, or null for the native continuous policy. */
     val buckets: Int? = null,
 ) : com.eignex.klause.schema.FloatTerm {
+    /** Qualified native variable name. */
     val name: String get() = klauseHandle.name
+    /** Inclusive source lower bound. */
     val min: Double get() = klauseHandle.min
+    /** Inclusive source upper bound. */
     val max: Double get() = klauseHandle.max
     override fun toFloatExpr(): com.eignex.klause.schema.FloatExpr = klauseHandle.toFloatExpr()
     override fun equals(other: Any?): Boolean = other is FloatContextHandle && other.name == name

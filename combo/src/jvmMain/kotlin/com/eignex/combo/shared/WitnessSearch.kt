@@ -24,6 +24,7 @@ enum class WitnessTermination {
  * @property anchors External candidate seeds, independently checked before reuse.
  * @property exclude Assignments reserved elsewhere; equality ignores proof metadata.
  * @property maxAttempts Maximum proposal and fallback calls combined. Engine budgets apply per call.
+ * @property context Complete context for native real conditioning alongside discrete assumptions.
  */
 data class WitnessRequest(
     val count: Int,

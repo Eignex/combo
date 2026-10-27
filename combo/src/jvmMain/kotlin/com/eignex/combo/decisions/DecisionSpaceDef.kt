@@ -180,10 +180,12 @@ data class ScalarRef(
 enum class ScalarKind {
     BoolDecision,
     IntDecision,
+    /** Native real-valued decision, including explicitly gridded float declarations. */
     FloatDecision,
     NominalDecision,
     BoolContext,
     IntContext,
+    /** Native real-valued context, including explicitly gridded float declarations. */
     FloatContext,
     NominalContext,
 }

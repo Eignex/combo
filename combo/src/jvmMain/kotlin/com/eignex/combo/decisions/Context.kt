@@ -26,9 +26,11 @@ class Context internal constructor(
         error("missing context value for int handle '${handle.name}'")
     }
 
+    /** Read a required floating-point context in its original units. */
     operator fun get(handle: FloatContextHandle): Double =
         floats[handle] ?: error("missing context value for float handle '${handle.name}'")
 
+    /** Whether a required floating-point context was supplied. */
     fun isPresent(handle: FloatContextHandle): Boolean = handle in floats
 
     fun isPresent(handle: BoolContextHandle): Boolean = handle in bools
@@ -51,6 +53,7 @@ class ContextBuilder internal constructor() {
         ints[handle] = value
     }
 
+    /** Set a finite floating-point context within its native bounds. */
     fun set(handle: FloatContextHandle, value: Double) {
         require(value.isFinite() && value in handle.min..handle.max) { "context '${handle.name}' outside its bounds" }
         floats[handle] = value

@@ -23,8 +23,10 @@ fun CompiledSchema.floatAssumptions(values: Map<FloatHandle, Double>): com.eigne
     var pins = com.eignex.klause.propagation.Assumptions.None
     for ((handle, value) in values) {
         require(value.isFinite() && value in handle.min..handle.max) { "'${handle.name}' outside its bounds" }
+        val spec = floatDecoders.getValue(handle.name)
+        if (spec.buckets != null) floatBucket(spec, value)
         intVarIdByName[handle.name]?.let { id ->
-            pins = pins.withInt(id, floatBucket(floatDecoders.getValue(handle.name), value))
+            pins = pins.withInt(id, floatBucket(spec, value))
         }
     }
     return pins
