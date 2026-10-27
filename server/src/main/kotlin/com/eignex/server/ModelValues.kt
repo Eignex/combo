@@ -58,6 +58,8 @@ internal inline fun <T> compileInput(compile: () -> T): T = try {
     compile()
 } catch (error: IllegalStateException) {
     throw IllegalArgumentException(error.message ?: "invalid model", error)
+} catch (error: NoSuchElementException) {
+    throw IllegalArgumentException(error.message ?: "unknown model reference", error)
 }
 
 internal fun values(compiled: CompiledSchema, entries: Map<String, SchemaEntry>, sample: Sample): JsonObject =

@@ -107,6 +107,7 @@ class CompiledDecisionSpace internal constructor(
         }
         for (handle in contextFloats) {
             val value = context[handle]
+            if (compiled.minimize(handle.klauseHandle).realCoefficients.any { it != 0.0 }) continue
             compiled.intVarIdByName[handle.name]?.let { id ->
                 ints[id] = floatBucket(compiled.floatDecoders.getValue(handle.name), value)
             }

@@ -5,7 +5,7 @@ import com.eignex.combo.shared.LinearFeatureProjection
 import com.eignex.combo.shared.WitnessRequest
 import com.eignex.klause.model.BoolRef
 import com.eignex.klause.model.BoolSpec
-import com.eignex.klause.model.FloatSpec
+import com.eignex.klause.model.NominalSpec
 import com.eignex.klause.model.IntSpec
 import com.eignex.klause.schema.BoolHandle
 import com.eignex.skema.SchemaJson
@@ -74,7 +74,7 @@ class DefinitionCompilerTest {
     @Test
     fun `unsupported context types and invalid interaction references are rejected`() {
         assertFailsWith<IllegalArgumentException> {
-            DecisionSpaceDef(context = mapOf("real" to FloatSpec(0.0, 1.0))).compileSpace()
+            DecisionSpaceDef(context = mapOf("category" to NominalSpec(listOf("a", "b")))).compileSpace()
         }
         assertFailsWith<IllegalArgumentException> {
             DecisionSpaceDef(

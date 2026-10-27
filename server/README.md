@@ -388,8 +388,9 @@ the coefficient policy. They remain pinned in constraints as well as predictions
 Learned bindings require a scalar `value` inside a declared numeric context
 domain. Integer contexts require exact integers. Native float declarations accept
 fractional values: omit `buckets` for continuous real semantics, or specify an
-explicit grid. Values outside the domain or off an explicit grid return `400`
-without issuing a proposal; values are never rounded. Linear feedback accepts weights
+grid request. Klause chooses the effective representation for each component.
+Values outside the domain or off an effective finite grid return `400` without
+issuing a proposal; retained real coordinates accept fractional values unchanged. Linear feedback accepts weights
 but rejects per-observation `noiseVariance`, which the native linear update API
 does not support. Closed proposals continue to reject repeated feedback.
 

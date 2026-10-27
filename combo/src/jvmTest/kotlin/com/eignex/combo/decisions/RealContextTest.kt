@@ -64,7 +64,7 @@ class RealContextTest {
     }
 
     @Test
-    fun `explicit float grids reject unrepresentable context instead of rounding`() {
+    fun `float context follows the native representation without rounding`() {
         val space = RealContextSpace(grid = 5).compileSpace()
         val handle = space.contextFloats.single()
         val given = context { set(handle, 2.5) }
@@ -73,8 +73,15 @@ class RealContextTest {
         )
         assertIs<SolveResult.Sat>(result)
         assertTrue(space.matches(result.assignment.unframed(), given))
-        assertFailsWith<IllegalArgumentException> {
-            space.discreteAssumptionsFor(context { set(handle, 2.25) })
+        val fractional = context { set(handle, 2.25) }
+        if (space.compiled.minimize(handle.klauseHandle).realCoefficients.any { it != 0.0 }) {
+            val native = BacktrackSolver(space.conditionedProblem(fractional).bake()).solve(
+                BacktrackParams(assumptions = space.discreteAssumptionsFor(fractional)),
+            )
+            assertIs<SolveResult.Sat>(native)
+            assertEquals(2.25, space.compiled.decode(handle.klauseHandle, native.assignment.unframed()))
+        } else {
+            assertFailsWith<IllegalArgumentException> { space.discreteAssumptionsFor(fractional) }
         }
     }
 }

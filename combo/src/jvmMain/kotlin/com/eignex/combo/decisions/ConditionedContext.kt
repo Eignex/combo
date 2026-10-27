@@ -26,10 +26,9 @@ fun CompiledSchema.floatAssumptions(values: Map<FloatHandle, Double>): com.eigne
     var pins = com.eignex.klause.propagation.Assumptions.None
     for ((handle, value) in values) {
         require(value.isFinite() && value in handle.min..handle.max) { "'${handle.name}' outside its bounds" }
-        val spec = floatDecoders.getValue(handle.name)
-        if (spec.buckets != null) floatBucket(spec, value)
+        if (minimize(handle).realCoefficients.any { it != 0.0 }) continue
         intVarIdByName[handle.name]?.let { id ->
-            pins = pins.withInt(id, floatBucket(spec, value))
+            pins = pins.withInt(id, floatBucket(floatDecoders.getValue(handle.name), value))
         }
     }
     return pins
@@ -39,9 +38,11 @@ fun CompiledSchema.floatAssumptions(values: Map<FloatHandle, Double>): com.eigne
 fun CompiledSchema.pinFloats(values: Map<FloatHandle, Double>): Problem {
     val rows = values.mapNotNull { (handle, value) ->
         require(value.isFinite() && value in handle.min..handle.max) { "'${handle.name}' outside its bounds" }
-        if (handle.name in intVarIdByName) return@mapNotNull null
         val id = minimize(handle).realCoefficients.indexOfFirst { it != 0.0 }
-        require(id >= 0) { "'${handle.name}' has no real coordinate" }
+        if (id < 0) {
+            require(handle.name in intVarIdByName) { "'${handle.name}' has no numeric coordinate" }
+            return@mapNotNull null
+        }
         Linear(intArrayOf(), doubleArrayOf(), intArrayOf(id), doubleArrayOf(1.0), LinearOp.EQ, value)
     }
     return if (rows.isEmpty()) problem else problem.withFactors(problem.factors + rows)

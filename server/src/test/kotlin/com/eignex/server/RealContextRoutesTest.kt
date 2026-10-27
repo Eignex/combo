@@ -39,13 +39,13 @@ class RealContextRoutesTest {
                 "learning":{"regression":{"bayesianRegression":{"featureSize":3}},"posterior":"multivariateGaussian"}
             """.trimIndent() else ""
             val model = client.model("""
-                {"space":{"variables":{"workers":{"int":[1,8]}},
+                {"space":{"variables":{"workers":{"float":{"min":1.0,"max":8.0}}},
                   "context":{"load":{"float":{"min":0.0,"max":8.0}}},
                   "constraints":{"capacity":{"floatLinear":{
                     "coeffs":[1.0,-1.0],"varNames":["workers","load"],"op":"GE","bound":0.0}}},
                   "interactions":[{"name":"workers_load",
                     "lhs":{"kind":"FloatContext","path":["context","load"]},
-                    "rhs":{"kind":"IntDecision","path":["workers"]}}]},
+                    "rhs":{"kind":"FloatDecision","path":["workers"]}}]},
                  "outcome":"reward","objective":{"maximize":"reward"},
                  "statistics":{"demand":"mean"},
                  "inputs":{"load":{"statistic":"demand","value":"mean"}}$learning}
@@ -68,7 +68,7 @@ class RealContextRoutesTest {
             assertEquals(HttpStatusCode.OK, recommendation.status)
             val body = recommendation.objectBody()
             assertEquals(4.5, body.getValue("inputs").jsonObject.getValue("load.mean").jsonPrimitive.double)
-            assertTrue(body.getValue("values").jsonObject.getValue("workers").jsonPrimitive.int >= 5)
+            assertTrue(body.getValue("values").jsonObject.getValue("workers").jsonPrimitive.double >= 4.5)
             val state = client.get(base).stateBody()
             assertEquals(2, state.getValue("observations").jsonPrimitive.int)
             assertTrue(state.getValue("proposals").jsonArray.all {
