@@ -60,7 +60,7 @@ private class StatisticalLowering(
         is IntCompare -> integerComparison(expr)
         is FloatLinearConstraint -> realComparison(expr)
         is ContinuousRealEquality -> {
-            require(!uncertain(expr)) { projectionMessage }
+            require(!uncertain(expr)) { PROJECTION_MESSAGE }
             expr.mapReferences { scalar(it, real = true) }
         }
         is Implies -> {
@@ -103,9 +103,9 @@ private class StatisticalLowering(
             is IntMul -> when {
                 expr.left is IntLit -> affine(expr.right, factor * BigInteger.valueOf((expr.left as IntLit).value.toLong()), out)
                 expr.right is IntLit -> affine(expr.left, factor * BigInteger.valueOf((expr.right as IntLit).value.toLong()), out)
-                else -> throw IllegalArgumentException(projectionMessage)
+                else -> throw IllegalArgumentException(PROJECTION_MESSAGE)
             }
-            else -> throw IllegalArgumentException(projectionMessage)
+            else -> throw IllegalArgumentException(PROJECTION_MESSAGE)
         }
     }
 
@@ -176,7 +176,7 @@ private class StatisticalLowering(
     }
 
     private companion object {
-        const val projectionMessage = "nonlinear uncertainty requires an explicit projection such as .lower, .upper, .mean, or .median"
+        const val PROJECTION_MESSAGE = "nonlinear uncertainty requires an explicit projection such as .lower, .upper, .mean, or .median"
     }
 }
 

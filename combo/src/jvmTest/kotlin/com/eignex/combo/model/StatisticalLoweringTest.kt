@@ -1,6 +1,7 @@
 package com.eignex.combo.model
 
 import com.eignex.combo.decisions.DecisionSpaceDef
+import com.eignex.klause.backtrack.BacktrackParams
 import com.eignex.klause.backtrack.BacktrackSolver
 import com.eignex.klause.compile.compile
 import com.eignex.klause.model.*
@@ -28,7 +29,7 @@ class StatisticalLoweringTest {
     private fun feasible(model: ModelDefinition, data: Map<String, JsonElement> = snapshot): Boolean {
         val resolved = model.resolveStatistics(data)
         val compiled = resolved.schema.compile()
-        return BacktrackSolver(compiled.problem.bake()).session().use { it.solve() is SolveResult.Sat }
+        return BacktrackSolver(compiled.problem.bake()).session().use { it.solve(BacktrackParams()) is SolveResult.Sat }
     }
 
     @Test
