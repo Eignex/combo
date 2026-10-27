@@ -18,8 +18,8 @@ import com.eignex.klause.model.NominalSpec
 import com.eignex.klause.model.Not
 import com.eignex.klause.model.PresenceSpec
 import com.eignex.klause.model.SchemaEntry
-import com.eignex.klause.model.mapReferences
 import com.eignex.klause.model.VarSpec
+import com.eignex.klause.model.mapReferences
 import com.eignex.klause.schema.VariableSchema
 import com.eignex.skema.SchemaDef
 import kotlinx.serialization.SerialName

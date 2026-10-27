@@ -1,0 +1,65 @@
+{
+  "date": "2026-10-26",
+  "base_combo": "2a5e2541c30f422b2f724bf966d77a9c49398d77",
+  "base_kumulant": "cae7894e1e5d27e4bdb6548a89da191637cce6b0",
+  "frozen_histories": 96,
+  "frozen_fits": 576,
+  "sensitivity_histories": 24,
+  "sensitivity_replicates": 8,
+  "sensitivity_fits": 384,
+  "fresh_runs": 384,
+  "fresh_seeds": [
+    1901,
+    1902,
+    1903,
+    1904,
+    1905,
+    1906
+  ],
+  "evaluations_per_run": 32,
+  "noise_sd": [
+    0,
+    0.03
+  ],
+  "batch_sizes": [
+    1,
+    4
+  ],
+  "sampler": "Antithetic",
+  "acquisition": "qLogNEI, 256 draws",
+  "fit_budget": "one initial covariance plus 24 or 96 candidates; restart points count",
+  "environment": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43",
+  "timing_note": "single JVM descriptive wall times, not a throughput benchmark",
+  "experiment_kumulant_head": "aa2aba78fc26695f6ead75b20c152cc813ebab13",
+  "experiment_dependency_mode": "local composite using the final Kumulant PR head",
+  "kumulant_pr": "https://github.com/Eignex/kumulant/pull/168",
+  "merged_kumulant_commit": "dc1fa17e15d436694f9a124ca37ccb605ac19aec",
+  "kumulant_ci": "https://github.com/Eignex/kumulant/actions/runs/40408276384",
+  "kumulant_local_validation": {
+    "command": "./gradlew check lintDocs --rerun-tasks",
+    "jvm_tests": 1826,
+    "linux_x64_tests": 1775
+  },
+  "combo_local_validation": {
+    "command": "./gradlew check lintDocs",
+    "jvm_tests": 278,
+    "dependencies": "pinned published platform artifacts"
+  },
+  "frozen_history_source": {
+    "path": "benchmarks/gp-refinement/traces.csv.gz",
+    "sha256": "27451c592e55f424a647b3d73c5fcee7e5afc3f02d00bedb455d2756620a7097"
+  },
+  "archives": {
+    "frozen-scores.csv.gz": "bc51f3d7168b0c114bb30aa355254d69f3c2972bb7da1eec9a4e54c70ece2b3f",
+    "sensitivity-scores.csv.gz": "c732e8a6f6ae5c73214a371de81acc9e44215b7f257d2745824ba918f238397f",
+    "validation-outcomes.csv.gz": "b82ea7c9bcd5121ffccda9d74cafe6737db0fe40db33b7156df87068cfd097b5",
+    "validation-traces.csv.gz": "e51cc99f441a616c1f24272555026ec93383e6aef1fef118fde6c2bf28e29d09"
+  },
+  "merged_kumulant_tree": "7889cd585ad9dadca235919269b825ab2e4b1e13",
+  "kumulant_main_ci": "https://github.com/Eignex/kumulant/actions/runs/40409259845",
+  "published_kumulant": {
+    "jvm": "0.3.4-20261026.220730-94",
+    "linuxx64": "0.3.4-20261026.220730-94"
+  },
+  "kumulant_release": "https://github.com/Eignex/kumulant/actions/runs/40409883465"
+}

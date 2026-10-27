@@ -1,6 +1,7 @@
 package com.eignex.combo.bo
 
 import com.eignex.combo.bo.model.GaussianProcessConfig
+import com.eignex.combo.bo.model.GaussianProcessFitting
 import com.eignex.combo.bo.model.GaussianProcessModel
 import com.eignex.combo.bo.model.GaussianProcessParameters
 import com.eignex.koblas.DenseMatrix
@@ -9,14 +10,29 @@ import kotlin.random.Random
 /**
  * Exact full-history GP for low-dimensional numeric coordinates. Fits copy inputs and use bounded
  * marginal-likelihood search for covariance parameters. Use SearchTransform and response standardization
- * for numeric BO. Unit statistical weights are required; noise variances and replicate rows are explicit.
+ * for numeric BO. Optional fitting policies profile a constant mean, penalize covariance parameters,
+ * or split the fitting budget over seeded starts. Unit statistical weights are required;
+ * noise variances and replicate rows are explicit.
  * Factorization costs O(n³) time and O(n²) space. Hyperparameter uncertainty is not integrated out.
  *
  * @property config Mean, kernel, observation-noise, and numerical stabilization configuration.
  */
 class GaussianProcessSurrogate(val config: GaussianProcessConfig = GaussianProcessConfig()) : Surrogate {
+    private var fittingPolicy = GaussianProcessFitting()
+
+    /** Optional mean estimation, regularization, and search policies. */
+    val fitting: GaussianProcessFitting get() = fittingPolicy
+
+    /** Create a GP with explicit fitting policies and the supplied covariance configuration. */
+    constructor(
+        fitting: GaussianProcessFitting,
+        config: GaussianProcessConfig = GaussianProcessConfig(),
+    ) : this(config) {
+        fittingPolicy = fitting
+    }
+
     override fun fit(data: TrainingData, random: Random): FittedGaussianProcess =
-        FittedGaussianProcess(GaussianProcessModel.fit(data, config))
+        FittedGaussianProcess(GaussianProcessModel.fit(data, config, fitting, random))
 }
 
 /**
@@ -27,7 +43,9 @@ class GaussianProcessSurrogate(val config: GaussianProcessConfig = GaussianProce
  * assignment order. Each draw is single-threaded and retains sampled points, so its storage and solve cost
  * grow with distinct queries.
  */
-class FittedGaussianProcess internal constructor(private val model: GaussianProcessModel) : ConditionableSurrogate {
+class FittedGaussianProcess internal constructor(private val model: GaussianProcessModel) :
+    ConditionableSurrogate,
+    JointPosteriorSurrogate {
     override val uncertaintyKind: UncertaintyKind = UncertaintyKind.LatentPosterior
 
     /** Independent fitted parameter snapshot in training-response coordinates. */
@@ -38,11 +56,15 @@ class FittedGaussianProcess internal constructor(private val model: GaussianProc
     /** Log marginal likelihood at the fitted covariance parameters, including numerical stabilization. */
     val logMarginalLikelihood: Double get() = model.logMarginalLikelihood
 
+    /** Candidate-selection score: log marginal likelihood plus log-parameter penalties, with constants omitted. */
+    val logFitScore: Double get() = model.logFitScore
+
     /** Actual diagonal numerical stabilization used in fitting, separate from observation noise. */
     val numericalJitter: Double get() = model.numericalJitter
 
     override fun predict(features: DenseMatrix): PredictiveMoments = model.predict(features)
     override fun predictJoint(features: DenseMatrix): JointPredictiveMoments = model.predictJoint(features)
+    override fun jointPosterior(baseline: DenseMatrix): JointPosterior = model.jointPosterior(baseline)
     override fun condition(temporary: TrainingData): FittedGaussianProcess = FittedGaussianProcess(
         model.condition(temporary),
     )

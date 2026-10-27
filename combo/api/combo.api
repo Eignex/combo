@@ -432,6 +432,11 @@ public abstract interface class com/eignex/combo/bo/BatchPolicy {
 public abstract interface class com/eignex/combo/bo/BatchSelector {
 	public abstract fun predict (Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;)D
 	public abstract fun select (Ljava/util/List;Ljava/util/List;)Lcom/eignex/combo/bo/CandidateSelection;
+	public fun selectJoint (ILcom/eignex/combo/bo/JointAcquisitionFactory;Lcom/eignex/combo/bo/JointAcquisitionOptimizer;)Lcom/eignex/combo/bo/ProposalBatch;
+}
+
+public final class com/eignex/combo/bo/BatchSelector$DefaultImpls {
+	public static fun selectJoint (Lcom/eignex/combo/bo/BatchSelector;ILcom/eignex/combo/bo/JointAcquisitionFactory;Lcom/eignex/combo/bo/JointAcquisitionOptimizer;)Lcom/eignex/combo/bo/ProposalBatch;
 }
 
 public class com/eignex/combo/bo/BayesianOptimizer : com/eignex/combo/bo/TrialOptimizer, com/eignex/combo/shared/PredictionLearner {
@@ -478,7 +483,9 @@ public class com/eignex/combo/bo/BayesianOptimizer : com/eignex/combo/bo/TrialOp
 	public final fun optimalOrThrow (Lcom/eignex/combo/decisions/Context;)Lcom/eignex/combo/decisions/BanditSample;
 	public fun predict (Lcom/eignex/combo/decisions/BanditSample;)D
 	public final fun predict (Lcom/eignex/combo/decisions/BanditSample;Lcom/eignex/combo/decisions/Context;)D
+	public final fun recommendOrThrow (Lcom/eignex/combo/bo/AcquisitionOptimizer;Lcom/eignex/combo/decisions/Context;)Lcom/eignex/combo/decisions/BanditSample;
 	public final fun recommendOrThrow (Lcom/eignex/combo/decisions/Context;)Lcom/eignex/combo/decisions/BanditSample;
+	public static synthetic fun recommendOrThrow$default (Lcom/eignex/combo/bo/BayesianOptimizer;Lcom/eignex/combo/bo/AcquisitionOptimizer;Lcom/eignex/combo/decisions/Context;ILjava/lang/Object;)Lcom/eignex/combo/decisions/BanditSample;
 	public static synthetic fun recommendOrThrow$default (Lcom/eignex/combo/bo/BayesianOptimizer;Lcom/eignex/combo/decisions/Context;ILjava/lang/Object;)Lcom/eignex/combo/decisions/BanditSample;
 	public fun suggest (ILcom/eignex/combo/decisions/Context;)Lcom/eignex/combo/bo/TrialBatch;
 	public fun train (Lcom/eignex/combo/decisions/BanditSample;DD)V
@@ -679,14 +686,16 @@ public final class com/eignex/combo/bo/FantasyPolicy$PosteriorMean : com/eignex/
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class com/eignex/combo/bo/FittedGaussianProcess : com/eignex/combo/bo/ConditionableSurrogate {
+public final class com/eignex/combo/bo/FittedGaussianProcess : com/eignex/combo/bo/ConditionableSurrogate, com/eignex/combo/bo/JointPosteriorSurrogate {
 	public fun condition (Lcom/eignex/combo/bo/TrainingData;)Lcom/eignex/combo/bo/FittedGaussianProcess;
 	public synthetic fun condition (Lcom/eignex/combo/bo/TrainingData;)Lcom/eignex/combo/bo/FittedSurrogate;
 	public fun drawFunction (Lkotlin/random/Random;)Lcom/eignex/combo/bo/SampledFunction;
+	public final fun getLogFitScore ()D
 	public final fun getLogMarginalLikelihood ()D
 	public final fun getNumericalJitter ()D
 	public final fun getParameters ()Lcom/eignex/combo/bo/model/GaussianProcessParameters;
 	public fun getUncertaintyKind ()Lcom/eignex/combo/bo/UncertaintyKind;
+	public fun jointPosterior (Lcom/eignex/koblas/DenseMatrix;)Lcom/eignex/combo/bo/JointPosterior;
 	public fun predict (Lcom/eignex/koblas/DenseMatrix;)Lcom/eignex/combo/bo/PredictiveMoments;
 	public fun predictJoint (Lcom/eignex/koblas/DenseMatrix;)Lcom/eignex/combo/bo/JointPredictiveMoments;
 }
@@ -768,9 +777,12 @@ public final class com/eignex/combo/bo/GaussianProcessSurrogate : com/eignex/com
 	public fun <init> ()V
 	public fun <init> (Lcom/eignex/combo/bo/model/GaussianProcessConfig;)V
 	public synthetic fun <init> (Lcom/eignex/combo/bo/model/GaussianProcessConfig;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lcom/eignex/combo/bo/model/GaussianProcessFitting;Lcom/eignex/combo/bo/model/GaussianProcessConfig;)V
+	public synthetic fun <init> (Lcom/eignex/combo/bo/model/GaussianProcessFitting;Lcom/eignex/combo/bo/model/GaussianProcessConfig;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun fit (Lcom/eignex/combo/bo/TrainingData;Lkotlin/random/Random;)Lcom/eignex/combo/bo/FittedGaussianProcess;
 	public synthetic fun fit (Lcom/eignex/combo/bo/TrainingData;Lkotlin/random/Random;)Lcom/eignex/combo/bo/FittedSurrogate;
 	public final fun getConfig ()Lcom/eignex/combo/bo/model/GaussianProcessConfig;
+	public final fun getFitting ()Lcom/eignex/combo/bo/model/GaussianProcessFitting;
 }
 
 public final class com/eignex/combo/bo/HistoryData : com/eignex/combo/shared/LearnerData {
@@ -820,6 +832,150 @@ public final class com/eignex/combo/bo/InteractionFeatureProjection : com/eignex
 	public final fun getCoordinates ()Lcom/eignex/combo/bo/SearchTransform;
 	public fun getFeatureSize ()I
 	public fun getSpace ()Lcom/eignex/combo/decisions/CompiledDecisionSpace;
+}
+
+public abstract interface class com/eignex/combo/bo/JointAcquisition {
+	public abstract fun evaluate (Lcom/eignex/koblas/DenseMatrix;)D
+}
+
+public final class com/eignex/combo/bo/JointAcquisitionContext {
+	public fun <init> (Lcom/eignex/combo/bo/FittedSurrogate;Ljava/lang/Double;Lcom/eignex/combo/bo/OutcomeSpec;Lcom/eignex/koblas/DenseMatrix;Lcom/eignex/koblas/DenseMatrix;)V
+	public synthetic fun <init> (Lcom/eignex/combo/bo/FittedSurrogate;Ljava/lang/Double;Lcom/eignex/combo/bo/OutcomeSpec;Lcom/eignex/koblas/DenseMatrix;Lcom/eignex/koblas/DenseMatrix;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getBaseline ()Lcom/eignex/koblas/DenseMatrix;
+	public final fun getIncumbent ()Ljava/lang/Double;
+	public final fun getModel ()Lcom/eignex/combo/bo/FittedSurrogate;
+	public final fun getOutcome ()Lcom/eignex/combo/bo/OutcomeSpec;
+	public final fun getPending ()Lcom/eignex/koblas/DenseMatrix;
+}
+
+public abstract interface class com/eignex/combo/bo/JointAcquisitionFactory {
+	public abstract fun create (Lcom/eignex/combo/bo/JointAcquisitionContext;Lkotlin/random/Random;)Lcom/eignex/combo/bo/JointAcquisition;
+}
+
+public abstract interface class com/eignex/combo/bo/JointAcquisitionOptimizer {
+	public abstract fun maximize (Lcom/eignex/combo/bo/JointAcquisition;Lcom/eignex/combo/bo/AcquisitionRequest;ILkotlin/random/Random;)Lcom/eignex/combo/bo/JointCandidateSelection;
+}
+
+public final class com/eignex/combo/bo/JointBatchPolicy : com/eignex/combo/bo/BatchPolicy {
+	public fun <init> (Lcom/eignex/combo/bo/JointAcquisitionFactory;Lcom/eignex/combo/bo/JointAcquisitionOptimizer;)V
+	public final fun getAcquisition ()Lcom/eignex/combo/bo/JointAcquisitionFactory;
+	public final fun getOptimizer ()Lcom/eignex/combo/bo/JointAcquisitionOptimizer;
+	public fun select (Lcom/eignex/combo/bo/StudySnapshot;ILcom/eignex/combo/decisions/Context;Lcom/eignex/combo/bo/BatchSelector;)Lcom/eignex/combo/bo/ProposalBatch;
+}
+
+public final class com/eignex/combo/bo/JointCandidateSelection {
+	public fun <init> (Ljava/util/List;Lcom/eignex/combo/shared/WitnessTermination;I)V
+	public final fun getEvaluations ()I
+	public final fun getSamples ()Ljava/util/List;
+	public final fun getTermination ()Lcom/eignex/combo/shared/WitnessTermination;
+}
+
+public final class com/eignex/combo/bo/JointExpectedImprovement : com/eignex/combo/bo/JointAcquisitionFactory {
+	public fun <init> ()V
+	public fun <init> (ID)V
+	public synthetic fun <init> (IDILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lcom/eignex/combo/bo/JointNormalSampling;ID)V
+	public synthetic fun <init> (Lcom/eignex/combo/bo/JointNormalSampling;IDILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun create (Lcom/eignex/combo/bo/JointAcquisitionContext;Lkotlin/random/Random;)Lcom/eignex/combo/bo/JointAcquisition;
+	public final fun getMargin ()D
+	public final fun getSamples ()I
+	public final fun getSampling ()Lcom/eignex/combo/bo/JointNormalSampling;
+}
+
+public final class com/eignex/combo/bo/JointLocalAndRandomSearch : com/eignex/combo/bo/JointAcquisitionOptimizer {
+	public fun <init> (Lcom/eignex/combo/decisions/FeatureEncoder;Lcom/eignex/combo/shared/WitnessSearch;IIIILcom/eignex/combo/bo/LocalSearchPolicy;)V
+	public synthetic fun <init> (Lcom/eignex/combo/decisions/FeatureEncoder;Lcom/eignex/combo/shared/WitnessSearch;IIIILcom/eignex/combo/bo/LocalSearchPolicy;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getCandidateCount ()I
+	public final fun getLocalPolicy ()Lcom/eignex/combo/bo/LocalSearchPolicy;
+	public final fun getLocalSteps ()I
+	public final fun getNeighbors ()I
+	public final fun getPasses ()I
+	public final fun getProjection ()Lcom/eignex/combo/decisions/FeatureEncoder;
+	public final fun getWitnesses ()Lcom/eignex/combo/shared/WitnessSearch;
+	public fun maximize (Lcom/eignex/combo/bo/JointAcquisition;Lcom/eignex/combo/bo/AcquisitionRequest;ILkotlin/random/Random;)Lcom/eignex/combo/bo/JointCandidateSelection;
+}
+
+public final class com/eignex/combo/bo/JointLogExpectedImprovement : com/eignex/combo/bo/JointAcquisitionFactory {
+	public fun <init> ()V
+	public fun <init> (IDDD)V
+	public synthetic fun <init> (IDDDILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lcom/eignex/combo/bo/JointNormalSampling;IDDD)V
+	public synthetic fun <init> (Lcom/eignex/combo/bo/JointNormalSampling;IDDDILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun create (Lcom/eignex/combo/bo/JointAcquisitionContext;Lkotlin/random/Random;)Lcom/eignex/combo/bo/JointAcquisition;
+	public final fun getBatchTemperature ()D
+	public final fun getMargin ()D
+	public final fun getSamples ()I
+	public final fun getSampling ()Lcom/eignex/combo/bo/JointNormalSampling;
+	public final fun getTemperature ()D
+}
+
+public final class com/eignex/combo/bo/JointLogNoisyExpectedImprovement : com/eignex/combo/bo/JointAcquisitionFactory {
+	public fun <init> ()V
+	public fun <init> (IDDD)V
+	public synthetic fun <init> (IDDDILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lcom/eignex/combo/bo/JointNormalSampling;IDDD)V
+	public synthetic fun <init> (Lcom/eignex/combo/bo/JointNormalSampling;IDDDILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun create (Lcom/eignex/combo/bo/JointAcquisitionContext;Lkotlin/random/Random;)Lcom/eignex/combo/bo/JointAcquisition;
+	public final fun getBatchTemperature ()D
+	public final fun getMargin ()D
+	public final fun getSamples ()I
+	public final fun getSampling ()Lcom/eignex/combo/bo/JointNormalSampling;
+	public final fun getTemperature ()D
+}
+
+public final class com/eignex/combo/bo/JointNoisyExpectedImprovement : com/eignex/combo/bo/JointAcquisitionFactory {
+	public fun <init> ()V
+	public fun <init> (ID)V
+	public synthetic fun <init> (IDILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lcom/eignex/combo/bo/JointNormalSampling;ID)V
+	public synthetic fun <init> (Lcom/eignex/combo/bo/JointNormalSampling;IDILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun create (Lcom/eignex/combo/bo/JointAcquisitionContext;Lkotlin/random/Random;)Lcom/eignex/combo/bo/JointAcquisition;
+	public final fun getMargin ()D
+	public final fun getSamples ()I
+	public final fun getSampling ()Lcom/eignex/combo/bo/JointNormalSampling;
+}
+
+public final class com/eignex/combo/bo/JointNormalSampling : java/lang/Enum {
+	public static final field Antithetic Lcom/eignex/combo/bo/JointNormalSampling;
+	public static final field ScrambledSobol Lcom/eignex/combo/bo/JointNormalSampling;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/eignex/combo/bo/JointNormalSampling;
+	public static fun values ()[Lcom/eignex/combo/bo/JointNormalSampling;
+}
+
+public final class com/eignex/combo/bo/JointPoolSearch : com/eignex/combo/bo/JointAcquisitionOptimizer {
+	public fun <init> (Lcom/eignex/combo/decisions/FeatureEncoder;Lcom/eignex/combo/shared/WitnessSearch;III)V
+	public synthetic fun <init> (Lcom/eignex/combo/decisions/FeatureEncoder;Lcom/eignex/combo/shared/WitnessSearch;IIIILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getCandidateCount ()I
+	public final fun getPasses ()I
+	public final fun getProjection ()Lcom/eignex/combo/decisions/FeatureEncoder;
+	public final fun getStarts ()I
+	public final fun getWitnesses ()Lcom/eignex/combo/shared/WitnessSearch;
+	public fun maximize (Lcom/eignex/combo/bo/JointAcquisition;Lcom/eignex/combo/bo/AcquisitionRequest;ILkotlin/random/Random;)Lcom/eignex/combo/bo/JointCandidateSelection;
+}
+
+public abstract interface class com/eignex/combo/bo/JointPosterior {
+	public abstract fun getBaseline ()Lcom/eignex/combo/bo/JointPredictiveMoments;
+	public abstract fun predict (Lcom/eignex/koblas/DenseMatrix;)Lcom/eignex/combo/bo/JointPosteriorPrediction;
+}
+
+public final class com/eignex/combo/bo/JointPosteriorKt {
+	public static final fun jointPosterior (Lcom/eignex/combo/bo/FittedSurrogate;Lcom/eignex/koblas/DenseMatrix;)Lcom/eignex/combo/bo/JointPosterior;
+	public static final fun logJointPosterior (Lcom/eignex/combo/bo/LogResponseSurrogate;Lcom/eignex/koblas/DenseMatrix;)Lcom/eignex/combo/bo/JointPosterior;
+}
+
+public final class com/eignex/combo/bo/JointPosteriorPrediction {
+	public fun <init> (Lcom/eignex/combo/bo/JointPredictiveMoments;Lcom/eignex/koblas/DenseMatrix;)V
+	public final fun getCandidates ()Lcom/eignex/combo/bo/JointPredictiveMoments;
+	public final fun getCrossCovariance ()Lcom/eignex/koblas/DenseMatrix;
+}
+
+public abstract interface class com/eignex/combo/bo/JointPosteriorSurrogate : com/eignex/combo/bo/FittedSurrogate {
+	public abstract fun jointPosterior (Lcom/eignex/koblas/DenseMatrix;)Lcom/eignex/combo/bo/JointPosterior;
+}
+
+public final class com/eignex/combo/bo/JointPosteriorSurrogate$DefaultImpls {
+	public static fun predictJoint (Lcom/eignex/combo/bo/JointPosteriorSurrogate;Lcom/eignex/koblas/DenseMatrix;)Lcom/eignex/combo/bo/JointPredictiveMoments;
 }
 
 public final class com/eignex/combo/bo/JointPredictiveMoments {
@@ -879,6 +1035,15 @@ public final class com/eignex/combo/bo/LocalSearchPolicy {
 	public final fun getStarts ()I
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class com/eignex/combo/bo/LogJointPosteriorSurrogate : com/eignex/combo/bo/JointPosteriorSurrogate, com/eignex/combo/bo/LogResponseSurrogate {
+	public abstract fun logJointPosterior (Lcom/eignex/koblas/DenseMatrix;)Lcom/eignex/combo/bo/JointPosterior;
+}
+
+public final class com/eignex/combo/bo/LogJointPosteriorSurrogate$DefaultImpls {
+	public static fun predictJoint (Lcom/eignex/combo/bo/LogJointPosteriorSurrogate;Lcom/eignex/koblas/DenseMatrix;)Lcom/eignex/combo/bo/JointPredictiveMoments;
+	public static fun predictLogJoint (Lcom/eignex/combo/bo/LogJointPosteriorSurrogate;Lcom/eignex/koblas/DenseMatrix;)Lcom/eignex/combo/bo/JointPredictiveMoments;
 }
 
 public abstract interface class com/eignex/combo/bo/LogResponseSurrogate : com/eignex/combo/bo/FittedSurrogate {
@@ -1074,6 +1239,7 @@ public final class com/eignex/combo/bo/RacingOptimizer {
 	public final fun ask (I)Lcom/eignex/combo/bo/EvaluationBatch;
 	public static synthetic fun ask$default (Lcom/eignex/combo/bo/RacingOptimizer;IILjava/lang/Object;)Lcom/eignex/combo/bo/EvaluationBatch;
 	public final fun beginConfirmation (Ljava/util/List;I)V
+	public final fun beginConfirmation (Ljava/util/List;Ljava/util/List;)V
 	public static synthetic fun beginConfirmation$default (Lcom/eignex/combo/bo/RacingOptimizer;Ljava/util/List;IILjava/lang/Object;)V
 	public final fun cancel (JLjava/lang/String;)V
 	public static synthetic fun cancel$default (Lcom/eignex/combo/bo/RacingOptimizer;JLjava/lang/String;ILjava/lang/Object;)V
@@ -1422,12 +1588,28 @@ public final class com/eignex/combo/bo/model/ForestMoments {
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class com/eignex/combo/bo/model/GaussianHyperparameterSearch : java/lang/Enum {
+	public static final field Coordinate Lcom/eignex/combo/bo/model/GaussianHyperparameterSearch;
+	public static final field Multistart Lcom/eignex/combo/bo/model/GaussianHyperparameterSearch;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/eignex/combo/bo/model/GaussianHyperparameterSearch;
+	public static fun values ()[Lcom/eignex/combo/bo/model/GaussianHyperparameterSearch;
+}
+
 public final class com/eignex/combo/bo/model/GaussianKernel : java/lang/Enum {
 	public static final field Matern52 Lcom/eignex/combo/bo/model/GaussianKernel;
 	public static final field Rbf Lcom/eignex/combo/bo/model/GaussianKernel;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public static fun valueOf (Ljava/lang/String;)Lcom/eignex/combo/bo/model/GaussianKernel;
 	public static fun values ()[Lcom/eignex/combo/bo/model/GaussianKernel;
+}
+
+public final class com/eignex/combo/bo/model/GaussianMeanEstimation : java/lang/Enum {
+	public static final field CovarianceWeighted Lcom/eignex/combo/bo/model/GaussianMeanEstimation;
+	public static final field Empirical Lcom/eignex/combo/bo/model/GaussianMeanEstimation;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/eignex/combo/bo/model/GaussianMeanEstimation;
+	public static fun values ()[Lcom/eignex/combo/bo/model/GaussianMeanEstimation;
 }
 
 public final class com/eignex/combo/bo/model/GaussianProcessConfig {
@@ -1461,6 +1643,25 @@ public final class com/eignex/combo/bo/model/GaussianProcessConfig {
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class com/eignex/combo/bo/model/GaussianProcessFitting {
+	public fun <init> ()V
+	public fun <init> (Lcom/eignex/combo/bo/model/GaussianMeanEstimation;Lcom/eignex/combo/bo/model/GaussianProcessRegularization;Lcom/eignex/combo/bo/model/GaussianHyperparameterSearch;I)V
+	public synthetic fun <init> (Lcom/eignex/combo/bo/model/GaussianMeanEstimation;Lcom/eignex/combo/bo/model/GaussianProcessRegularization;Lcom/eignex/combo/bo/model/GaussianHyperparameterSearch;IILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lcom/eignex/combo/bo/model/GaussianMeanEstimation;
+	public final fun component2 ()Lcom/eignex/combo/bo/model/GaussianProcessRegularization;
+	public final fun component3 ()Lcom/eignex/combo/bo/model/GaussianHyperparameterSearch;
+	public final fun component4 ()I
+	public final fun copy (Lcom/eignex/combo/bo/model/GaussianMeanEstimation;Lcom/eignex/combo/bo/model/GaussianProcessRegularization;Lcom/eignex/combo/bo/model/GaussianHyperparameterSearch;I)Lcom/eignex/combo/bo/model/GaussianProcessFitting;
+	public static synthetic fun copy$default (Lcom/eignex/combo/bo/model/GaussianProcessFitting;Lcom/eignex/combo/bo/model/GaussianMeanEstimation;Lcom/eignex/combo/bo/model/GaussianProcessRegularization;Lcom/eignex/combo/bo/model/GaussianHyperparameterSearch;IILjava/lang/Object;)Lcom/eignex/combo/bo/model/GaussianProcessFitting;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getMeanEstimation ()Lcom/eignex/combo/bo/model/GaussianMeanEstimation;
+	public final fun getRegularization ()Lcom/eignex/combo/bo/model/GaussianProcessRegularization;
+	public final fun getSearch ()Lcom/eignex/combo/bo/model/GaussianHyperparameterSearch;
+	public final fun getStarts ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class com/eignex/combo/bo/model/GaussianProcessParameters {
 	public fun <init> (Ljava/util/List;DDD)V
 	public final fun component1 ()Ljava/util/List;
@@ -1473,6 +1674,29 @@ public final class com/eignex/combo/bo/model/GaussianProcessParameters {
 	public final fun getLengthScales ()Ljava/util/List;
 	public final fun getMean ()D
 	public final fun getNoiseVariance ()D
+	public final fun getSignalVariance ()D
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/eignex/combo/bo/model/GaussianProcessRegularization {
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/Double;DDDLjava/lang/Double;D)V
+	public synthetic fun <init> (Ljava/lang/Double;DDDLjava/lang/Double;DILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/Double;
+	public final fun component2 ()D
+	public final fun component3 ()D
+	public final fun component4 ()D
+	public final fun component5 ()Ljava/lang/Double;
+	public final fun component6 ()D
+	public final fun copy (Ljava/lang/Double;DDDLjava/lang/Double;D)Lcom/eignex/combo/bo/model/GaussianProcessRegularization;
+	public static synthetic fun copy$default (Lcom/eignex/combo/bo/model/GaussianProcessRegularization;Ljava/lang/Double;DDDLjava/lang/Double;DILjava/lang/Object;)Lcom/eignex/combo/bo/model/GaussianProcessRegularization;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getLengthScale ()Ljava/lang/Double;
+	public final fun getLengthScaleLogDeviation ()D
+	public final fun getNoiseLogDeviation ()D
+	public final fun getNoiseVariance ()Ljava/lang/Double;
+	public final fun getSignalLogDeviation ()D
 	public final fun getSignalVariance ()D
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;

@@ -82,7 +82,32 @@ internal class ResponseTransform(val center: Double, val scale: Double, val loga
             DenseVector.wrap(covariance.values).scale(scale * scale)
             return JointPredictiveMoments(decode(joint.means), covariance)
         }
-        val raw = object : FittedSurrogate {
+        fun gaussianJointPosterior(baseline: DenseMatrix): JointPosterior? {
+            val posterior = fitted.jointPosterior(baseline) ?: return null
+            fun decoded(moments: JointPredictiveMoments): JointPredictiveMoments = JointPredictiveMoments(
+                decode(moments.means),
+                DenseMatrix.wrap(
+                    moments.covariance.rows,
+                    moments.covariance.cols,
+                    moments.covariance.values.copyOf(),
+                ).also { DenseVector.wrap(it.values).scale(scale * scale) },
+            )
+            return object : JointPosterior {
+                override val baseline = decoded(posterior.baseline)
+                override fun predict(features: DenseMatrix): JointPosteriorPrediction {
+                    val result = posterior.predict(features)
+                    return JointPosteriorPrediction(
+                        decoded(result.candidates),
+                        DenseMatrix.wrap(
+                            result.crossCovariance.rows,
+                            result.crossCovariance.cols,
+                            result.crossCovariance.values.copyOf(),
+                        ).also { DenseVector.wrap(it.values).scale(scale * scale) },
+                    )
+                }
+            }
+        }
+        val raw = object : JointPosteriorSurrogate {
             override val uncertaintyKind get() = fitted.uncertaintyKind
             override fun predict(features: DenseMatrix): PredictiveMoments {
                 val prediction = moments(features)
@@ -114,6 +139,8 @@ internal class ResponseTransform(val center: Double, val scale: Double, val loga
                 }
                 return JointPredictiveMoments(DenseVector.of(means), result)
             }
+            override fun jointPosterior(baseline: DenseMatrix): JointPosterior? =
+                if (logarithmic) bindJointPosterior(baseline, ::predictJoint) else gaussianJointPosterior(baseline)
             override fun drawFunction(random: Random): SampledFunction {
                 val draw = fitted.drawFunction(random)
                 return SampledFunction { features ->
@@ -123,9 +150,11 @@ internal class ResponseTransform(val center: Double, val scale: Double, val loga
             }
         }
         val wrapped = if (logarithmic) {
-            object : LogResponseSurrogate, FittedSurrogate by raw {
+            object : LogJointPosteriorSurrogate, FittedSurrogate by raw {
+                override fun jointPosterior(baseline: DenseMatrix) = raw.jointPosterior(baseline)
                 override fun predictLog(features: DenseMatrix) = moments(features)
                 override fun predictLogJoint(features: DenseMatrix) = jointMoments(features)
+                override fun logJointPosterior(baseline: DenseMatrix) = gaussianJointPosterior(baseline)
             }
         } else {
             raw
@@ -144,13 +173,16 @@ internal class ResponseTransform(val center: Double, val scale: Double, val loga
             ),
         )
         return if (wrapped is LogResponseSurrogate) {
-            object : ConditionableSurrogate, LogResponseSurrogate, FittedSurrogate by wrapped {
+            object : ConditionableSurrogate, LogJointPosteriorSurrogate, FittedSurrogate by wrapped {
+                override fun jointPosterior(baseline: DenseMatrix) = wrapped.jointPosterior(baseline)
                 override fun predictLog(features: DenseMatrix) = wrapped.predictLog(features)
                 override fun predictLogJoint(features: DenseMatrix) = wrapped.predictLogJoint(features)
+                override fun logJointPosterior(baseline: DenseMatrix) = wrapped.logJointPosterior(baseline)
                 override fun condition(temporary: TrainingData) = conditioned(temporary)
             }
         } else {
-            object : ConditionableSurrogate, FittedSurrogate by wrapped {
+            object : ConditionableSurrogate, JointPosteriorSurrogate, FittedSurrogate by wrapped {
+                override fun jointPosterior(baseline: DenseMatrix) = wrapped.jointPosterior(baseline)
                 override fun condition(temporary: TrainingData) = conditioned(temporary)
             }
         }

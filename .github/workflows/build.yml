@@ -5,38 +5,51 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        default: ''
+    secrets:
+      GRADLE_ENCRYPTION_KEY:
+        required: false
+      CODECOV_TOKEN:
+        required: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: build-${{ github.ref }}
+  group: build-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   check:
-    name: Check library and server
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          ref: ${{ inputs.ref || github.sha }}
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 25
-      - uses: gradle/actions/setup-gradle@v6
-      - name: Check and package
-        run: ./gradlew check lintDocs :server:installDist
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: false
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+      - run: ./gradlew check lintDocs :server:installDist
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: test-reports
           path: |
-            combo/build/reports/tests/
             combo/build/test-results/
-            server/build/reports/tests/
+            combo/build/reports/tests/
             server/build/test-results/
+            server/build/reports/tests/
           if-no-files-found: ignore

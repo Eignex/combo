@@ -28,7 +28,7 @@ data class SuggestionTrace(
     val seed: Long,
     /** Full model fits performed in this round, including temporary bootstrap/fantasy fits. */
     val modelFits: Long,
-    /** Acquisition evaluations, excluding expensive external objective evaluations. */
+    /** Acquisition objective evaluations (individual points or joint sets), excluding external evaluations. */
     val acquisitionEvaluations: Int,
 )
 
@@ -162,6 +162,45 @@ open class BayesianOptimizer(
         val selector = object : BatchSelector {
             override fun predict(sample: BanditSample, context: Context): Double =
                 base.mean(projection.encode(sample, context))
+            override fun selectJoint(
+                count: Int,
+                acquisition: JointAcquisitionFactory,
+                optimizer: JointAcquisitionOptimizer,
+            ): ProposalBatch {
+                require(!bootstrapThompson) { "joint batches do not support bootstrap Thompson sampling" }
+                if (explore || scoped.isEmpty()) {
+                    return SequentialBatchPolicy().select(snapshot, count, context, this)
+                }
+                val pending = snapshot.pending.filter {
+                    space.matches(it.sample.sample, space.assumptionsFor(context)) && candidates.valid(it.sample.sample)
+                }
+                val completedRows = scoped.distinctBy { it.sample.sample.assignmentKey() }
+                val objective = acquisition.create(
+                    JointAcquisitionContext(
+                        base,
+                        baseline,
+                        outcome,
+                        featureRows(
+                            completedRows.map { projection.encode(it.sample, context) },
+                            projection.featureSize,
+                        ),
+                        featureRows(pending.map { projection.encode(it.sample, context) }, projection.featureSize),
+                    ),
+                    random,
+                )
+                val selected = optimizer.maximize(
+                    objective,
+                    AcquisitionRequest(
+                        context,
+                        snapshot.pending.map { it.sample.sample } + completed,
+                        scoped.map { it.sample.sample },
+                    ),
+                    count,
+                    random,
+                )
+                evaluations += selected.evaluations
+                return ProposalBatch(selected.samples, selected.termination)
+            }
             override fun select(
                 temporary: List<Observation>,
                 excluded: List<com.eignex.klause.solver.Sample>,
@@ -240,18 +279,28 @@ open class BayesianOptimizer(
     }
 
     /** Recommend a feasible configuration by posterior mean, which may not have been evaluated. */
-    fun recommendOrThrow(context: Context = Context.Empty): BanditSample {
-        val snapshot = study.beginRound()
+    fun recommendOrThrow(context: Context = Context.Empty): BanditSample =
+        recommendOrThrow(acquisitionOptimizer, context)
+
+    /**
+     * Recommend using an independent search budget over the cached posterior mean.
+     * Reads a snapshot without advancing suggestion randomness or reserving an evaluation.
+     *
+     * @param search Feasible maximizer used only for recommendation.
+     * @param context Hard context shared by the recommendation candidates.
+     */
+    fun recommendOrThrow(search: AcquisitionOptimizer, context: Context = Context.Empty): BanditSample {
+        val snapshot = study.snapshot()
         val model = learning.model(snapshot.history)
         val acquisition = PosteriorMean.create(AcquisitionContext(model, null, outcome), Random(randomSeed))
-        return acquisitionOptimizer.maximize(
+        return search.maximize(
             acquisition,
             AcquisitionRequest(
                 context,
                 emptyList(),
                 snapshot.history.observations.map { it.sample.sample },
             ),
-            Random(randomSeed.toLong() xor snapshot.round),
+            Random(randomSeed.toLong() xor snapshot.history.revision),
         ).sample
             ?: throw NoFeasibleSampleException("recommendation search returned no feasible witness")
     }
@@ -268,6 +317,8 @@ open class BayesianOptimizer(
     } catch (_: NoFeasibleSampleException) {
         null
     }
+
+    internal fun fittedModel(): FittedSurrogate = learning.model(store.snapshot())
 
     /** Best actually evaluated configuration; noisy observations are aggregated by statistical weight. */
     fun bestObserved(context: Context = Context.Empty): ObservedBest? {

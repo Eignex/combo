@@ -145,3 +145,20 @@ frozen-history prediction/search diagnostics and equal-budget GP/EI, forest/EI, 
 random search. The [report](gp-comparison/report.md) archives fresh validation seeds,
 paired outcomes, and evaluation traces. `-Pgp.mode=frozen` or `-Pgp.mode=optimize`
 selects one stage; `-Pgp.seeds=91` is an excluded development smoke run.
+
+## Noisy recommendations
+
+```sh
+./gradlew refineNoisyBo
+./gradlew auditLegacyNoisyBo
+python3 scripts/summarize_noisy_bo.py
+```
+
+The [noisy refinement report](noisy-bo/report.md) separates model error, latent versus
+observation coverage, finite-pool recommendation-search gaps, and fresh confirmation.
+Validation uses seeds 1301–1312, budgets 32/64, and Gaussian noise SD .03/.1.
+Development seeds 911–914 are excluded. The legacy audit refits the archived 64-call
+histories separately; it does not replay the earlier solver population or tune defaults.
+
+Protocol-discovery seeds 1001–1012 are archived separately with the original single-evaluation
+initial-design allowance; reproduce that protocol using `-Pnoisy.design=legacy` and explicit seeds.

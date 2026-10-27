@@ -304,7 +304,7 @@ The default batch policy selects sequentially with pending assignments excluded.
 constructing a batch. Conditionable surrogates can condition on those observations;
 other surrogates refit temporary datasets. Neither path writes fantasies into the
 observation store. Bootstrap Thompson fits a fresh history-bootstrap model per slot.
-Joint batch EI is not implemented. Streaming learners retain `choose/update`.
+Opt-in joint batch acquisition is described below. Streaming learners retain `choose/update`.
 
 Bayesian optimizers exclude completed assignments by default for deterministic outcomes.
 `RepeatPolicy.NoisyOnly` permits replicates when `OutcomeSpec.noise` is `Noisy`;
@@ -356,6 +356,38 @@ for rows whose variance is unspecified. Supplied row variances remain fixed. Set
 `hyperparameterTrials = 0` to fix kernel/noise parameters. Mean and variance configuration
 uses training-response units, after any requested standardization or response transform.
 
+Optional fitting policies are configured separately, preserving the default empirical mean and
+unregularized coordinate search:
+
+```kotlin
+import com.eignex.combo.bo.model.GaussianHyperparameterSearch
+import com.eignex.combo.bo.model.GaussianMeanEstimation
+import com.eignex.combo.bo.model.GaussianProcessFitting
+import com.eignex.combo.bo.model.GaussianProcessRegularization
+
+val surrogate = GaussianProcessSurrogate(
+    fitting = GaussianProcessFitting(
+        meanEstimation = GaussianMeanEstimation.CovarianceWeighted,
+        regularization = GaussianProcessRegularization(),
+        search = GaussianHyperparameterSearch.Multistart,
+        starts = 4,
+    ),
+    config = GaussianProcessConfig(hyperparameterTrials = 96),
+)
+```
+
+Covariance-weighted fitting profiles a constant mean at every covariance candidate using
+Kumulant's generalized least-squares estimator. An explicit `mean` overrides estimation;
+conditioning freezes the estimated mean. The regularizer applies Gaussian penalties to log
+covariance parameters, with a dimension-scaled length-scale center. It is a density in log
+coordinates, with constants omitted. The score is exposed separately as `logFitScore`;
+`logMarginalLikelihood` always reports the likelihood alone. Known row noise is never penalized.
+Normalize inputs and standardize responses when using the default regularizer centers.
+Multistart search divides the same total candidate budget among seeded starts, including restart
+points: fitting evaluates one initial covariance plus `hyperparameterTrials` candidates.
+Smaller per-start budgets can weaken refinement. These policies remain opt-in; the
+[fitting refinement report](benchmarks/gp-fitting/report.md) records gains and regressions.
+
 Predictions expose latent function uncertainty conditional on fitted parameters, excluding
 observation noise and uncertainty about the fitted parameters themselves. Numerical jitter
 is separate from noise and reported on `FittedGaussianProcess`. Unit statistical weights
@@ -369,11 +401,104 @@ Conditioning freezes fitted parameters and re-factorizes augmented data. Functio
 sample latent points jointly and cache their values across repeated, reordered, and later
 queries. First visits to unseen coordinates determine seeded random assignment order;
 a draw retains those points and its conditioning cost grows with them. Fantasies remain
-outside recorded history. Joint batch EI remains a later acquisition improvement.
+outside recorded history. Joint acquisition uses joint moments directly rather than growing a function draw.
 
 See the [GP comparison report](benchmarks/gp-comparison/report.md) for frozen-history
 model diagnostics, acquisition-search checks, and equal-budget GP/EI, forest/EI, and
 random-search experiments. These comparisons use continuous synthetic spaces.
+
+## Joint batch acquisition
+
+`JointBatchPolicy` optimizes a set of configurations using their joint latent posterior.
+`JointExpectedImprovement` (q-EI) uses a fixed incumbent; `JointNoisyExpectedImprovement`
+(q-NEI) jointly samples completed configurations and candidates, integrating uncertainty
+about the latent incumbent. Pending points enter that sampled baseline, so only the
+additional improvement from the new batch contributes. Neither acquisition invents
+pending outcomes or adds observation noise to function draws. This follows the joint
+Monte Carlo formulation in [BoTorch's acquisition interface](https://botorch.readthedocs.io/en/stable/acquisition.html).
+
+```kotlin
+val projection = SearchTransform(space)
+val jointSearch = JointLocalAndRandomSearch(projection, witnesses, candidateCount = 32)
+val optimizer = BayesianOptimizer(
+    projection,
+    GaussianProcessSurrogate(),
+    initialDesign = LatinHypercubeInitialDesign(space, evaluationBudget = 100, seed = 42),
+    batchPolicy = JointBatchPolicy(JointLogNoisyExpectedImprovement(samples = 256), jointSearch),
+    outcome = OutcomeSpec(maximize = false, noise = ObservationNoise.Noisy, standardize = true),
+    randomSeed = 42,
+)
+val batch = optimizer.suggest(4)
+// Complete each reserved trial once; results can arrive in any order.
+```
+
+One frozen snapshot and fitted model serve the entire request. Baseline and pending
+coordinates respect the requested hard context, while all pending assignments remain
+excluded from proposals. Study validates and reserves the full batch together. Initial
+exploration and contexts without a completed baseline use ordinary feasible proposals.
+Joint moments are required after warmup; marginal-only forest models fail explicitly.
+Bootstrap Thompson sampling is a separate incompatible strategy.
+
+`JointPoolSearch` generates a feasible pool, starts several random sets, and replaces
+one member at a time while scoring the entire set. It enforces distinct assignments,
+context, exclusions, and Klause feasibility, and can return partial batches on exhaustion.
+It searches within its pool. `JointLocalAndRandomSearch` additionally refines every
+start with checked normalized neighbors and bounded solver repair, so it can leave
+the initial pool. Both searches have bounded budgets and no global-optimum guarantee.
+The suggestion trace
+counts whole-set acquisition evaluations for joint search; these are more expensive than
+single-point scores and should not be compared as equal computational units.
+
+All joint acquisitions approximate joint moments as Gaussian, or sample Gaussian log-response
+moments before exponentiating for a log-transformed outcome. Fixed normal base samples
+make each bound objective reproducible; candidate row permutations and duplicates
+do not change its value. Kumulant supplies normal draws, summaries, and Cholesky factors;
+Koblas supplies matrix products. Near-singular joint covariance receives bounded relative
+jitter up to `1e-8` only after factorization fails. Exactly deterministic coordinates remain
+deterministic. Materially indefinite matrices fail rather than dropping correlations.
+
+`JointLogExpectedImprovement` and `JointLogNoisyExpectedImprovement` implement smoothed
+q-LogEI/q-LogNEI. They evaluate improvement directly in log units, with fat-tailed
+positive-part and batch-maximum approximations from [Ament et al.](https://arxiv.org/abs/2310.20708).
+Taking the logarithm of an already-zero EI cannot recover these scores. The positive-part
+`temperature` uses original response units; `batchTemperature` uses log-improvement units.
+Both must be positive. Candidate sets containing only baseline coordinates have zero
+incremental utility (`-Infinity` in log units), which joint search accepts as a valid score.
+These acquisitions are approximate, and temperature and sample count affect the approximation.
+
+Antithetic sampling remains the default. Select Kumulant's scrambled Sobol normal points explicitly:
+
+```kotlin
+val acquisition = JointLogNoisyExpectedImprovement(
+    sampling = JointNormalSampling.ScrambledSobol,
+    samples = 1024,
+)
+```
+
+The same sampling option is available on all four joint improvement factories. Sobol requires
+power-of-two draw counts and supports at most 1,024 latent baseline-plus-candidate coordinates.
+The [sampling study](benchmarks/gp-qmc/report.md) finds modest ranking gains at larger budgets
+and mixed whole-loop results, so sampler and draw-count defaults remain unchanged.
+
+Each bound acquisition caches its baseline posterior work, Cholesky factor, latent draws,
+and improvement thresholds. Candidate sets use triangular solves and a conditional covariance
+factor of order at most the novel batch size. The baseline factor still costs cubic time once
+per round; there is no baseline pruning. The `jointPosterior(baseline)` extension exposes baseline moments and candidate cross-covariance.
+The GP advertises `JointPosteriorSurrogate` and caches training-to-baseline solves; models and
+decorators without that explicit capability use their own full joint predictions.
+`logJointPosterior` and `LogJointPosteriorSurrogate` preserve Gaussian log-response coordinates
+through standardization. Opting into a cache requires keeping it consistent with the model's
+joint predictions. Bound posterior results are read-only by contract.
+
+GP conditioning, acquisition definitions, and feasible search stay in Combo. Kumulant owns
+normal sampling, statistical summaries, and factorization; Koblas supplies matrix products.
+The Sobol sequence is a general integration primitive that Kumulant exposes independently of BO.
+
+q-NEI is an improvement criterion, not an information-gain policy for repeated measurements.
+All joint policies remain opt-in; sequential batching and model defaults are unchanged.
+See the [original joint-batch experiment](benchmarks/joint-batch/report.md) and the
+[GP refinement cycle](benchmarks/gp-refinement/report.md) for paired results, numerical
+reference checks, factor-cache measurements, and limitations.
 
 ## SMAC-inspired profile and paired racing
 
@@ -612,5 +737,35 @@ tasks already supply these flags.
   Thompson-sampling surrogate.
 - **Additional history-based surrogates**: extend the shared store/refit lifecycle
   to batch linear models and additional acquisition functions.
-- **Joint batching and richer kernels**: joint batch acquisitions and mixed-type GP
-  covariance, followed by instance features, censored observations, and multi-fidelity scheduling.
+- **Scalable joint batching and richer kernels**: baseline pruning, additional sampling
+  strategies, and mixed-type GP covariance, followed by instance features,
+  censored observations, and multi-fidelity scheduling.
+
+### Noisy recommendations
+
+`recommendOrThrow()` reads a frozen history without advancing suggestion randomness or
+reserving trials. Repeated calls on unchanged history use the same recommendation seed.
+Its model fit is cached; configuring a recommendation search separately lets callers
+increase computational effort without increasing the external evaluation budget:
+
+```kotlin
+val point = optimizer.recommendOrThrow(
+    LocalAndRandomSearch(projection, witnesses, candidateCount = 1024, maxAttempts = 2048),
+)
+```
+
+Fresh confirmation can use explicitly selected evaluated configuration IDs. For example,
+rank `race.configurations` by the optimizer's posterior mean, select a frozen shortlist,
+and call `race.beginConfirmation(freshKeys, configurationIds)`. Every selected ID must
+have a successful measurement; keys must be fresh and enough worker budget must remain.
+The winner uses only confirmation measurements. This is opt-in: our
+[noisy refinement study](benchmarks/noisy-bo/report.md) finds substantial opportunity
+cost at small budgets, and additional recommendation search does not consistently
+improve true regret. GP, forest, racing, and search defaults remain unchanged.
+
+The [GP follow-up diagnostics](benchmarks/gp-followups/report.md) separate fixed-history
+recommendation search from model error and compare joint acquisition sampling at 256,
+1,024, and 4,096 draws. Larger searches help the noiseless quadratic but do not consistently
+fix noisy recommendations. Joint q=4 rankings remain sensitive to the sampling budget;
+increasing `samples` trades computation for a more stable finite-sample estimate, without
+a convergence guarantee. Acquisition, model-fitting, and recommendation budgets remain independent.

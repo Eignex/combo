@@ -2,7 +2,6 @@ package com.eignex.server
 
 import com.eignex.combo.model.ModelDefinition
 import com.eignex.combo.model.ModelQuery
-
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive

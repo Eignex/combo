@@ -20,55 +20,9 @@ class ModelRoutesTest {
         val model = client.model("""
             {
               "space": {
-                "spaces": {
-                  "child": {
-                    "variables": {
-                      "x": {
-                        "int": [
-                          1,
-                          4
-                        ]
-                      },
-                      "y": {
-                        "int": [
-                          1,
-                          4
-                        ]
-                      }
-                    },
-                    "constraints": {
-                      "product": {
-                        "eq": [
-                          {
-                            "mul": [
-                              {
-                                "ref": "x"
-                              },
-                              {
-                                "ref": "y"
-                              }
-                            ]
-                          },
-                          4
-                        ]
-                      },
-                      "distinct": {
-                        "allDifferent": [
-                          {
-                            "ref": "x"
-                          },
-                          {
-                            "ref": "y"
-                          }
-                        ]
-                      }
-                    }
-                  }
-                }
+                "spaces": {"child":{"variables":{"x":{"int":[1,4]},"y":{"int":[1,4]}},"constraints":{"product":{"eq":[{"mul":[{"ref":"x"},{"ref":"y"}]},4]},"distinct":{"allDifferent":[{"ref":"x"},{"ref":"y"}]}}}}
               },
-              "objective": {
-                "minimize": "child.x"
-              }
+              "objective": {"minimize":"child.x"}
             }
             """.trimIndent())
         val response = client.send("/v1/models/${model.id}/recommend", "{}")
@@ -86,32 +40,13 @@ class ModelRoutesTest {
         val response = client.send("/v1/models", """
             {
               "space": {
-                "variables": {
-                  "x": {
-                    "float": {
-                      "min": 0.0,
-                      "max": 1.0
-                    }
-                  }
-                },
-                "constraints": {
-                  "bound": {
-                    "floatLinear": {
-                      "coeffs": [
-                        1.0
-                      ],
-                      "varNames": [
-                        "x"
-                      ],
-                      "op": "LE",
-                      "bound": 0.5
-                    }
-                  }
-                }
+                "variables": {"x":{"float":{"min":0.0,"max":1.0}}},
+                "constraints": {"bound":{"floatLinear":{"coeffs":[1.0],"varNames":["x"],"op":"LE","bound":0.5}}}
               }
             }
             """.trimIndent())
         assertEquals(HttpStatusCode.BadRequest, response.status, response.bodyAsText())
+        assertTrue(response.objectBody().getValue("message").jsonPrimitive.content.contains("constraints on real variables"))
         assertEquals("[]", client.get("/v1/models").bodyAsText())
     }
 
@@ -121,48 +56,11 @@ class ModelRoutesTest {
         val model = client.model("""
             {
               "space": {
-                "variables": {
-                  "workers": {
-                    "int": [
-                      1,
-                      8
-                    ]
-                  }
-                },
-                "context": {
-                  "load": {
-                    "int": [
-                      1,
-                      8
-                    ]
-                  }
-                },
-                "constraints": {
-                  "constraint0": {
-                    "ge": [
-                      {
-                        "add": [
-                          {
-                            "ref": "workers"
-                          },
-                          {
-                            "mul": [
-                              -1,
-                              {
-                                "ref": "load"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      0
-                    ]
-                  }
-                }
+                "variables": {"workers":{"int":[1,8]}},
+                "context": {"load":{"int":[1,8]}},
+                "constraints": {"constraint0":{"ge":[{"add":[{"ref":"workers"},{"mul":[-1,{"ref":"load"}]}]},0]}}
               },
-              "objective": {
-                "minimize": "workers"
-              }
+              "objective": {"minimize":"workers"}
             }
             """.trimIndent())
         for (load in listOf(3, 6, 2)) {
@@ -185,54 +83,10 @@ class ModelRoutesTest {
         val model = client.model("""
             {
               "space": {
-                "variables": {
-                  "workers": {
-                    "int": [
-                      1,
-                      8
-                    ]
-                  },
-                  "cost": {
-                    "int": [
-                      0,
-                      20
-                    ]
-                  }
-                },
-                "constraints": {
-                  "constraint0": {
-                    "eq": [
-                      {
-                        "add": [
-                          {
-                            "ref": "cost"
-                          },
-                          {
-                            "mul": [
-                              -2,
-                              {
-                                "ref": "workers"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      0
-                    ]
-                  },
-                  "constraint1": {
-                    "ge": [
-                      {
-                        "ref": "workers"
-                      },
-                      3
-                    ]
-                  }
-                }
+                "variables": {"workers":{"int":[1,8]},"cost":{"int":[0,20]}},
+                "constraints": {"constraint0":{"eq":[{"add":[{"ref":"cost"},{"mul":[-2,{"ref":"workers"}]}]},0]},"constraint1":{"ge":[{"ref":"workers"},3]}}
               },
-              "objective": {
-                "minimize": "cost"
-              }
+              "objective": {"minimize":"cost"}
             }
             """.trimIndent())
         val response = client.send("/v1/models/${model.id}/recommend", "{}")
@@ -247,28 +101,10 @@ class ModelRoutesTest {
         val model = client.model("""
             {
               "space": {
-                "variables": {
-                  "workers": {
-                    "int": [
-                      1,
-                      8
-                    ]
-                  }
-                },
-                "constraints": {
-                  "constraint0": {
-                    "le": [
-                      {
-                        "ref": "workers"
-                      },
-                      4
-                    ]
-                  }
-                }
+                "variables": {"workers":{"int":[1,8]}},
+                "constraints": {"constraint0":{"le":[{"ref":"workers"},4]}}
               },
-              "objective": {
-                "maximize": "workers"
-              }
+              "objective": {"maximize":"workers"}
             }
             """.trimIndent())
         val response = client.send("/v1/models/${model.id}/recommend", "{}")
@@ -287,39 +123,8 @@ class ModelRoutesTest {
         val model = client.model("""
             {
               "space": {
-                "variables": {
-                  "flag": "bool"
-                },
-                "constraints": {
-                  "constraint0": {
-                    "eq": [
-                      {
-                        "if": [
-                          {
-                            "ref": "flag"
-                          },
-                          1,
-                          0
-                        ]
-                      },
-                      1
-                    ]
-                  },
-                  "constraint1": {
-                    "eq": [
-                      {
-                        "if": [
-                          {
-                            "ref": "flag"
-                          },
-                          1,
-                          0
-                        ]
-                      },
-                      0
-                    ]
-                  }
-                }
+                "variables": {"flag":"bool"},
+                "constraints": {"constraint0":{"eq":[{"if":[{"ref":"flag"},1,0]},1]},"constraint1":{"eq":[{"if":[{"ref":"flag"},1,0]},0]}}
               }
             }
             """.trimIndent())
@@ -334,23 +139,10 @@ class ModelRoutesTest {
         val model = client.model("""
             {
               "space": {
-                "variables": {
-                  "workers": {
-                    "int": [
-                      0,
-                      3
-                    ]
-                  }
-                }
+                "variables": {"workers":{"int":[0,3]}}
               },
-              "objective": {
-                "minimize": "latency"
-              },
-              "stat": {
-                "ewma": {
-                  "alpha": 0.1
-                }
-              },
+              "objective": {"minimize":"latency"},
+              "stat": {"ewma":{"alpha":0.1}},
               "outcome": "latency"
             }
             """.trimIndent())
@@ -394,13 +186,9 @@ class ModelRoutesTest {
             val model = client.model("""
             {
               "space": {
-                "variables": {
-                  "enabled": "bool"
-                }
+                "variables": {"enabled":"bool"}
               },
-              "objective": {
-                "$direction": "quality"
-              },
+              "objective": {"$direction":"quality"},
               "outcome": "quality"
             }
             """.trimIndent())
@@ -423,50 +211,11 @@ class ModelRoutesTest {
         val model = client.model("""
             {
               "space": {
-                "variables": {
-                  "enabled": "bool"
-                },
-                "context": {
-                  "premium": "bool"
-                },
-                "constraints": {
-                  "constraint0": {
-                    "eq": [
-                      {
-                        "add": [
-                          {
-                            "if": [
-                              {
-                                "ref": "enabled"
-                              },
-                              1,
-                              0
-                            ]
-                          },
-                          {
-                            "mul": [
-                              -1,
-                              {
-                                "if": [
-                                  {
-                                    "ref": "premium"
-                                  },
-                                  1,
-                                  0
-                                ]
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      0
-                    ]
-                  }
-                }
+                "variables": {"enabled":"bool"},
+                "context": {"premium":"bool"},
+                "constraints": {"constraint0":{"eq":[{"add":[{"if":[{"ref":"enabled"},1,0]},{"mul":[-1,{"if":[{"ref":"premium"},1,0]}]}]},0]}}
               },
-              "objective": {
-                "maximize": "quality"
-              },
+              "objective": {"maximize":"quality"},
               "outcome": "quality"
             }
             """.trimIndent())
@@ -489,18 +238,9 @@ class ModelRoutesTest {
         val model = client.model("""
             {
               "space": {
-                "variables": {
-                  "rate": {
-                    "float": {
-                      "min": 0.1,
-                      "max": 0.9
-                    }
-                  }
-                }
+                "variables": {"rate":{"float":{"min":0.1,"max":0.9}}}
               },
-              "objective": {
-                "maximize": "quality"
-              },
+              "objective": {"maximize":"quality"},
               "outcome": "quality"
             }
             """.trimIndent())
@@ -519,13 +259,9 @@ class ModelRoutesTest {
         val model = client.model("""
             {
               "space": {
-                "variables": {
-                  "enabled": "bool"
-                }
+                "variables": {"enabled":"bool"}
               },
-              "objective": {
-                "maximize": "quality"
-              },
+              "objective": {"maximize":"quality"},
               "outcome": "quality"
             }
             """.trimIndent())
@@ -549,64 +285,30 @@ class ModelRoutesTest {
             """
             {
               "space": {
-                "variables": {
-                  "x": {
-                    "int": [
-                      1.5,
-                      3
-                    ]
-                  }
-                }
+                "variables": {"x":{"int":[1.5,3]}}
               }
             }
             """,
             """
             {
               "space": {
-                "variables": {
-                  "x": {
-                    "int": [
-                      1,
-                      3
-                    ]
-                  }
-                }
+                "variables": {"x":{"int":[1,3]}}
               },
-              "objective": {
-                "minimize": "missing"
-              }
+              "objective": {"minimize":"missing"}
             }
             """,
             """
             {
               "space": {
-                "variables": {
-                  "x": {
-                    "int": [
-                      1,
-                      3
-                    ]
-                  }
-                },
-                "constraints": {
-                  "constraint0": {
-                    "eq": [
-                      {
-                        "ref": "unknown"
-                      },
-                      1
-                    ]
-                  }
-                }
+                "variables": {"x":{"int":[1,3]}},
+                "constraints": {"constraint0":{"eq":[{"ref":"unknown"},1]}}
               }
             }
             """,
             """
             {
               "space": {},
-              "objective": {
-                "minimize": "outcome"
-              },
+              "objective": {"minimize":"outcome"},
               "outcome": "outcome"
             }
             """,
@@ -615,13 +317,9 @@ class ModelRoutesTest {
         val model = client.model("""
             {
               "space": {
-                "variables": {
-                  "enabled": "bool"
-                }
+                "variables": {"enabled":"bool"}
               },
-              "objective": {
-                "maximize": "quality"
-              },
+              "objective": {"maximize":"quality"},
               "outcome": "quality"
             }
             """.trimIndent())
@@ -653,9 +351,7 @@ class ModelRoutesTest {
         val model = client.model("""
             {
               "space": {
-                "variables": {
-                  "enabled": "bool"
-                }
+                "variables": {"enabled":"bool"}
               }
             }
             """)

@@ -3,7 +3,6 @@ package com.eignex.server
 import com.eignex.combo.model.ModelDefinition
 import com.eignex.combo.model.ModelQuery
 import com.eignex.combo.model.ModelObservation
-
 import com.eignex.klause.model.VarSpec
 import io.ktor.http.HttpStatusCode
 import kotlinx.serialization.json.*

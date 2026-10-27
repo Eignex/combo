@@ -29,6 +29,13 @@ interface BatchSelector {
     /** Select one point conditioned on the supplied temporary observations. */
     fun select(temporary: List<Observation>, excluded: List<Sample>): CandidateSelection
 
+    /** Optional joint search capability; implementations must not invent or record pending outcomes. */
+    fun selectJoint(
+        count: Int,
+        acquisition: JointAcquisitionFactory,
+        optimizer: JointAcquisitionOptimizer,
+    ): ProposalBatch = throw UnsupportedOperationException("this selector does not support joint batches")
+
     /** Estimate an unevaluated point in original reward units for a temporary fantasy. */
     fun predict(sample: BanditSample, context: Context): Double
 }
@@ -66,5 +73,21 @@ class SequentialBatchPolicy(
             fantasize(point, context)
         }
         return ProposalBatch(batch, WitnessTermination.CountReached)
+    }
+}
+
+/**
+ * Optimize a whole batch under one frozen joint posterior. Exploration and unseen-context warmup use
+ * the selector's ordinary feasible proposals. Joint Gaussian moments are required after warmup;
+ * bootstrap Thompson sampling is a separate incompatible suggestion strategy.
+ *
+ * @property acquisition Joint set utility, such as q-EI or q-NEI.
+ * @property optimizer Feasible whole-set search.
+ */
+class JointBatchPolicy(val acquisition: JointAcquisitionFactory, val optimizer: JointAcquisitionOptimizer) :
+    BatchPolicy {
+    override fun select(snapshot: StudySnapshot, count: Int, context: Context, selector: BatchSelector): ProposalBatch {
+        require(count > 0)
+        return selector.selectJoint(count, acquisition, optimizer)
     }
 }
