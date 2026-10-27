@@ -50,6 +50,7 @@ jobs:
           path: |
             combo/build/test-results/
             combo/build/reports/tests/
+            combo/build/api/
             server/build/test-results/
             server/build/reports/tests/
           if-no-files-found: ignore
