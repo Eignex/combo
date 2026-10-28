@@ -163,16 +163,16 @@ class WitnessSearchTest : TimedTest() {
                 exactReals = listOf(BigFraction.ofDouble(x)!!, BigFraction.ofDouble(1.0 - x)!!),
             )
         }
-        val samples = (0 until 4).map { seed ->
-            val search = HybridDescentSession(
-                space,
-                { _, _, _ -> SampleResult.Found(ends.first()) },
-                { _, _ -> error("no backtracking expected") },
-                candidateBatchSize = 4,
-            )
-            search.witnesses(WitnessRequest(1, anchors = ends, maxAttempts = 4), Random(seed)).witnesses.single()
-        }
-        assertTrue(samples.any { it.reals[0] > 0.0 && it.reals[0] < 1.0 })
-        assertTrue(samples.all { WitnessValidator(space).valid(it) })
+        val search = HybridDescentSession(
+            space,
+            { _, _, _ -> SampleResult.Found(ends.first()) },
+            { _, _ -> error("no backtracking expected") },
+            candidateBatchSize = 2,
+        )
+        search.beginRound { point -> point.reals[0] * (1.0 - point.reals[0]) }
+        search.witnesses(WitnessRequest(1, anchors = ends, maxAttempts = 2), Random(0))
+        val interior = requireNotNull(search.bestWitness(Assumptions.None, Random(0)))
+        assertTrue(interior.reals[0] > 0.0 && interior.reals[0] < 1.0)
+        assertTrue(WitnessValidator(space).valid(interior))
     }
 }

@@ -5,7 +5,6 @@ import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.Context
 import com.eignex.combo.decisions.DecisionSpace
 import com.eignex.combo.decisions.context
-import com.eignex.combo.shared.HybridDescentSession
 import com.eignex.combo.shared.WitnessBatch
 import com.eignex.combo.shared.WitnessSearch
 import com.eignex.combo.shared.WitnessTermination
@@ -154,10 +153,12 @@ class JointBatchTest : TimedTest() {
                 bools[actionId] = action
                 Sample(bools, longArrayOf())
             }.filter { it !in request.exclude }
-            WitnessBatch(
-                points.take(request.count),
-                if (points.size >= request.count) WitnessTermination.CountReached else WitnessTermination.BudgetExhausted,
-            )
+            val termination = if (points.size >= request.count) {
+                WitnessTermination.CountReached
+            } else {
+                WitnessTermination.BudgetExhausted
+            }
+            WitnessBatch(points.take(request.count), termination)
         }
         var captured: JointAcquisitionContext? = null
         val optimizer = BayesianOptimizer(
