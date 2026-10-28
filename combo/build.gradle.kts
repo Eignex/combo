@@ -39,11 +39,11 @@ kotlin {
         // platform versions and lose dependency exclusions across that redirect.
         for ((sourceSet, modules) in mapOf(
             "jvmMain" to mapOf(
-                "klause-jvm" to "0.0.1-20261028.121308-1047",
+                "klause-jvm" to "0.0.1-20261028.153451-1056",
                 "kumulant-jvm" to "0.3.4-20261027.205951-103",
             ),
             "linuxX64Main" to mapOf(
-                "klause-linuxx64" to "0.0.1-20261028.121308-1046",
+                "klause-linuxx64" to "0.0.1-20261028.153451-1055",
                 "kumulant-linuxx64" to "0.3.4-20261027.205951-103",
             ),
         )) {

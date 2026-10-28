@@ -32,13 +32,6 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ inputs.ref || github.sha }}
-      # Temporary source dependency while Eignex/klause#3788 awaits merge and snapshot publication.
-      - uses: actions/checkout@v7
-        with:
-          repository: Eignex/klause
-          ref: a2cd3ad305d7bb62418028c101d2e0cbace79ad6
-          path: upstream/klause
-          persist-credentials: false
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -48,7 +41,7 @@ jobs:
         with:
           cache-read-only: false
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
-      - run: ./gradlew check lintDocs :server:installDist --continue -Pklause.local=upstream/klause
+      - run: ./gradlew check lintDocs :server:installDist --continue
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v7
