@@ -15,7 +15,7 @@ import com.eignex.klause.util.Cancellation
 internal class WitnessValidator(space: CompiledDecisionSpace) {
     private val scope = SourceScope(SourceRevision("combo/witness", "klause-ir-exact-v1"))
     private val verifier by lazy {
-        space.compiled.problem.sourceProofContext(scope, cancellation = budget())?.let(::SourceEvidenceVerifier)
+        space.coordinates.problem.sourceProofContext(scope, cancellation = budget())?.let(::SourceEvidenceVerifier)
     }
     private val checked = linkedMapOf<Sample, Boolean>()
 

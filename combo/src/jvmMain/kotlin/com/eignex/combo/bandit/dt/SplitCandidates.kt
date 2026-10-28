@@ -30,7 +30,7 @@ import com.eignex.klause.schema.NominalHandle
  */
 fun defaultSplitCandidates(space: CompiledDecisionSpace, numericThresholds: Int = 4): List<Split> {
     val out = mutableListOf<Split>()
-    val compiled = space.compiled
+    val compiled = space.coordinates
 
     val indicatorBoolIds = compiled.nominalIndicators.values.flatMap { it.values }.toSet()
     val floatNames = compiled.floatDecoders.keys
@@ -92,7 +92,7 @@ private fun thresholdsAcross(space: CompiledDecisionSpace, name: String, lo: Dou
  */
 private fun intHandleFor(space: CompiledDecisionSpace, name: String): IntHandle? {
     val spec = lookupIntSpec(space.definition, name) ?: return null
-    return IntHandle(name, spec.min, spec.max)
+    return IntHandle(name, spec.min.toLong(), spec.max.toLong())
 }
 
 /**

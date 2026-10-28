@@ -71,7 +71,7 @@ private class DefinitionCompiler(private val definition: DecisionSpaceDef) {
             val gate = if (name in node.optionalContext) BoolHandle(gateNameFor(name)) else null
             when (spec) {
                 BoolSpec -> bools[name] = BoolContextHandle(BoolHandle(name), gate)
-                is IntSpec -> ints[name] = IntContextHandle(IntHandle(name, spec.min, spec.max), gate)
+                is IntSpec -> ints[name] = IntContextHandle(IntHandle(name, spec.min.toLong(), spec.max.toLong()), gate)
                 is com.eignex.klause.model.FloatSpec -> {
                     require(gate == null) { "optional float context is not supported yet" }
                     floats[name] = FloatContextHandle(
@@ -105,7 +105,7 @@ private class DefinitionCompiler(private val definition: DecisionSpaceDef) {
 
             ScalarKind.IntDecision -> {
                 require(spec is IntSpec && name !in ints) { "unknown integer decision '$name'" }
-                IntHandle(name, spec.min, spec.max)
+                IntHandle(name, spec.min.toLong(), spec.max.toLong())
             }
 
             ScalarKind.NominalDecision -> {

@@ -157,7 +157,7 @@ internal class RootKlauseSchema : VariableSchema() {
                 )
             }
         }
-        return IntHandle(name, min, max)
+        return IntHandle(name, min.toLong(), max.toLong())
     }
 
     fun registerFloat(name: String, min: Double, max: Double, buckets: Int?, activeCondition: BoolExpr?): FloatHandle {

@@ -30,11 +30,13 @@ class ModelStatistics(private val definition: ModelDefinition) : AutoCloseable {
 
     /** Freeze statistical context for one learned decision; retain it with any resulting proposal. */
     fun context(timestampNanos: Long = System.nanoTime()): JsonObject {
-        require(definition.learned) { "statistical context requires a learned model" }
+        require(definition.learned || definition.problem != null) { "statistical context requires a learned or native model" }
         requireEvidence()
         val snapshots = snapshot(timestampNanos)
         return JsonObject(definition.inputs.mapValues { (name, input) ->
-            val value = input.readProjection(snapshots, requireNotNull(input.value))
+            val primitive = input.readPrimitive(snapshots, requireNotNull(input.value))
+            if (definition.problem != null) return@mapValues primitive
+            val value = primitive.content.toDouble()
             when (val spec = definition.space!!.context.getValue(name)) {
                 is IntSpec -> {
                     require(value.toInt().toDouble() == value && value >= spec.min && value <= spec.max) {

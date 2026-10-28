@@ -37,9 +37,9 @@ interface TreeRow {
 }
 
 internal class SampleTreeRow(override val space: CompiledDecisionSpace, override val sample: BanditSample) : TreeRow {
-    override fun bool(handle: BoolHandle): Boolean = space.compiled.decode(handle, sample.sample)
-    override fun int(handle: IntHandle): Int = Math.toIntExact(space.compiled.decode(handle, sample.sample))
-    override fun nominal(handle: NominalHandle): String = space.compiled.decode(handle, sample.sample)
+    override fun bool(handle: BoolHandle): Boolean = space.coordinates.decode(handle, sample.sample)
+    override fun int(handle: IntHandle): Int = Math.toIntExact(space.coordinates.decode(handle, sample.sample))
+    override fun nominal(handle: NominalHandle): String = space.coordinates.decode(handle, sample.sample)
 
     override fun float(handle: FloatHandle): Double = sample.float(handle, space)
 

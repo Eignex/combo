@@ -210,6 +210,7 @@ class RandomForestOptimizer(
  * @property trials Trial snapshots including pending reservations.
  * @property nextTrialId Next reservation identifier.
  * @property round Persisted suggestion random-stream position.
+ * @property problem Original native problem when the model was not constructed from a schema.
  */
 class HistoryData internal constructor(
     val definition: DecisionSpaceDef,
@@ -219,6 +220,7 @@ class HistoryData internal constructor(
     /** Next reservation identifier, preserved across state transfer. */
     val nextTrialId: Long = 1L,
     val round: Long = 0L,
+    val problem: com.eignex.klause.ir.Problem? = null,
 ) : LearnerData {
     override fun remap(slots: SlotRemap): LearnerData = throw UnsupportedOperationException(
         "History coordinates cannot be remapped; re-encode evaluations against the new schema.",

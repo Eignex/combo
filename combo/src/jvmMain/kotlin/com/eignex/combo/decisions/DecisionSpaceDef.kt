@@ -213,6 +213,11 @@ internal fun synthesizePin(qualifiedName: String, spec: VarSpec, gateName: Strin
 
         is IntSpec -> Implies(notGate, IntCompare(IntRef(qualifiedName), IntCmpOp.EQ, IntLit(spec.min)))
 
+        is com.eignex.klause.model.IntDomainSpec -> {
+            val default = spec.values?.first()?.first() ?: spec.lower ?: 0L.coerceAtMost(spec.upper ?: 0L)
+            Implies(notGate, IntCompare(IntRef(qualifiedName), IntCmpOp.EQ, IntLit(default)))
+        }
+
         is NominalSpec -> Implies(notGate, NominalEq(qualifiedName, spec.labels[0]))
 
         is com.eignex.klause.model.FloatSpec ->

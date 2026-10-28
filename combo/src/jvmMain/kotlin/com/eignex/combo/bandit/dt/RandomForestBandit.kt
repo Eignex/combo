@@ -126,9 +126,9 @@ class RandomForestBandit(
     /** Live typed views of the trees owned by [regression]. */
     val trees: List<Tree> = List(regression.nbrTrees) { index -> Tree(policy, layout) { regression.tree(index) } }
     private val projection = TreeFeatureProjection(space)
-    private val boolIdByName = space.compiled.boolVarIdByName
-    private val intIdByName = space.compiled.intVarIdByName
-    private val nominalIndicators = space.compiled.nominalIndicators
+    private val boolIdByName = space.coordinates.boolVarIdByName
+    private val intIdByName = space.coordinates.intVarIdByName
+    private val nominalIndicators = space.coordinates.nominalIndicators
     private var step: Long = 0L
 
     override fun chooseOrThrow(): BanditSample = chooseOrThrow(Context.Empty)
@@ -212,9 +212,9 @@ class RandomForestBandit(
                     val node = tree.descendTo(
                         pinned,
                         boolIdByName,
-                        space.compiled.nominalIndicators,
+                        space.coordinates.nominalIndicators,
                         assumptions,
-                        space.compiled.intVarIdByName,
+                        space.coordinates.intVarIdByName,
                     )
                     if (node !is RegressionSplitNode) continue
                     val split = layout.predicate(node.split)
@@ -280,7 +280,7 @@ class RandomForestBandit(
         // Seeding with context pins also triggers constraint propagation,
         // so any literal forced by the problem alone joins the pin set before any
         // greedy decision is made.
-        val session = PropagationSession(space.compiled.problem)
+        val session = PropagationSession(space.coordinates.problem)
         if (session.seed(assumptions) is PropagationResult.Unsat) {
             throw NoFeasibleSampleException("decision space is infeasible under the supplied context")
         }
@@ -307,9 +307,9 @@ class RandomForestBandit(
                 val node = tree.descendTo(
                     pinned,
                     boolIdByName,
-                    space.compiled.nominalIndicators,
+                    space.coordinates.nominalIndicators,
                     assumptions,
-                    space.compiled.intVarIdByName,
+                    space.coordinates.intVarIdByName,
                 )
                 if (node !is RegressionSplitNode) continue
                 val split = layout.predicate(node.split)
@@ -424,14 +424,14 @@ class RandomForestBandit(
      * The sign of `s` already reflects the maximise/minimise direction from policy scoring.
      */
     private fun buildSoftObjective(ids: List<Int>, dirs: List<Boolean>, scores: List<Double>): LinearObjective {
-        val n = space.compiled.problem.numBoolVars
+        val n = space.coordinates.problem.numBoolVars
         val weights = DoubleArray(n)
         for (i in ids.indices) {
             val id = ids[i]
             val s = scores[i]
             if (dirs[i]) weights[id] -= s else weights[id] += s
         }
-        return integerObjective(space.compiled.problem, boolWeights = weights)
+        return integerObjective(space.coordinates.problem, boolWeights = weights)
     }
 
     private fun signed(m: Double): Double = if (maximize) m else -m

@@ -3,7 +3,12 @@ package com.eignex.server
 import com.eignex.combo.decisions.pinFloats
 import com.eignex.klause.backtrack.BacktrackParams
 import com.eignex.klause.backtrack.BacktrackSolver
-import com.eignex.klause.compile.CompiledSchema
+import com.eignex.combo.decisions.DecisionCoordinates
+import com.eignex.combo.decisions.CompiledDecisionSpace
+import com.eignex.combo.decisions.minimizeNative
+import com.eignex.klause.solver.objective.LinearObjective
+import com.eignex.klause.solver.result.QuadraticOptimizationResult
+import com.eignex.klause.util.fitsLong
 import com.eignex.klause.model.FloatSpec
 import com.eignex.klause.model.SchemaEntry
 import com.eignex.klause.propagation.bake
@@ -14,7 +19,7 @@ import kotlinx.serialization.json.*
 /** A row-only conditioning keeps all coordinate ids and exact values, but changes the solver's frame. */
 internal fun com.eignex.klause.solver.Sample.compatibilitySnapshot(): com.eignex.klause.solver.Sample =
     com.eignex.klause.solver.Sample(
-        bools, ints, reals, exactReals = exactReals, exactInts = exactInts,
+        bools, if (exactInts?.any { !it.fitsLong() } == true) longArrayOf() else ints, reals, exactReals = exactReals, exactInts = exactInts,
         algebraicReals = algebraicReals, symbolicReals = symbolicReals,
     )
 
@@ -30,11 +35,20 @@ internal fun realValues(entries: Map<String, SchemaEntry>, input: JsonObject): M
     }.toMap()
 
 internal fun checkedAssignment(
-    compiled: CompiledSchema,
+    compiled: DecisionCoordinates,
     entries: Map<String, SchemaEntry>,
     input: JsonObject,
     params: BacktrackParams,
 ): SolveResult {
+    if (compiled.schema == null) {
+        val space = CompiledDecisionSpace.fromProblem(compiled.problem)
+        val result = space.minimizeNative(LinearObjective(), readContext(space, input), params)
+        return when (result) {
+            is QuadraticOptimizationResult.WithIncumbent -> SolveResult.Sat(result.incumbent.sample)
+            is QuadraticOptimizationResult.Infeasible -> SolveResult.Unsat()
+            is QuadraticOptimizationResult.Unknown -> SolveResult.Unknown(result.reason)
+        }
+    }
     val problem = compiled.pinFloats(realValues(entries, input))
     val pins = assumptions(compiled, entries, input)
     val result = BacktrackSolver(problem.bake()).solve(params.copy(assumptions = pins))

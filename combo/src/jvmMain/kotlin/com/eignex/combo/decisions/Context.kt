@@ -1,6 +1,10 @@
 package com.eignex.combo.decisions
 
 import com.eignex.combo.shared.Learner
+import com.eignex.klause.simplex.exact.BigFraction
+import com.eignex.klause.util.BigInt
+import com.eignex.klause.util.fitsLong
+import com.eignex.klause.util.toLongExact
 
 /**
  * Bag of contextual values supplied to a [com.eignex.combo.shared.Learner] at each `choose`/`update`
@@ -13,6 +17,10 @@ class Context internal constructor(
     internal val bools: Map<BoolContextHandle, Boolean>,
     internal val ints: Map<IntContextHandle, Int>,
     internal val floats: Map<FloatContextHandle, Double> = emptyMap(),
+    internal val nativeAssumptions: com.eignex.klause.propagation.Assumptions = com.eignex.klause.propagation.Assumptions.None,
+    internal val nativeReals: Map<Int, Double> = emptyMap(),
+    internal val exactInts: Map<Int, BigInt> = emptyMap(),
+    internal val exactReals: Map<Int, BigFraction> = emptyMap(),
 ) {
     operator fun get(handle: BoolContextHandle): Boolean = bools[handle] ?: if (handle.isOptional) {
         false
@@ -36,6 +44,8 @@ class Context internal constructor(
     fun isPresent(handle: BoolContextHandle): Boolean = handle in bools
     fun isPresent(handle: IntContextHandle): Boolean = handle in ints
 
+    internal val hasRealValues: Boolean get() = floats.isNotEmpty() || nativeReals.isNotEmpty() || exactInts.isNotEmpty() || exactReals.isNotEmpty()
+
     companion object {
         val Empty: Context = Context(emptyMap(), emptyMap())
     }
@@ -45,6 +55,10 @@ class ContextBuilder internal constructor() {
     private val bools = mutableMapOf<BoolContextHandle, Boolean>()
     private val ints = mutableMapOf<IntContextHandle, Int>()
     private val floats = mutableMapOf<FloatContextHandle, Double>()
+    private var native = com.eignex.klause.propagation.Assumptions.None
+    private val nativeReals = mutableMapOf<Int, Double>()
+    private val exactInts = mutableMapOf<Int, BigInt>()
+    private val exactReals = mutableMapOf<Int, BigFraction>()
 
     fun set(handle: BoolContextHandle, value: Boolean) {
         bools[handle] = value
@@ -59,7 +73,36 @@ class ContextBuilder internal constructor() {
         floats[handle] = value
     }
 
-    internal fun build() = Context(bools.toMap(), ints.toMap(), floats.toMap())
+    /** Pin a native Boolean column without requiring a schema handle. */
+    fun set(id: com.eignex.klause.ir.SourceBoolId, value: Boolean) {
+        native = native.withBool(id.index, value)
+    }
+
+    /** Pin a native integer column in its original Long units. */
+    fun set(id: com.eignex.klause.ir.SourceIntId, value: Long) {
+        native = native.withInt(id.index, value)
+        exactInts.remove(id.index)
+    }
+
+    /** Pin an arbitrary-width integer using Klause's exact native arithmetic. */
+    fun set(id: com.eignex.klause.ir.SourceIntId, value: BigInt) {
+        if (value.fitsLong()) set(id, value.toLongExact()) else exactInts[id.index] = value
+    }
+
+    /** Pin an exact rational real without rounding it through a Double. */
+    fun set(id: com.eignex.klause.ir.SourceRealId, value: BigFraction) {
+        exactReals[id.index] = value
+        nativeReals.remove(id.index)
+    }
+
+    /** Pin a native real column without inventing finite bounds or a grid. */
+    fun set(id: com.eignex.klause.ir.SourceRealId, value: Double) {
+        require(value.isFinite()) { "real context must be finite" }
+        nativeReals[id.index] = value
+        exactReals.remove(id.index)
+    }
+
+    internal fun build() = Context(bools.toMap(), ints.toMap(), floats.toMap(), native, nativeReals.toMap(), exactInts.toMap(), exactReals.toMap())
 }
 
 fun context(build: ContextBuilder.() -> Unit): Context = ContextBuilder().apply(build).build()

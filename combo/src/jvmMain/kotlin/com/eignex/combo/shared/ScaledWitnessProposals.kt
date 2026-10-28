@@ -16,7 +16,7 @@ internal class ScaledWitnessProposals(private val space: CompiledDecisionSpace) 
         val pins = mutableMapOf<Int, Long>()
         for ((name, domain) in space.numericDomains) {
             if (name in contexts) continue
-            val id = space.compiled.intVarIdByName[name] ?: continue
+            val id = space.coordinates.intVarIdByName[name] ?: continue
             if (id in assumptions.ints) continue
             val value = domain.fromUnit(random.nextDouble())
             val spec = layout.floatSpecs[id]

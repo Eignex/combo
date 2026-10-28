@@ -50,8 +50,8 @@ class IntContextHandle internal constructor(
     internal val isKnownGate: BoolHandle? = null,
 ) : IntTerm {
     val name: String get() = klauseHandle.name
-    val min: Int get() = klauseHandle.min
-    val max: Int get() = klauseHandle.max
+    val min: Int get() = Math.toIntExact(klauseHandle.min)
+    val max: Int get() = Math.toIntExact(klauseHandle.max)
     val isOptional: Boolean get() = isKnownGate != null
     override fun toIntExpr(): IntExpr = klauseHandle.toIntExpr()
 

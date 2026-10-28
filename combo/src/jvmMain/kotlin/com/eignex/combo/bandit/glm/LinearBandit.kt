@@ -3,6 +3,8 @@ package com.eignex.combo.bandit.glm
 import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.Context
 import com.eignex.combo.decisions.conditionedProblem
+import com.eignex.combo.decisions.minimizeNative
+import com.eignex.combo.shared.assignment
 import com.eignex.combo.decisions.unframed
 import com.eignex.klause.backtrack.BacktrackParams
 import com.eignex.klause.backtrack.BacktrackSolver
@@ -113,7 +115,10 @@ class LinearBandit<R : LinearRegressionResult>(
 
     private fun optimize(objective: LinearObjective, assumptions: Assumptions, context: Context): Sample? {
         contextOptimizer?.let { return it(objective, assumptions, context)?.unframed() }
-        if (space.contextFloats.isEmpty()) return innerOptimizer(objective, assumptions)
+        if (space.coordinates.schema == null) return space.minimizeNative(
+            objective, context, BacktrackParams(maxDecisions = 100_000, assumptions = assumptions),
+        ).assignment
+        if (!context.hasRealValues && space.contextFloats.isEmpty()) return innerOptimizer(objective, assumptions)
         return BacktrackSolver(space.conditionedProblem(context).bake()).minimize(
             objective, BacktrackParams(maxDecisions = 100_000, assumptions = assumptions),
         ).assignment?.unframed()

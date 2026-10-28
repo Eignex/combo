@@ -1,6 +1,8 @@
 package com.eignex.combo.model
 
 import com.eignex.combo.decisions.DecisionSpaceDef
+import com.eignex.combo.decisions.DecisionCoordinates
+import com.eignex.klause.ir.Problem
 import com.eignex.klause.model.BoolSpec
 import com.eignex.klause.model.FloatSpec
 import com.eignex.klause.model.IntSpec
@@ -30,13 +32,17 @@ data class ModelDefinition(
     val inputs: Map<String, StatisticalInput> = emptyMap(),
     /** Optional native linear regression and posterior; absent keeps the default history-based learner. */
     val learning: LinearLearning? = null,
+    /** Complete native Klause problem, serialized by Klause; mutually exclusive with [space]. */
+    @Serializable(with = NativeProblemSerializer::class)
+    val problem: Problem? = null,
 ) {
     /** Whether the objective is measured through proposal feedback. */
     val learned: Boolean get() = outcome != null
 
     init {
-        require(space != null || stat != null || statistics.isNotEmpty()) { "declare a decision space or a statistic" }
-        require(inputs.isEmpty() || space != null) { "statistical inputs require a decision space" }
+        require(space != null || problem != null || stat != null || statistics.isNotEmpty()) { "declare a decision space or a statistic" }
+        require(space == null || problem == null) { "declare either space or problem" }
+        require(inputs.isEmpty() || space != null || problem != null) { "statistical inputs require a decision space" }
         require(learning == null || learned) { "linear learning requires a measured outcome" }
         require(statistics.keys.all { it.isNotBlank() }) { "statistic names must be nonempty" }
         for ((name, input) in inputs) {
@@ -45,17 +51,24 @@ data class ModelDefinition(
                 "statistical input names cannot overlap"
             }
         }
-        require(space != null || (objective == null && outcome == null)) {
+        require(space != null || problem != null || (objective == null && outcome == null)) {
             "an objective or outcome requires a decision space"
         }
         val variables = space?.toSchemaDef()?.entries?.filterValues { it is VarSpec }.orEmpty()
+        val native = problem?.let(DecisionCoordinates::of)
+        val nativeNames = native?.let { it.boolVarIdByName.keys + it.intVarIdByName.keys + it.realHandles.values.map { h -> h.name } }.orEmpty()
+        if (native != null) for ((name, input) in inputs) {
+            require((name in native.intVarIdByName || native.realHandles.values.any { it.name == name }) && input.value != null) {
+                "native input '$name' must select a scalar for an existing numeric column"
+            }
+        }
         val boundContexts = if (learned) inputs.keys else emptySet()
         require(variables.keys.none { name ->
             name !in boundContexts && inputs.keys.any { name == it || name.startsWith("$it.") }
         }) {
             "statistical inputs cannot shadow decision or context variables"
         }
-        if (learned) for ((name, input) in inputs) {
+        if (learned && space != null) for ((name, input) in inputs) {
             val spec = space?.context?.get(name)
             require((spec is IntSpec || spec is FloatSpec) && input.value != null) {
                 "learned input '$name' must bind a numeric context and select a scalar with value"
@@ -66,13 +79,13 @@ data class ModelDefinition(
             require(inputs.isNotEmpty() || hasDecision) { "declare a decision variable" }
         }
         if (outcome != null) {
-            require(outcome.isNotBlank() && outcome !in variables) { "outcome must name a separate measured value" }
+            require(outcome.isNotBlank() && outcome !in variables && outcome !in nativeNames) { "outcome must name a separate measured value" }
             require(objective?.name == outcome) { "objective must name the measured outcome" }
         } else {
             objective?.let {
                 val spec = variables[it.name]
                 val input = inputs.entries.firstOrNull { (name, _) -> it.name == name || it.name.startsWith("$name.") }
-                require(spec == BoolSpec || spec is IntSpec || spec is FloatSpec || input != null) {
+                require(spec == BoolSpec || spec is IntSpec || spec is FloatSpec || input != null || it.name in nativeNames) {
                     "objective must name a numeric or Boolean variable"
                 }
                 require(input == null || it.name != input.key || input.value.value != null) {
@@ -80,7 +93,7 @@ data class ModelDefinition(
                 }
             }
         }
-        require(stat == null || space == null || learned) {
+        require(stat == null || (space == null && problem == null) || learned) {
             "an attached statistic requires a measured outcome"
         }
     }

@@ -15,7 +15,7 @@ class BanditSample(
     val ints: LongArray get() = sample.ints
 
     /** Decode a float through the compiled Klause schema. */
-    fun float(handle: FloatHandle, space: CompiledDecisionSpace): Double = space.compiled.decode(handle, sample)
+    fun float(handle: FloatHandle, space: CompiledDecisionSpace): Double = space.coordinates.decode(handle, sample)
 
     override fun equals(other: Any?): Boolean = other is BanditSample && sample == other.sample
     override fun hashCode(): Int = sample.hashCode()

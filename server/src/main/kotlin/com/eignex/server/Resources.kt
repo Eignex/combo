@@ -18,6 +18,11 @@ import com.eignex.combo.bo.TrialStatus
 import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.CompiledDecisionSpace
 import com.eignex.combo.decisions.compileSpace
+import com.eignex.combo.decisions.DecisionCoordinates
+import com.eignex.combo.decisions.minimizeNative
+import com.eignex.klause.ir.Problem
+import com.eignex.klause.solver.objective.LinearObjective
+import com.eignex.klause.solver.result.QuadraticOptimizationResult
 import com.eignex.combo.shared.NoFeasibleSampleException
 import com.eignex.combo.shared.HybridDescentSession
 import com.eignex.klause.backtrack.BacktrackParams
@@ -37,15 +42,23 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-internal class ProblemResource(schema: com.eignex.skema.SchemaDef<SchemaEntry>) : ManagedResource {
+internal class ProblemResource private constructor(
+    private val compiled: DecisionCoordinates,
+    private val entries: Map<String, SchemaEntry>,
+) : ManagedResource {
+    constructor(schema: com.eignex.skema.SchemaDef<SchemaEntry>) : this(
+        compileInput { DecisionCoordinates.of(schema.compile()) }, schema.entries.also(::requireScalarVariables),
+    )
+    constructor(problem: Problem) : this(DecisionCoordinates.of(problem), emptyMap())
+
     override val type = "klause.problem"
-    private val entries = schema.entries.also(::requireScalarVariables)
-    private val compiled = compileInput { schema.compile() }
-    private val session = BacktrackSolver(compiled.problem.bake()).session()
+    private val native = if (compiled.schema == null) CompiledDecisionSpace.fromProblem(compiled.problem) else null
+    private val session = if (native == null) BacktrackSolver(compiled.problem.bake()).session() else null
 
     fun recommend(goal: ModelObjective?, given: JsonObject, seed: Long, control: OperationControl): JsonObject {
+        native?.let { return recommendNative(it, goal, given, seed, control) }
         val pins = realValues(entries, given)
-        if (pins.isEmpty()) return recommend(session, goal, given, seed, control)
+        if (pins.isEmpty()) return recommend(requireNotNull(session), goal, given, seed, control)
         return BacktrackSolver(compiled.pinFloats(pins).bake()).session().use {
             recommend(it, goal, given, seed, control)
         }
@@ -61,7 +74,7 @@ internal class ProblemResource(schema: com.eignex.skema.SchemaDef<SchemaEntry>) 
         )
         if (goal == null) return selection(session.solve(params), null)
         val objective = when (val spec = entries.getValue(goal.name)) {
-            is IntSpec -> compiled.minimize(IntHandle(goal.name, spec.min, spec.max))
+            is IntSpec -> compiled.minimize(IntHandle(goal.name, spec.min.toLong(), spec.max.toLong()))
             BoolSpec -> compiled.minimize(BoolHandle(goal.name))
             is FloatSpec -> compiled.minimize(FloatHandle(goal.name, spec.min, spec.max))
             else -> throw IllegalArgumentException("the objective must be numeric or Boolean")
@@ -106,19 +119,54 @@ internal class ProblemResource(schema: com.eignex.skema.SchemaDef<SchemaEntry>) 
         }
     }
 
-    override fun close() = session.close()
+    private fun recommendNative(
+        space: CompiledDecisionSpace, goal: ModelObjective?, given: JsonObject, seed: Long, control: OperationControl,
+    ): JsonObject {
+        val objective = goal?.let { space.coordinates.objective(it.name) } ?: LinearObjective()
+        val result = space.minimizeNative(
+            if (goal?.ascending == false) objective.negated() else objective, readContext(space, given),
+            BacktrackParams(maxDecisions = 100_000, randomSeed = seed, cancellation = control.cancellation),
+        )
+        control.checkpoint()
+        return buildJsonObject {
+            put("status", when (result) {
+                is QuadraticOptimizationResult.Optimal -> if (goal == null) "feasible" else "optimal"
+                is QuadraticOptimizationResult.BestFound -> if (goal == null) "feasible" else "best_found"
+                is QuadraticOptimizationResult.UnattainedLimit -> "unattained_limit"
+                is QuadraticOptimizationResult.Unbounded -> "unbounded"
+                is QuadraticOptimizationResult.Infeasible -> "infeasible"
+                is QuadraticOptimizationResult.Unknown -> "unknown"
+            })
+            if (result is QuadraticOptimizationResult.Unknown) put("reason", result.reason.toString())
+            if (result is QuadraticOptimizationResult.WithIncumbent) {
+                val assignment = values(compiled, entries, result.incumbent.sample)
+                put("values", assignment)
+                goal?.let { put("objective", buildJsonObject { put("name", it.name); put("value", assignment.getValue(it.name)) }) }
+            }
+        }
+    }
+
+    override fun close() { session?.close() }
 }
 
-internal class OptimizerResource(
-    definition: com.eignex.combo.decisions.DecisionSpaceDef,
+internal class OptimizerResource private constructor(
+    private val space: CompiledDecisionSpace,
+    private val entries: Map<String, SchemaEntry>,
     seed: Int,
     maximize: Boolean,
     rewards: SeriesStat<*>? = null,
     learning: LinearLearning? = null,
 ) : ManagedResource {
     override val type = if (learning == null) "combo.forest_ei" else "combo.linear"
-    private val entries = definition.toSchemaDef().entries.also(::requireScalarVariables)
-    private val space: CompiledDecisionSpace = compileInput { definition.compileSpace() }
+    constructor(
+        definition: com.eignex.combo.decisions.DecisionSpaceDef, seed: Int, maximize: Boolean,
+        rewards: SeriesStat<*>? = null, learning: LinearLearning? = null,
+    ) : this(compileInput { definition.compileSpace() }, definition.toSchemaDef().entries.also(::requireScalarVariables), seed, maximize, rewards, learning)
+
+    constructor(
+        problem: Problem, seed: Int, maximize: Boolean,
+        rewards: SeriesStat<*>? = null, learning: LinearLearning? = null,
+    ) : this(CompiledDecisionSpace.fromProblem(problem), emptyMap(), seed, maximize, rewards, learning)
     private var activeControl: OperationControl? = null
     private val cancellation = Cancellation { activeControl?.cancellation?.invoke() ?: false }
     private val search = HybridDescentSession.klause(
@@ -137,17 +185,21 @@ internal class OptimizerResource(
         outcome = OutcomeSpec(maximize = maximize),
         rewards = rewards,
     ) else null
-    private val linearSession = BacktrackSolver(space.compiled.problem.bake()).session()
+    private val linearSession = if (space.coordinates.schema != null) BacktrackSolver(space.problem.bake()).session() else null
     private val linear = learning?.let { config ->
         LinearTrialOptimizer(
             LinearFeatureProjection(space), config, search,
             { objective, pinned ->
-                linearSession.minimize(objective, BacktrackParams(
+                requireNotNull(linearSession).minimize(objective, BacktrackParams(
                     maxDecisions = 100_000, assumptions = pinned, cancellation = cancellation,
                 )).assignment
             }, seed, maximize, rewards,
             contextOptimizer = { objective, pinned, context ->
-                BacktrackSolver(space.conditionedProblem(context).bake()).minimize(
+                if (space.coordinates.schema == null) {
+                    (space.minimizeNative(objective, context, BacktrackParams(
+                        maxDecisions = 100_000, assumptions = pinned, cancellation = cancellation,
+                    )) as? QuadraticOptimizationResult.WithIncumbent)?.incumbent?.sample
+                } else BacktrackSolver(space.conditionedProblem(context).bake()).minimize(
                     objective, BacktrackParams(
                         maxDecisions = 100_000, assumptions = pinned, cancellation = cancellation,
                     ),
@@ -175,7 +227,7 @@ internal class OptimizerResource(
     fun evaluate(input: JsonObject, given: JsonObject, target: String, control: OperationControl): JsonObject {
         val context = readContext(space, given)
         val result = checkedAssignment(
-            space.compiled, entries, JsonObject(input + given),
+            space.coordinates, entries, JsonObject(input + given),
             BacktrackParams(maxDecisions = 100_000, cancellation = control.cancellation),
         )
         control.checkpoint()
@@ -198,12 +250,12 @@ internal class OptimizerResource(
     private fun prediction(sample: BanditSample, context: com.eignex.combo.decisions.Context, target: String): JsonObject =
         buildJsonObject {
             put("status", "estimated")
-            put("values", values(space.compiled, entries, sample.sample))
+            put("values", values(space.coordinates, entries, sample.sample))
             put("objective", buildJsonObject { put("name", target); put("estimate", (linear?.predict(sample, context) ?: requireNotNull(forest).predict(sample, context)).let { if (it.isFinite()) JsonPrimitive(it) else JsonNull }) })
         }
 
     override fun close() {
-        linearSession.close()
+        linearSession?.close()
     }
 
     fun propose(given: JsonObject, count: Int, control: OperationControl): com.eignex.combo.bo.TrialBatch {
@@ -213,7 +265,7 @@ internal class OptimizerResource(
     }
 
     val trials: List<Trial> get() = optimizer.trials
-    fun assignment(trial: Trial): JsonObject = values(space.compiled, entries, trial.sample.sample)
+    fun assignment(trial: Trial): JsonObject = values(space.coordinates, entries, trial.sample.sample)
 
     fun complete(id: Long, value: Double, weight: Double, noiseVariance: Double?) {
         pending(id)

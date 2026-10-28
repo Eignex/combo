@@ -35,7 +35,7 @@ internal fun materialize(space: CompiledDecisionSpace, path: List<PathStep>): Ma
         val took = step.tookPos
         when (split) {
             is BoolSplit -> {
-                val id = space.compiled.boolVarIdByName[split.handle.name]
+                val id = space.coordinates.boolVarIdByName[split.handle.name]
                 if (id != null) {
                     bools[id] = took
                 } else {
@@ -46,7 +46,7 @@ internal fun materialize(space: CompiledDecisionSpace, path: List<PathStep>): Ma
             is NominalSplit -> {
                 // One-vs-rest by design — pins the indicator bit directly. `took=true`
                 // means value == label → indicator true. `took=false` → indicator false.
-                val indicators = space.compiled.nominalIndicators[split.handle.name]
+                val indicators = space.coordinates.nominalIndicators[split.handle.name]
                 val bitId = indicators?.get(split.label)
                 if (bitId != null) {
                     bools[bitId] = took
@@ -154,7 +154,7 @@ private fun tryPinAtom(
     bools: MutableMap<Int, Boolean>,
 ): Boolean = when (expr) {
     is BoolRef -> {
-        val id = space.compiled.boolVarIdByName[expr.name] ?: return false
+        val id = space.coordinates.boolVarIdByName[expr.name] ?: return false
         bools[id] = took xor expr.negated
         true
     }
@@ -165,7 +165,7 @@ private fun tryPinAtom(
     }
 
     is NominalEq -> {
-        val bitId = space.compiled.nominalIndicators[expr.name]?.get(expr.label) ?: return false
+        val bitId = space.coordinates.nominalIndicators[expr.name]?.get(expr.label) ?: return false
         bools[bitId] = took
         true
     }

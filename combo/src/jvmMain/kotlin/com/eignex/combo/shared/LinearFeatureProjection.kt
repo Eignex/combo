@@ -16,6 +16,7 @@ import com.eignex.klause.schema.IntHandle
 import com.eignex.klause.schema.FloatHandle
 import com.eignex.klause.schema.NominalHandle
 import com.eignex.klause.solver.Sample
+import com.eignex.klause.util.toDouble
 import com.eignex.klause.solver.objective.LinearObjective
 import com.eignex.koblas.DenseVector
 import com.eignex.koblas.Vector
@@ -48,24 +49,24 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
 
     private val optionalBoolIds: Map<Int, BoolExpr> = run {
         val out = mutableMapOf<Int, BoolExpr>()
-        for ((name, id) in space.compiled.boolVarIdByName) {
+        for ((name, id) in space.coordinates.boolVarIdByName) {
             space.activeConditions[name]?.let { out[id] = it }
         }
         out
     }
     private val optionalIntIds: Map<Int, BoolExpr> = run {
         val out = mutableMapOf<Int, BoolExpr>()
-        for ((name, id) in space.compiled.intVarIdByName) {
+        for ((name, id) in space.coordinates.intVarIdByName) {
             space.activeConditions[name]?.let { out[id] = it }
         }
         out
     }
 
-    private val boolNameById: Array<String?> = arrayOfNulls<String>(space.compiled.problem.numBoolVars).also { arr ->
-        for ((name, id) in space.compiled.boolVarIdByName) arr[id] = name
+    private val boolNameById: Array<String?> = arrayOfNulls<String>(space.coordinates.problem.numBoolVars).also { arr ->
+        for ((name, id) in space.coordinates.boolVarIdByName) arr[id] = name
     }
-    private val intNameById: Array<String?> = arrayOfNulls<String>(space.compiled.problem.numIntVars).also { arr ->
-        for ((name, id) in space.compiled.intVarIdByName) arr[id] = name
+    private val intNameById: Array<String?> = arrayOfNulls<String>(space.coordinates.problem.numIntVars).also { arr ->
+        for ((name, id) in space.coordinates.intVarIdByName) arr[id] = name
     }
 
     override fun encode(sample: BanditSample, context: Context): Vector {
@@ -83,7 +84,7 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
                 val v = if (scaling != null) {
                     floatFeatureFor(i, sample)
                 } else {
-                    layout.realValue(i, sample.sample.intValue(i))
+                    sample.sample.exactIntValue(i).toDouble()
                 }
                 out[layout.intStart + i] = feature(intNameById[i], v)
             }
@@ -106,7 +107,7 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
     /** Decode a float stored in an integer coordinate by Klause. */
     private fun floatFeatureFor(intVarId: Int, sample: BanditSample): Double {
         val name = intNameById[intVarId] ?: return sample.sample.intValue(intVarId).toDouble()
-        val spec = space.compiled.floatDecoders[name]
+        val spec = space.coordinates.floatDecoders[name]
             ?: return sample.sample.intValue(intVarId).toDouble()
         val handle = com.eignex.klause.schema.FloatHandle(name, spec.min, spec.max)
         return sample.float(handle, space)
@@ -121,7 +122,7 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
         }
         val ctxSide = if (it.lhs === nominal) it.rhs else it.lhs
         val scalar = scalarFor(ctxSide, sample)
-        val indicators = space.compiled.nominalIndicators[nominal.name]
+        val indicators = space.coordinates.nominalIndicators[nominal.name]
             ?: error("interaction references unknown nominal '${nominal.name}'")
         for ((idx, label) in nominal.labels.withIndex()) {
             val indicatorId = indicators[label]
@@ -132,7 +133,7 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
 
     private fun scalarFor(handle: Any, sample: BanditSample): Double = when (handle) {
         is BoolHandle -> {
-            val id = space.compiled.boolVarIdByName[handle.name]
+            val id = space.coordinates.boolVarIdByName[handle.name]
                 ?: error("interaction references unknown bool '${handle.name}'")
             if (!boolActive(id, sample.sample)) {
                 0.0
@@ -144,7 +145,7 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
         }
 
         is IntHandle -> {
-            val id = space.compiled.intVarIdByName[handle.name]
+            val id = space.coordinates.intVarIdByName[handle.name]
                 ?: error("interaction references unknown int '${handle.name}'")
             if (!intActive(id, sample.sample)) {
                 0.0
@@ -207,7 +208,7 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
         DenseVector.wrap(boolWeights).scale(sign)
         DenseVector.wrap(intCoefficients).scale(sign)
         DenseVector.wrap(realCoefficients).scale(sign)
-        return integerObjective(space.compiled.problem, boolWeights, intCoefficients, realCoefficients)
+        return integerObjective(space.coordinates.problem, boolWeights, intCoefficients, realCoefficients)
     }
 
     /** Convenience: delegates to [CompiledDecisionSpace.assumptionsFor]. */
@@ -236,7 +237,7 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
         if (nominal != null) {
             val ctxSide = if (it.lhs === nominal) it.rhs else it.lhs
             val ctxScalar = ctxScalar(ctxSide, context)
-            val indicators = space.compiled.nominalIndicators[nominal.name]
+            val indicators = space.coordinates.nominalIndicators[nominal.name]
                 ?: error("interaction references unknown nominal '${nominal.name}'")
             for ((idx, label) in nominal.labels.withIndex()) {
                 val w = allWeights[start + idx]
@@ -290,20 +291,20 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
     ) {
         when (decision) {
             is BoolHandle -> {
-                val id = space.compiled.boolVarIdByName[decision.name]
+                val id = space.coordinates.boolVarIdByName[decision.name]
                     ?: error("interaction references unknown bool '${decision.name}'")
                 boolWeights[id] += weight
             }
 
             is IntHandle -> {
-                val id = space.compiled.intVarIdByName[decision.name]
+                val id = space.coordinates.intVarIdByName[decision.name]
                     ?: error("interaction references unknown int '${decision.name}'")
                 val (bucketCoeff, _) = layout.coefficientForInt(id, weight)
                 intCoefficients[id] += bucketCoeff
             }
 
             is FloatHandle -> {
-                val id = space.compiled.intVarIdByName[decision.name]
+                val id = space.coordinates.intVarIdByName[decision.name]
                 if (id != null) intCoefficients[id] += layout.coefficientForInt(id, weight).first else {
                     val real = layout.realHandles.entries.first { it.value.name == decision.name }.key
                     realCoefficients[real] += weight

@@ -56,10 +56,6 @@ fun interface WitnessSearch {
     fun witnesses(request: WitnessRequest, random: Random): WitnessBatch
 }
 
-internal data class AssignmentKey(val bools: List<Boolean>, val ints: List<Long>, val reals: List<Double>)
+internal data class AssignmentKey(val sample: Sample)
 
-internal fun Sample.assignmentKey(): AssignmentKey = AssignmentKey(
-    bools.toList(),
-    ints.toList(),
-    reals.map { if (it == 0.0) 0.0 else it },
-)
+internal fun Sample.assignmentKey(): AssignmentKey = AssignmentKey(this)

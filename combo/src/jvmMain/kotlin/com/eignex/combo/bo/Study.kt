@@ -143,7 +143,10 @@ class Study(val space: CompiledDecisionSpace, val store: ObservationStore = InMe
     }
 
     /** Capture history, reservations, and random-stream position for transfer. */
-    fun exportData(): HistoryData = HistoryData(space.definition, store.snapshot(), trials, nextId, round)
+    fun exportData(): HistoryData = HistoryData(
+        space.definition, store.snapshot(), trials, nextId, round,
+        problem = space.problem.takeIf { space.coordinates.schema == null },
+    )
 
     private fun remap(context: Context): Context {
         if (context.bools.keys.all { it in space.contextBools } &&
@@ -159,6 +162,7 @@ class Study(val space: CompiledDecisionSpace, val store: ObservationStore = InMe
             space.contextBools.filter { it.name in bools }.associateWith { bools.getValue(it.name) },
             space.contextInts.filter { it.name in ints }.associateWith { ints.getValue(it.name) },
             space.contextFloats.filter { it.name in floats }.associateWith { floats.getValue(it.name) },
+            context.nativeAssumptions, context.nativeReals, context.exactInts, context.exactReals,
         )
     }
 
@@ -168,6 +172,13 @@ class Study(val space: CompiledDecisionSpace, val store: ObservationStore = InMe
             SchemaJson.encodeToString(com.eignex.combo.decisions.DecisionSpaceDef.serializer(), data.definition) ==
                 SchemaJson.encodeToString(com.eignex.combo.decisions.DecisionSpaceDef.serializer(), space.definition),
         ) { "history belongs to a different decision-space definition" }
+        if (space.coordinates.schema == null || data.problem != null) {
+            val original = requireNotNull(data.problem) { "history belongs to a schema model" }
+            val codec = com.eignex.klause.formats.json.ProblemJson.default
+            require(codec.encodeToString(original) == codec.encodeToString(space.problem)) {
+                "history belongs to a different native problem"
+            }
+        }
         require(data.trials.none { it.id in issued }) { "imported trial identifiers already exist" }
         val observations = data.history.observations.map { it.copy(context = remap(it.context)) }
         val trials = data.trials.map { it.copy(context = remap(it.context)) }

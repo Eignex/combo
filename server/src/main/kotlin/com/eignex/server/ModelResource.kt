@@ -9,6 +9,7 @@ import com.eignex.combo.model.ModelStatistics
 import com.eignex.combo.model.StatisticalObservation
 import com.eignex.combo.model.InsufficientStatisticalEvidence
 import com.eignex.klause.model.VarSpec
+import com.eignex.combo.decisions.DecisionCoordinates
 import io.ktor.http.HttpStatusCode
 import kotlinx.serialization.json.*
 
@@ -16,25 +17,28 @@ internal class ModelResource(private val definition: ModelDefinition) : ManagedR
     override val type = "model"
     private val space = definition.space?.also(::requireSupportedSpace)
     private val variables = space?.toSchemaDef()?.entries.orEmpty().filterValues { it is VarSpec }
-    private val contexts = space?.context.orEmpty().keys
-    private val decisions = variables.keys - contexts
+    private val native = definition.problem?.let(DecisionCoordinates::of)
+    private val names = native?.let { it.boolVarIdByName.keys + it.intVarIdByName.keys + it.realHandles.values.map { h -> h.name } } ?: variables.keys
+    private val contexts = if (native == null) space?.context.orEmpty().keys else definition.inputs.keys
+    private val proposalContexts = mutableMapOf<Long, Set<String>>()
     private val statistics = ModelStatistics(definition)
     private val stat = definition.stat?.let { StatisticResource.create(it, definition.seed) }
-    private val problem = space?.takeUnless { definition.learned || definition.inputs.isNotEmpty() }?.let {
-        ProblemResource(it.toSchemaDef())
-    }
-    private val optimizer = space?.takeIf { definition.learned }?.let {
+    private val problem = if (definition.learned) null else definition.problem?.let(::ProblemResource)
+        ?: space?.takeIf { definition.inputs.isEmpty() }?.let { ProblemResource(it.toSchemaDef()) }
+    private val optimizer = if (!definition.learned) null else run {
         val rewards = stat?.let { tracker ->
             requireNotNull(tracker.series()) { "an outcome statistic must accept scalar observations" }
         }
-        OptimizerResource(it, definition.seed, !definition.objective!!.ascending, rewards, definition.learning)
+        definition.problem?.let {
+            OptimizerResource(it, definition.seed, !definition.objective!!.ascending, rewards, definition.learning)
+        } ?: OptimizerResource(requireNotNull(space), definition.seed, !definition.objective!!.ascending, rewards, definition.learning)
     }
     val capabilities: List<String> = buildList {
-        if (space != null) { add("evaluate"); add("recommend") }
+        if (space != null || native != null) { add("evaluate"); add("recommend") }
         if (optimizer != null || stat?.canChoose == true) add("propose")
         if (optimizer != null || stat != null || definition.statistics.isNotEmpty()) add("observe")
         if (optimizer != null) add("cancel")
-        if (space == null && (stat != null || definition.statistics.isNotEmpty())) add("reset")
+        if (space == null && native == null && (stat != null || definition.statistics.isNotEmpty())) add("reset")
     }
 
     fun describe(timestampNanos: Long = System.nanoTime()): JsonObject = buildJsonObject {
@@ -59,14 +63,14 @@ internal class ModelResource(private val definition: ModelDefinition) : ManagedR
 
     fun recommend(query: ModelQuery, control: OperationControl): JsonElement {
         require(query.values.isEmpty() && query.count == 1) { "recommend accepts given and timeoutMillis" }
-        if (space != null && optimizer == null) {
+        if ((space != null || native != null) && optimizer == null) {
             validateGiven(query.given)
-            return staticSelection { resource, objective ->
-                resource.recommend(objective, query.given, definition.seed.toLong(), control)
+            return staticSelection(query.given) { resource, objective, given ->
+                resource.recommend(objective, given, definition.seed.toLong(), control)
             }
         }
         optimizer?.let {
-            return selection(it.recommend(learnedGiven(query.given), definition.objective!!.name, control))
+            return selection(it.recommend(learnedGiven(query.given), definition.objective!!.name, control), requestContexts(query.given))
         }
         unsupported("recommend")
     }
@@ -74,10 +78,10 @@ internal class ModelResource(private val definition: ModelDefinition) : ManagedR
     fun evaluate(query: ModelQuery, control: OperationControl): JsonElement {
         require(query.count == 1) { "evaluate accepts values, given, and timeoutMillis" }
         validateGiven(query.given)
-        require(query.values.keys == decisions) { "values must assign every decision variable" }
-        optimizer?.let { return selection(it.evaluate(query.values, learnedGiven(query.given), definition.objective!!.name, control)) }
-        if (space != null) return staticSelection { resource, objective ->
-            resource.evaluate(query.values + query.given, objective, control)
+        require(query.values.keys == names - requestContexts(query.given)) { "values must assign every decision variable" }
+        optimizer?.let { return selection(it.evaluate(query.values, learnedGiven(query.given), definition.objective!!.name, control), requestContexts(query.given)) }
+        if (space != null || native != null) return staticSelection(query.given) { resource, objective, given ->
+            resource.evaluate(query.values + given, objective, control)
         }
         unsupported("evaluate")
     }
@@ -86,7 +90,10 @@ internal class ModelResource(private val definition: ModelDefinition) : ManagedR
         optimizer?.let {
             val query = wireJson.decodeFromJsonElement<ModelQuery>(request)
             require(query.values.isEmpty()) { "propose accepts given, count, and timeoutMillis" }
-            val proposals = it.propose(learnedGiven(query.given), query.count, control).map { trial -> proposal(trial, it) }
+            val proposals = it.propose(learnedGiven(query.given), query.count, control).map { trial ->
+                proposalContexts[trial.id] = requestContexts(query.given)
+                proposal(trial, it)
+            }
             return buildJsonObject {
                 put("status", if (proposals.size == query.count) "ready" else if (proposals.isEmpty()) "unavailable" else "partial")
                 put("proposals", JsonArray(proposals))
@@ -126,50 +133,67 @@ internal class ModelResource(private val definition: ModelDefinition) : ManagedR
     }
 
     fun reset(): JsonElement {
-        require(space == null && (stat != null || definition.statistics.isNotEmpty())) { "reset requires standalone statistics or a bandit" }
+        require(space == null && native == null && (stat != null || definition.statistics.isNotEmpty())) { "reset requires standalone statistics or a bandit" }
         statistics.reset()
         stat?.reset()
         return snapshot()
     }
 
-    private fun staticSelection(operation: (ProblemResource, ModelObjective?) -> JsonObject): JsonObject {
-        problem?.let { return selection(operation(it, definition.objective)) }
+    private fun staticSelection(
+        given: JsonObject,
+        operation: (ProblemResource, ModelObjective?, JsonObject) -> JsonObject,
+    ): JsonObject {
+        problem?.let {
+            val bound = if (native != null) statisticalContext() else JsonObject(emptyMap())
+            val result = operation(it, definition.objective, JsonObject(given + bound))
+            return selection(result, requestContexts(given))
+        }
         val resolved = try {
             statistics.resolve()
         } catch (error: InsufficientStatisticalEvidence) {
             throw ApiException(HttpStatusCode.Conflict, "insufficient_evidence", error.message.orEmpty())
         }
-        val result = ProblemResource(resolved.schema).use { operation(it, resolved.objective) }
+        val result = ProblemResource(resolved.schema).use { operation(it, resolved.objective, given) }
         return JsonObject(selection(result) + ("inputs" to resolved.inputs))
     }
 
     private fun validateGiven(given: JsonObject) {
+        if (native != null) {
+            require(given.keys.all { it in names && it !in definition.inputs }) {
+                "given must name native columns and cannot override statistical inputs"
+            }
+            return
+        }
         val supplied = if (definition.learned) contexts - definition.inputs.keys else contexts
         require(given.keys == supplied) { "given must assign every caller context; statistical inputs cannot be overridden" }
     }
 
     private fun learnedGiven(given: JsonObject): JsonObject {
         validateGiven(given)
-        val bound = try {
+        return JsonObject(given + statisticalContext())
+    }
+
+    private fun statisticalContext(): JsonObject = try {
             statistics.context()
         } catch (error: InsufficientStatisticalEvidence) {
             throw ApiException(HttpStatusCode.Conflict, "insufficient_evidence", error.message.orEmpty())
         }
-        return JsonObject(given + bound)
-    }
+
+    private fun requestContexts(given: JsonObject): Set<String> =
+        if (native == null) contexts else given.keys + definition.inputs.keys
 
     private fun boundInputs(assignment: JsonObject): Map<String, JsonElement> =
-        if (!definition.learned || definition.inputs.isEmpty()) emptyMap() else mapOf(
+        if ((!definition.learned && native == null) || definition.inputs.isEmpty()) emptyMap() else mapOf(
             "inputs" to JsonObject(definition.inputs.map { (name, input) ->
                 "$name.${input.value}" to assignment.getValue(name)
             }.toMap()),
         )
 
-    private fun selection(result: JsonObject): JsonObject {
+    private fun selection(result: JsonObject, givenNames: Set<String> = contexts): JsonObject {
         val assignment = result["values"] as? JsonObject ?: return result
         return JsonObject(result + mapOf(
-            "values" to JsonObject(assignment.filterKeys { it in decisions }),
-            "given" to JsonObject(assignment.filterKeys { it in contexts && it !in definition.inputs }),
+            "values" to JsonObject(assignment.filterKeys { it in names && it !in givenNames }),
+            "given" to JsonObject(assignment.filterKeys { it in givenNames && it !in definition.inputs }),
         ) + boundInputs(assignment) + ((result["objective"] as? JsonObject)?.let {
             mapOf("objective" to JsonObject(it + ("name" to JsonPrimitive(definition.objective!!.name))))
         } ?: emptyMap()))
@@ -180,8 +204,9 @@ internal class ModelResource(private val definition: ModelDefinition) : ManagedR
         val status = trial.status.name.lowercase()
         put("status", if (status == "completed") "observed" else status)
         val allValues = backend.assignment(trial)
-        put("values", JsonObject(allValues.filterKeys { it in decisions }))
-        put("given", JsonObject(allValues.filterKeys { it in contexts && it !in definition.inputs }))
+        val givenNames = proposalContexts[trial.id] ?: contexts
+        put("values", JsonObject(allValues.filterKeys { it in names && it !in givenNames }))
+        put("given", JsonObject(allValues.filterKeys { it in givenNames && it !in definition.inputs }))
         for ((name, value) in boundInputs(allValues)) put(name, value)
         trial.reward?.let { put("observed", buildJsonObject { put(definition.objective!!.name, it) }) }
     }

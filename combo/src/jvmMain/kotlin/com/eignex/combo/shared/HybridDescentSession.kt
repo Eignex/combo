@@ -10,6 +10,8 @@ import com.eignex.klause.localsearch.LocalSearchParams
 import com.eignex.klause.localsearch.LocalSearchSession
 import com.eignex.klause.localsearch.LocalSearchSolver
 import com.eignex.klause.propagation.Assumptions
+import com.eignex.klause.ir.IntDomain
+import com.eignex.klause.ir.randomValue
 import com.eignex.klause.propagation.bake
 import com.eignex.klause.solver.Sample
 import com.eignex.klause.solver.SolveResult
@@ -119,7 +121,7 @@ class HybridDescentSession(
     }
 
     override fun witnesses(request: WitnessRequest, random: Random): WitnessBatch {
-        if (request.context.floats.isNotEmpty()) {
+        if (request.context.hasRealValues) {
             val scoped = requireNotNull(conditionedSearch) { "this witness provider cannot condition real contexts" }
             return scoped(request.context).witnesses(request.copy(
                 context = Context.Empty,
@@ -146,7 +148,7 @@ class HybridDescentSession(
             attempts++
             // A stalled coordinate proposal may lie on an affine equality. Spend a bounded
             // attempt on joint geometry before asking the solver for the same endpoints again.
-            if (missed && attempts % 2 == 0 && space.compiled.problem.numRealVars > 0) {
+            if (space.coordinates.schema != null && missed && attempts % 2 == 0 && space.coordinates.problem.numRealVars > 0) {
                 val candidates = pool.filter { space.matches(it, request.assumptions) }
                 val left = candidates.randomOrNull(random)
                 val peers = if (left == null) {
@@ -222,6 +224,7 @@ class HybridDescentSession(
             poolCapacity: Int = 64,
             context: Context = Context.Empty,
         ): HybridDescentSession {
+            if (space.coordinates.schema == null) return native(space, backtrack, candidateBatchSize, poolCapacity, context)
             val problem = space.conditionedProblem(context).bake()
             val local = LocalSearchSession(LocalSearchSolver(problem))
             val complete = BacktrackSolver(problem)
@@ -250,7 +253,7 @@ class HybridDescentSession(
                             proposed
                         }
                         val sample = result.assignment?.let {
-                            if (context.floats.isEmpty()) proposals.interior(it, rng) else it.unframed()
+                            if (!context.hasRealValues) proposals.interior(it, rng) else it.unframed()
                         }
                         when {
                             sample != null -> SampleResult.Found(sample)
@@ -290,6 +293,44 @@ class HybridDescentSession(
                 conditionedSearch = { given ->
                     klause(space, localSearch, backtrack, candidateBatchSize, poolCapacity, given)
                 },
+            )
+        }
+
+        private fun native(
+            space: CompiledDecisionSpace,
+            params: BacktrackParams,
+            candidateBatchSize: Int,
+            poolCapacity: Int,
+            context: Context,
+        ): HybridDescentSession {
+            val model = space.conditionedProblem(context)
+            val base = space.discreteAssumptionsFor(context)
+            fun search(rng: Random, pins: Assumptions, randomize: Boolean): SampleResult {
+                val objective = if (randomize) LinearObjective(
+                    boolWeights = LongArray(model.numBoolVars) { if (rng.nextBoolean()) 1L else -1L },
+                    intCoefficients = LongArray(model.numIntVars) { if (rng.nextBoolean()) 1L else -1L },
+                    realCoefficients = DoubleArray(model.numRealVars) { rng.nextDouble(-1.0, 1.0) },
+                ) else LinearObjective()
+                val requested = base.mergedWith(pins)
+                var proposed = requested
+                if (randomize) for (id in 0 until model.numIntVars) {
+                    if (id in requested.ints || id in context.exactInts) continue
+                    val bounds = model.intBounds
+                    if (!bounds.hasLower(id) || !bounds.hasUpper(id)) continue
+                    val domain = model.intDomainOrNull(id) ?: IntDomain(bounds.lower(id), bounds.upper(id))
+                    proposed = proposed.withInt(id, domain.randomValue(rng))
+                }
+                val result = model.sourceMinimize(
+                    objective, params.copy(randomSeed = rng.nextLong(), assumptions = proposed),
+                ).sampleResult()
+                return if (result is SampleResult.Found || proposed === requested) result else model.sourceMinimize(
+                    objective, params.copy(randomSeed = rng.nextLong(), assumptions = requested),
+                ).sampleResult()
+            }
+            return HybridDescentSession(
+                space, { rng, pins, _ -> search(rng, pins, true) }, { rng, pins -> search(rng, pins, false) },
+                candidateBatchSize, poolCapacity,
+                conditionedSearch = { given -> native(space, params, candidateBatchSize, poolCapacity, given) },
             )
         }
     }

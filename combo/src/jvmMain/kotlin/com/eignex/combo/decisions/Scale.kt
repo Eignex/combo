@@ -58,3 +58,18 @@ internal fun DecisionSpaceDef.numericDomains(prefix: String = ""): Map<String, N
     }
     for ((name, child) in spaces + optionalSpaces) putAll(child.numericDomains("$prefix$name."))
 }
+
+/** Geometry exists only for genuinely bounded native columns; open domains are never boxed by Combo. */
+internal fun nativeNumericDomains(problem: com.eignex.klause.ir.Problem): Map<String, NumericDomain> = buildMap {
+    val bounds = problem.intBounds
+    for (id in 0 until problem.numIntVars) {
+        if (bounds.hasLower(id) && bounds.hasUpper(id)) {
+            put("ints.$id", NumericDomain(bounds.lower(id).toDouble(), bounds.upper(id).toDouble(), Scale.Linear))
+        }
+    }
+    for (id in 0 until problem.numRealVars) {
+        val lower = problem.realLower[id]
+        val upper = problem.realUpper[id]
+        if (lower.isFinite() && upper.isFinite()) put("reals.$id", NumericDomain(lower, upper, Scale.Linear))
+    }
+}

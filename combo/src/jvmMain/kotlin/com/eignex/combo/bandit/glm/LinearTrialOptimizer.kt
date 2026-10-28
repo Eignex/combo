@@ -4,6 +4,8 @@ import com.eignex.combo.bo.*
 import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.Context
 import com.eignex.combo.decisions.conditionedProblem
+import com.eignex.combo.decisions.minimizeNative
+import com.eignex.combo.shared.assignment
 import com.eignex.klause.backtrack.BacktrackParams
 import com.eignex.klause.backtrack.BacktrackSolver
 import com.eignex.klause.propagation.bake
@@ -42,7 +44,10 @@ class LinearTrialOptimizer(
                     Random(seed.toLong() xor round++),
                 ).witnesses.minByOrNull(objective::evaluate)
             } else if (contextOptimizer != null) contextOptimizer(objective, assumptions, context)
-            else if (projection.space.contextFloats.isEmpty()) innerOptimizer(objective, assumptions)
+            else if (projection.space.coordinates.schema == null) projection.space.minimizeNative(
+                objective, context, BacktrackParams(maxDecisions = 100_000, assumptions = assumptions),
+            ).assignment
+            else if (!context.hasRealValues && projection.space.contextFloats.isEmpty()) innerOptimizer(objective, assumptions)
             else BacktrackSolver(projection.space.conditionedProblem(context).bake()).minimize(
                 objective, BacktrackParams(maxDecisions = 100_000, assumptions = assumptions),
             ).assignment

@@ -8,6 +8,7 @@ import com.eignex.combo.shared.SolverCoordinateLayout
 import com.eignex.combo.shared.WitnessValidator
 import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
+import com.eignex.klause.util.toDouble
 import com.eignex.koblas.DenseVector
 import com.eignex.koblas.Vector
 import kotlin.math.roundToLong
@@ -25,14 +26,14 @@ class SearchTransform(override val space: CompiledDecisionSpace) : FeatureEncode
     internal val layout = SolverCoordinateLayout(space)
     override val featureSize: Int get() = layout.size
 
-    private val boolNames = space.compiled.boolVarIdByName.entries.associate { it.value to it.key } +
-        space.compiled.nominalIndicators.flatMap { (name, indicators) -> indicators.values.map { it to name } }.toMap()
-    private val intNames = space.compiled.intVarIdByName.entries.associate { it.value to it.key }
+    private val boolNames = space.coordinates.boolVarIdByName.entries.associate { it.value to it.key } +
+        space.coordinates.nominalIndicators.flatMap { (name, indicators) -> indicators.values.map { it to name } }.toMap()
+    private val intNames = space.coordinates.intVarIdByName.entries.associate { it.value to it.key }
     private fun active(name: String?, sample: Sample): Boolean =
         space.activeConditions[name]?.let { space.evaluate(it, sample) } ?: true
 
     private val slots = space.numericDomains.mapNotNull { (name, domain) ->
-        val intId = space.compiled.intVarIdByName[name]
+        val intId = space.coordinates.intVarIdByName[name]
         val realId = layout.realHandles.entries.firstOrNull { it.value.name == name }?.key
         val slot = if (intId != null) layout.intStart + intId else realId?.let { layout.realStart + it }
         slot?.let { Triple(name, it, domain) }
@@ -46,10 +47,10 @@ class SearchTransform(override val space: CompiledDecisionSpace) : FeatureEncode
                 space.contextBools.mapNotNull { it.isKnownGate?.name } +
                 space.contextInts.mapNotNull { it.isKnownGate?.name }
             ).toSet()
-        val indicators = space.compiled.nominalIndicators.values.flatMap { it.values }.toSet()
+        val indicators = space.coordinates.nominalIndicators.values.flatMap { it.values }.toSet()
         return space.numericDomains.count { (name, domain) -> name !in contexts && domain.min < domain.max } +
-            space.compiled.boolVarIdByName.count { (name, id) -> name !in contexts && id !in indicators } +
-            space.compiled.nominalIndicators.count { it.value.size > 1 }
+            space.coordinates.boolVarIdByName.count { (name, id) -> name !in contexts && id !in indicators } +
+            space.coordinates.nominalIndicators.count { it.value.size > 1 }
     }
 
     /**
@@ -58,27 +59,28 @@ class SearchTransform(override val space: CompiledDecisionSpace) : FeatureEncode
      */
     fun sampleUnit(units: Vector, anchor: BanditSample, context: Context = Context.Empty): BanditSample? {
         require(units.size == featureSize && units.toDoubleArray().all { it >= 0.0 && it < 1.0 })
+        if (space.coordinates.schema == null) return null
         val assumptions = space.discreteAssumptionsFor(context)
         val bools = anchor.sample.bools
         val ints = anchor.sample.ints
         val reals = anchor.sample.reals
         val exact = (anchor.sample.exactReals ?: reals.map { BigFraction.ofDouble(it)!! }).toMutableList()
         for (id in bools.indices) bools[id] = assumptions.bools[id] ?: (units[id] >= 0.5)
-        for ((_, indicators) in space.compiled.nominalIndicators) {
+        for ((_, indicators) in space.coordinates.nominalIndicators) {
             val ids = indicators.values.toList()
             val chosen = (units[ids.first()] * ids.size).toInt()
             ids.forEachIndexed { index, id -> bools[id] = index == chosen }
         }
         val activation = Sample(bools, ints, reals, exactReals = exact)
         for ((id, name) in boolNames) {
-            if (!active(name, activation) && name !in space.compiled.nominalIndicators) bools[id] = false
+            if (!active(name, activation) && name !in space.coordinates.nominalIndicators) bools[id] = false
         }
-        for ((name, indicators) in space.compiled.nominalIndicators) {
+        for ((name, indicators) in space.coordinates.nominalIndicators) {
             if (!active(name, activation)) indicators.values.forEachIndexed { index, id -> bools[id] = index == 0 }
         }
         for ((name, slot, domain) in slots) {
             if (space.contextFloats.any { it.name == name }) continue
-            val intId = space.compiled.intVarIdByName[name]
+            val intId = space.coordinates.intVarIdByName[name]
             if (intId != null && intId in assumptions.ints) {
                 ints[intId] = assumptions.ints.getValue(intId)
                 continue
@@ -111,6 +113,7 @@ class SearchTransform(override val space: CompiledDecisionSpace) : FeatureEncode
      */
     fun decode(coordinates: Vector, anchor: BanditSample, context: Context = Context.Empty): BanditSample? {
         require(coordinates.size == featureSize && coordinates.toDoubleArray().all { it.isFinite() })
+        if (space.coordinates.schema == null) return null
         val bools = anchor.sample.bools
         val ints = anchor.sample.ints
         val reals = anchor.sample.reals
@@ -128,7 +131,7 @@ class SearchTransform(override val space: CompiledDecisionSpace) : FeatureEncode
             // Preserve exact witnesses and avoid roundoff from inverting unchanged scaled coordinates.
             if (unit == original[slot]) continue
             val value = domain.fromUnit(unit)
-            val intId = space.compiled.intVarIdByName[name]
+            val intId = space.coordinates.intVarIdByName[name]
             if (intId != null) {
                 val spec = layout.floatSpecs[intId]
                 ints[intId] = if (spec == null) {
@@ -161,9 +164,9 @@ class SearchTransform(override val space: CompiledDecisionSpace) : FeatureEncode
         }
         for (id in 0 until layout.numIntVars) {
             if (active(intNames[id], source)) {
-                val raw = source.intValue(id)
-                features[layout.intStart + id] = layout.floatSpecs[id]?.realValue(Math.toIntExact(raw))
-                    ?: raw.toDouble()
+                val spec = layout.floatSpecs[id]
+                features[layout.intStart + id] = if (spec == null) source.exactIntValue(id).toDouble()
+                    else spec.realValue(Math.toIntExact(source.intValue(id)))
             }
         }
         for ((id, handle) in layout.realHandles) {

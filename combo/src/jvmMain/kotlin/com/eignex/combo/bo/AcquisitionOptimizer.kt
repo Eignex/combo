@@ -254,10 +254,10 @@ class LocalAndRandomSearch(
 
 internal class FeasibleNeighborhood(private val space: CompiledDecisionSpace) {
     private val validator = WitnessValidator(space)
-    private val solver by lazy { BacktrackSolver(space.compiled.problem.bake()) }
+    private val solver by lazy { BacktrackSolver(space.coordinates.problem.bake()) }
     private val coordinates = SolverCoordinateLayout(space)
     private val realIds = coordinates.realHandles
-    private val names = (space.compiled.boolVarIdByName.keys + space.numericDomains.keys).distinct()
+    private val names = (space.coordinates.boolVarIdByName.keys + space.numericDomains.keys).distinct()
 
     fun around(
         anchor: Sample,
@@ -268,8 +268,8 @@ internal class FeasibleNeighborhood(private val space: CompiledDecisionSpace) {
         seeds: List<Sample>,
         context: Context = Context.Empty,
     ): List<Sample> {
-        if (names.isEmpty()) return emptyList()
-        val scopedSolver = if (context.floats.isEmpty()) solver else {
+        if (space.coordinates.schema == null || names.isEmpty()) return emptyList()
+        val scopedSolver = if (!context.hasRealValues) solver else {
             BacktrackSolver(space.conditionedProblem(context).bake())
         }
         val peers = if (realIds.isEmpty()) {
@@ -292,8 +292,8 @@ internal class FeasibleNeighborhood(private val space: CompiledDecisionSpace) {
             }
             val name = names[random.nextInt(names.size)]
             if (space.contextFloats.any { it.name == name }) return@List null
-            val boolId = space.compiled.boolVarIdByName[name]
-            val intId = space.compiled.intVarIdByName[name]
+            val boolId = space.coordinates.boolVarIdByName[name]
+            val intId = space.coordinates.intVarIdByName[name]
             val realId = realIds.entries.firstOrNull { it.value.name == name }?.key
             if (boolId != null && boolId !in assumptions.bools) {
                 scopedSolver.sample(
@@ -306,7 +306,7 @@ internal class FeasibleNeighborhood(private val space: CompiledDecisionSpace) {
                     ),
                 ).assignment?.unframed()
             } else if (intId != null && intId !in assumptions.ints) {
-                val domain = space.numericDomains.getValue(name)
+                val domain = space.numericDomains[name] ?: return@List null
                 val lo = domain.feature(domain.min)
                 val hi = domain.feature(domain.max)
                 val spec = coordinates.floatSpecs[intId]
@@ -330,7 +330,7 @@ internal class FeasibleNeighborhood(private val space: CompiledDecisionSpace) {
                     ),
                 ).assignment?.unframed()
             } else if (realId != null) {
-                val domain = space.numericDomains.getValue(name)
+                val domain = space.numericDomains[name] ?: return@List null
                 val lo = domain.feature(domain.min)
                 val hi = domain.feature(domain.max)
                 val reals = anchor.reals

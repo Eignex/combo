@@ -7,7 +7,16 @@ import com.eignex.combo.decisions.CompiledDecisionSpace
 import com.eignex.combo.decisions.Context
 import com.eignex.combo.decisions.context
 import com.eignex.combo.decisions.floatAssumptions
-import com.eignex.klause.compile.CompiledSchema
+import com.eignex.combo.decisions.DecisionCoordinates
+import com.eignex.klause.ir.SourceBoolId
+import com.eignex.klause.ir.SourceIntId
+import com.eignex.klause.ir.SourceRealId
+import com.eignex.klause.util.fitsLong
+import com.eignex.klause.util.parseBigInt
+import com.eignex.klause.util.BIG_ONE
+import com.eignex.klause.util.toLongExact
+import kotlinx.serialization.json.JsonPrimitive
+import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.model.BoolSpec
 import com.eignex.klause.model.FloatSpec
 import com.eignex.klause.model.IntSpec
@@ -62,13 +71,31 @@ internal inline fun <T> compileInput(compile: () -> T): T = try {
     throw IllegalArgumentException(error.message ?: "unknown model reference", error)
 }
 
-internal fun values(compiled: CompiledSchema, entries: Map<String, SchemaEntry>, sample: Sample): JsonObject =
+internal fun values(compiled: DecisionCoordinates, entries: Map<String, SchemaEntry>, sample: Sample): JsonObject =
     buildJsonObject {
+        if (compiled.schema == null) {
+            for ((name, id) in compiled.boolVarIdByName) put(name, sample.boolValue(id))
+            for ((name, id) in compiled.intVarIdByName) {
+                val value = sample.exactIntValue(id)
+                put(name, if (value.fitsLong()) JsonPrimitive(value.toLongExact()) else JsonPrimitive(value.toString()))
+            }
+            for ((id, handle) in compiled.realHandles) {
+                val exact = sample.symbolicReals?.get(id)?.rational
+                    ?: sample.algebraicReals?.get(id)?.rational ?: sample.exactReals?.get(id)
+                val approximation = sample.approximateRealValue(id)
+                put(handle.name, when {
+                    exact != null && BigFraction.ofDouble(approximation) == exact -> JsonPrimitive(approximation)
+                    exact != null -> JsonPrimitive(exact.toString())
+                    else -> buildJsonObject { if (approximation.isFinite()) put("approximation", approximation) }
+                })
+            }
+            return@buildJsonObject
+        }
         val assignment = sample.compatibilitySnapshot()
         for ((name, spec) in entries) {
             when (spec) {
                 BoolSpec, is PresenceSpec -> put(name, compiled.decode(BoolHandle(name), assignment))
-                is IntSpec -> put(name, compiled.decode(IntHandle(name, spec.min, spec.max), assignment))
+                is IntSpec -> put(name, compiled.decode(IntHandle(name, spec.min.toLong(), spec.max.toLong()), assignment))
                 is NominalSpec -> put(name, compiled.decode(NominalHandle(name, spec.labels), assignment))
                 is FloatSpec -> put(name, compiled.decode(FloatHandle(name, spec.min, spec.max), assignment))
                 else -> Unit
@@ -76,7 +103,7 @@ internal fun values(compiled: CompiledSchema, entries: Map<String, SchemaEntry>,
         }
     }
 
-internal fun assumptions(compiled: CompiledSchema, entries: Map<String, SchemaEntry>, input: JsonObject): Assumptions {
+internal fun assumptions(compiled: DecisionCoordinates, entries: Map<String, SchemaEntry>, input: JsonObject): Assumptions {
     var result = Assumptions.None
     for ((name, element) in input) {
         val value = element.jsonPrimitive
@@ -112,6 +139,7 @@ internal fun assumptions(compiled: CompiledSchema, entries: Map<String, SchemaEn
 }
 
 internal fun readContext(space: CompiledDecisionSpace, input: JsonObject): Context {
+    if (space.coordinates.schema == null) return nativeContext(space, input)
     val names = (space.contextBools.map { it.name } + space.contextInts.map { it.name } + space.contextFloats.map { it.name }).toSet()
     require(input.keys.all { it in names }) { "unknown context field" }
     return context {
@@ -141,4 +169,54 @@ internal fun readContext(space: CompiledDecisionSpace, input: JsonObject): Conte
             }
         }
     }
+}
+
+
+/** Native column references share the model query contract and do not manufacture a scalar schema. */
+private fun nativeContext(space: CompiledDecisionSpace, input: JsonObject): Context {
+    val coordinates = space.coordinates
+    val result = context {
+        for ((name, element) in input) {
+            val primitive = element.jsonPrimitive
+            val bool = coordinates.boolVarIdByName[name]
+            val int = coordinates.intVarIdByName[name]
+            val real = coordinates.realHandles.entries.firstOrNull { it.value.name == name }
+            when {
+                bool != null -> {
+                    require(!primitive.isString) { "'$name' must be Boolean" }
+                    set(SourceBoolId(bool), requireNotNull(primitive.booleanOrNull) { "'$name' must be Boolean" })
+                }
+                int != null -> {
+                    val integer = if (primitive.isString) {
+                        require(primitive.content.matches(Regex("-?[0-9]+"))) { "'$name' must be an integer" }
+                        primitive.content
+                    } else try {
+                        java.math.BigDecimal(primitive.content).toBigIntegerExact().toString()
+                    } catch (_: ArithmeticException) {
+                        throw IllegalArgumentException("'$name' must be an exact integer")
+                    }
+                    set(SourceIntId(int), parseBigInt(integer))
+                }
+                real != null -> {
+                    if (primitive.isString) {
+                        val parts = primitive.content.split('/')
+                        require(parts.size in 1..2 && parts.all { it.matches(Regex("-?[0-9]+")) }) {
+                            "'$name' must be an exact rational or a finite number"
+                        }
+                        val value = BigFraction.of(parseBigInt(parts[0]), parts.getOrNull(1)?.let(::parseBigInt) ?: BIG_ONE)
+                        set(SourceRealId(real.key), value)
+                        continue
+                    }
+                    val value = requireNotNull(primitive.doubleOrNull) {
+                        "'$name' must be a finite real number"
+                    }
+                    require(value in real.value.min..real.value.max) { "'$name' outside its bounds" }
+                    set(SourceRealId(real.key), value)
+                }
+                else -> throw IllegalArgumentException("unknown native column '$name'")
+            }
+        }
+    }
+    space.discreteAssumptionsFor(result)
+    return result
 }
