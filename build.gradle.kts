@@ -4,6 +4,12 @@ plugins {
     kotlin("plugin.serialization") version "2.4.21" apply false
 }
 
+subprojects {
+    configurations.configureEach {
+        resolutionStrategy.cacheChangingModulesFor(0, "seconds")
+    }
+}
+
 tasks.check { dependsOn(":combo:check", ":server:check") }
 tasks.assemble { dependsOn(":combo:assemble", ":server:assemble") }
 

@@ -35,21 +35,21 @@ kotlin {
         commonMain.dependencies {
             compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-core:1.12.0")
         }
-        // Pin platform artifacts directly: KMP snapshot roots redirect to mutable
-        // platform versions and lose dependency exclusions across that redirect.
+        // Depend on platform artifacts directly so dependency exclusions survive
+        // the KMP root-to-platform redirect.
         for ((sourceSet, modules) in mapOf(
             "jvmMain" to mapOf(
-                "klause-jvm" to "0.0.1-20261028.153451-1056",
+                "klause-jvm" to "0.0.1-SNAPSHOT",
                 "kumulant-jvm" to "0.3.4-20261027.205951-103",
             ),
             "linuxX64Main" to mapOf(
-                "klause-linuxx64" to "0.0.1-20261028.153451-1055",
+                "klause-linuxx64" to "0.0.1-SNAPSHOT",
                 "kumulant-linuxx64" to "0.3.4-20261027.205951-103",
             ),
         )) {
             getByName(sourceSet).dependencies {
-                for ((module, pinned) in modules) {
-                    api("com.eignex:$module:$pinned") {
+                for ((module, version) in modules) {
+                    api("com.eignex:$module:$version") {
                         if (!module.startsWith("koblas-")) {
                             // Kumulant and Klause pin different numerical and codec versions.
                             // Export exclusions and supply the shared platform artifacts below.

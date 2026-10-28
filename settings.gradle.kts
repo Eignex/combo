@@ -13,7 +13,7 @@ plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
-// Opt in when working on the sibling libraries together; normal builds use the pinned artifacts.
+// Opt in when working on the sibling libraries together; normal builds use published dependencies.
 if (providers.gradleProperty("dependencies.local").isPresent || providers.gradleProperty("klause.local").isPresent) {
     includeBuild(providers.gradleProperty("klause.local").orNull?.ifBlank { "../klause" } ?: "../klause") {
         dependencySubstitution {
