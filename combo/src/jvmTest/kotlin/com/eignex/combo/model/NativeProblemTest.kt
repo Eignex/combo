@@ -43,10 +43,13 @@ class NativeProblemTest {
             val sample = assertIs<SolveResult.Sat>(space.solveNative(given)).assignment
             assertEquals(0, sample.exactRealValue(0).compareExactly(value))
             assertTrue(space.matches(sample, given))
+            assertTrue(SearchTransform(space).encode(BanditSample(sample), given).all { it.isFinite() })
             val decoded = Sample(sample.bools, sample.ints, sample.reals,
                 symbolicReals = listOf(ExactRealJson.decodeFromString(ExactRealJson.encodeToString(sample.exactRealValue(0)))))
             assertEquals(sample.assignmentKey(), decoded.assignmentKey())
             val search = HybridDescentSession.klause(space, candidateBatchSize = 1)
+            assertTrue(search.witnesses(WitnessRequest(1, context = given, anchors = listOf(sample),
+                exclude = listOf(decoded), maxAttempts = 0), Random(42)).witnesses.isEmpty())
             val batch = search.witnesses(WitnessRequest(1, context = given), Random(42))
             assertEquals(1, batch.witnesses.size)
             assertTrue(space.matches(batch.witnesses.single(), given))

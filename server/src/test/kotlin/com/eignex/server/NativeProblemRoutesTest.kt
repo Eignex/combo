@@ -90,6 +90,11 @@ class NativeProblemRoutesTest {
             }
             val retained = client.get(base).objectBody().getValue("state").jsonObject.getValue("proposals").jsonArray.map { it.jsonObject }
             assertEquals(proposals.map { it["given"] }, retained.map { it["given"] })
+            val estimate = client.send("$base/recommend", buildJsonObject {
+                put("given", proposals.first().getValue("given"))
+            }.toString()).objectBody()
+            assertEquals("estimated", estimate.getValue("status").jsonPrimitive.content)
+            assertEquals(proposals.first()["given"], estimate["given"])
         }
     }
 
