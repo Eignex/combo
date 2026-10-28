@@ -148,7 +148,7 @@ class HybridDescentSession(
             attempts++
             // A stalled coordinate proposal may lie on an affine equality. Spend a bounded
             // attempt on joint geometry before asking the solver for the same endpoints again.
-            if (space.coordinates.schema != null && missed && attempts % 2 == 0 && space.coordinates.problem.numRealVars > 0) {
+            if (space.coordinates.schema != null && missed && attempts % 2 == 0 && space.problem.numRealVars > 0) {
                 val candidates = pool.filter { space.matches(it, request.assumptions) }
                 val left = candidates.randomOrNull(random)
                 val peers = if (left == null) {
@@ -224,7 +224,9 @@ class HybridDescentSession(
             poolCapacity: Int = 64,
             context: Context = Context.Empty,
         ): HybridDescentSession {
-            if (space.coordinates.schema == null) return native(space, backtrack, candidateBatchSize, poolCapacity, context)
+            if (space.coordinates.schema == null) {
+                return native(space, backtrack, candidateBatchSize, poolCapacity, context)
+            }
             val problem = space.conditionedProblem(context).bake()
             val local = LocalSearchSession(LocalSearchSolver(problem))
             val complete = BacktrackSolver(problem)

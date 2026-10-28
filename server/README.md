@@ -33,6 +33,67 @@ observe; a bandit can also propose; a decision model can evaluate and recommend.
 An observed objective adds proposals and feedback to that same decision model.
 `GET /health` reports process health.
 
+## Native problems
+
+`problem` embeds Klause's canonical `ProblemJson` document directly. It retains every
+registered native factor, sparse and open domains, 64-bit declarations, exact factor
+constants, implied-factor flags, symmetry declarations, resource settings, and source
+semantics. Combo delegates decoding and encoding to Klause. `space` remains the named
+schema convenience; a definition selects either `problem` or `space`.
+
+For example, constrain a sparse integer column using a native table:
+
+```json
+{
+  "problem": {
+    "ints": [{"lower": 0, "upper": 10, "values": [[0, 2], [9, 10]]}],
+    "factors": [{"table": {"vars": [0], "tuples": [[1], [9]]}}]
+  },
+  "objective": {"minimize": "ints.0"}
+}
+```
+
+Native columns are addressed as `bools.0`, `ints.0`, and `reals.0`, in their separate
+native namespaces. `/recommend` returns `ints.0 = 1` here. `/evaluate` accepts
+`{"values":{"ints.0":9}}`. Any subset of native columns can be held fixed using
+`given`; `values` supplies the remaining columns for evaluation. The server returns
+the supplied columns under `given` and the others under `values`.
+
+To learn a measured objective over exactly the same problem, replace `objective`
+with `{"maximize":"reward"}` and add `"outcome":"reward"`. `/propose` and
+`/observe` then use the existing forest learner and retained proposal lifecycle.
+The existing `learning` configuration also supports the native linear learner.
+Native constraints always remain attached during proposal search.
+
+A named statistic can supply an existing numeric column directly:
+
+```json
+{
+  "problem": {"ints":[{"lower":0,"upper":8},{"lower":0,"upper":8}],
+    "factors":[{"linear":{"vars":[0,1],"coefficients":[1,-1],"op":"GE","bound":0}}]},
+  "objective": {"minimize":"ints.0"},
+  "statistics": {"demand":"mean"},
+  "inputs": {"ints.1":{"statistic":"demand","value":"mean"}}
+}
+```
+
+After observing demand, each decision freezes its mean and pins `ints.1` with a
+native equality. This works for known objectives and learned outcomes. Native
+bindings select an explicit scalar projection; interval interpretation stays in
+the named schema DSL. Callers cannot override bound columns.
+
+Imported problems use Klause's source strategy. Open domains do not acquire finite
+boxes, and native `unbounded`, `unattained_limit`, and `unknown` verdicts remain
+distinct. Support for a mathematical fragment depends on Klause's selected native
+route; accepting its document does not promise a proof for every factor combination.
+Known-objective solving retains native exact assignments. Integer responses beyond
+`Long` use decimal strings; rational reals that are not exactly binary64 use fraction
+strings such as `"1/3"`. These values can be submitted again for evaluation.
+Irrational or symbolic real responses expose a tagged `{"approximation":...}`;
+that tag is informational, not an exact input value. Learned numerical features use
+Double approximations. Native candidate generation preserves exact solver witnesses
+rather than reconstructing them through those features.
+
 ## A moving average
 
 Create a model:

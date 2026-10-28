@@ -40,7 +40,9 @@ data class ModelDefinition(
     val learned: Boolean get() = outcome != null
 
     init {
-        require(space != null || problem != null || stat != null || statistics.isNotEmpty()) { "declare a decision space or a statistic" }
+        require(space != null || problem != null || stat != null || statistics.isNotEmpty()) {
+            "declare a decision space or a statistic"
+        }
         require(space == null || problem == null) { "declare either space or problem" }
         require(inputs.isEmpty() || space != null || problem != null) { "statistical inputs require a decision space" }
         require(learning == null || learned) { "linear learning requires a measured outcome" }
@@ -56,9 +58,12 @@ data class ModelDefinition(
         }
         val variables = space?.toSchemaDef()?.entries?.filterValues { it is VarSpec }.orEmpty()
         val native = problem?.let(DecisionCoordinates::of)
-        val nativeNames = native?.let { it.boolVarIdByName.keys + it.intVarIdByName.keys + it.realHandles.values.map { h -> h.name } }.orEmpty()
+        val nativeNames = native?.let {
+            it.boolVarIdByName.keys + it.intVarIdByName.keys + it.realHandles.values.map { h -> h.name }
+        }.orEmpty()
         if (native != null) for ((name, input) in inputs) {
-            require((name in native.intVarIdByName || native.realHandles.values.any { it.name == name }) && input.value != null) {
+            val numeric = name in native.intVarIdByName || native.realHandles.values.any { it.name == name }
+            require(numeric && input.value != null) {
                 "native input '$name' must select a scalar for an existing numeric column"
             }
         }
@@ -79,13 +84,16 @@ data class ModelDefinition(
             require(inputs.isNotEmpty() || hasDecision) { "declare a decision variable" }
         }
         if (outcome != null) {
-            require(outcome.isNotBlank() && outcome !in variables && outcome !in nativeNames) { "outcome must name a separate measured value" }
+            require(outcome.isNotBlank() && outcome !in variables && outcome !in nativeNames) {
+                "outcome must name a separate measured value"
+            }
             require(objective?.name == outcome) { "objective must name the measured outcome" }
         } else {
             objective?.let {
                 val spec = variables[it.name]
                 val input = inputs.entries.firstOrNull { (name, _) -> it.name == name || it.name.startsWith("$name.") }
-                require(spec == BoolSpec || spec is IntSpec || spec is FloatSpec || input != null || it.name in nativeNames) {
+                val numeric = spec == BoolSpec || spec is IntSpec || spec is FloatSpec
+                require(numeric || input != null || it.name in nativeNames) {
                     "objective must name a numeric or Boolean variable"
                 }
                 require(input == null || it.name != input.key || input.value.value != null) {

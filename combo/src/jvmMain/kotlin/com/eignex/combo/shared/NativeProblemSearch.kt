@@ -39,7 +39,8 @@ internal fun Problem.sourceMinimize(objective: LinearObjective, params: Backtrac
 internal val QuadraticOptimizationResult.assignment: Sample?
     get() = (this as? QuadraticOptimizationResult.WithIncumbent)?.incumbent?.sample
 
-internal fun QuadraticOptimizationResult.sampleResult(): SampleResult = assignment?.let { SampleResult.Found(it) } ?: when (this) {
+internal fun QuadraticOptimizationResult.sampleResult(): SampleResult =
+    assignment?.let { SampleResult.Found(it) } ?: when (this) {
     is QuadraticOptimizationResult.Infeasible -> SampleResult.Infeasible()
     is QuadraticOptimizationResult.Unknown -> SampleResult.Unknown(reason)
     else -> error("native result lost its incumbent")

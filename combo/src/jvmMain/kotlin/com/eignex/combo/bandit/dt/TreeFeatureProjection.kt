@@ -25,7 +25,7 @@ class TreeFeatureProjection(override val space: CompiledDecisionSpace) : Feature
      * its per-leaf random subspaces from the split-candidate pool.
      */
     override val featureSize: Int =
-        space.coordinates.problem.numBoolVars + space.coordinates.problem.numIntVars + space.coordinates.problem.numRealVars
+        space.problem.numBoolVars + space.problem.numIntVars + space.problem.numRealVars
 
     override fun encode(sample: BanditSample, context: Context): TreeRow = SampleTreeRow(space, sample)
 }

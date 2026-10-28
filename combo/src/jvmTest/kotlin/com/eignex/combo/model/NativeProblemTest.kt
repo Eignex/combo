@@ -1,6 +1,9 @@
 package com.eignex.combo.model
 
 import com.eignex.combo.decisions.CompiledDecisionSpace
+import com.eignex.combo.decisions.DecisionSpaceDef
+import com.eignex.combo.decisions.BanditSample
+import kotlinx.serialization.json.Json
 import com.eignex.combo.decisions.Context
 import com.eignex.combo.decisions.context
 import com.eignex.combo.decisions.conditionedProblem
@@ -30,10 +33,12 @@ class NativeProblemTest {
              "implied":[1],"symmetryBreaking":true}
         """.trimIndent())
         val definition = ModelDefinition(problem = problem)
-        val document = kotlinx.serialization.json.Json.parseToJsonElement(SchemaJson.encodeToString(definition)).jsonObject
+        val document = Json.parseToJsonElement(SchemaJson.encodeToString(definition)).jsonObject
         assertEquals(ProblemJson.default.encodeToJsonElement(problem), document["problem"])
         val restored = SchemaJson.decodeFromString<ModelDefinition>(document.toString()).problem!!
-        assertEquals(ProblemJson.default.encodeToJsonElement(problem), ProblemJson.default.encodeToJsonElement(restored))
+        assertEquals(
+            ProblemJson.default.encodeToJsonElement(problem), ProblemJson.default.encodeToJsonElement(restored),
+        )
         assertEquals(problem.factors.map { it::class }, restored.factors.map { it::class })
         val space = CompiledDecisionSpace.fromProblem(restored)
         assertSame(restored, space.problem)
@@ -43,7 +48,9 @@ class NativeProblemTest {
         assertEquals(Double.NEGATIVE_INFINITY, space.problem.realLower[0])
         assertEquals(4, SearchTransform(space).featureSize)
         assertEquals(4, LinearFeatureProjection(space).featureSize)
-        assertFailsWith<IllegalArgumentException> { ModelDefinition(problem = problem, space = com.eignex.combo.decisions.DecisionSpaceDef()) }
+        assertFailsWith<IllegalArgumentException> {
+            ModelDefinition(problem = problem, space = DecisionSpaceDef())
+        }
     }
 
     @Test
@@ -55,7 +62,9 @@ class NativeProblemTest {
         val space = CompiledDecisionSpace.fromProblem(problem)
         val third = BigFraction.of(bigIntOf(1), bigIntOf(3))
         val given = context { set(SourceRealId(0), third) }
-        val result = assertIs<QuadraticOptimizationResult.Optimal>(space.minimizeNative(space.coordinates.objective("ints.0"), given))
+        val result = assertIs<QuadraticOptimizationResult.Optimal>(
+            space.minimizeNative(space.coordinates.objective("ints.0"), given),
+        )
         assertEquals(3000000010L, result.incumbent.sample.intValue(0))
         assertEquals(third, result.incumbent.sample.exactReals!![0])
         assertTrue(space.matches(result.incumbent.sample, given))
@@ -71,8 +80,8 @@ class NativeProblemTest {
         val batch = HybridDescentSession.klause(space).witnesses(WitnessRequest(3), Random(42))
         assertEquals(3, batch.witnesses.size)
         for (sample in batch.witnesses) {
-            assertEquals(2, SearchTransform(space).encode(com.eignex.combo.decisions.BanditSample(sample), Context.Empty).size)
-            assertEquals(2, LinearFeatureProjection(space).encode(com.eignex.combo.decisions.BanditSample(sample), Context.Empty).size)
+            assertEquals(2, SearchTransform(space).encode(BanditSample(sample), Context.Empty).size)
+            assertEquals(2, LinearFeatureProjection(space).encode(BanditSample(sample), Context.Empty).size)
         }
     }
 }

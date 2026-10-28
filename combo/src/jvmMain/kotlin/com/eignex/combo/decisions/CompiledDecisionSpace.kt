@@ -135,7 +135,9 @@ class CompiledDecisionSpace internal constructor(
                 ints[id] = floatBucket(coordinates.floatDecoders.getValue(handle.name), value)
             }
         }
-        context.nativeAssumptions.forEachBool { id, _ -> require(id in 0 until problem.numBoolVars) { "unknown Boolean $id" } }
+        context.nativeAssumptions.forEachBool { id, _ ->
+            require(id in 0 until problem.numBoolVars) { "unknown Boolean $id" }
+        }
         context.nativeAssumptions.forEachInt { id, value ->
             require(id in 0 until problem.numIntVars) { "unknown integer $id" }
             val bounds = problem.intBounds
@@ -164,7 +166,9 @@ class CompiledDecisionSpace internal constructor(
     /** True iff [sample] satisfies every pin in [assumptions]. */
     fun matches(sample: Sample, assumptions: Assumptions): Boolean {
         for ((id, v) in assumptions.bools) if (sample.boolValue(id) != v) return false
-        for ((id, v) in assumptions.ints) if (sample.exactIntValue(id) != com.eignex.klause.util.bigIntOf(v)) return false
+        for ((id, v) in assumptions.ints) {
+            if (sample.exactIntValue(id) != com.eignex.klause.util.bigIntOf(v)) return false
+        }
         val deductions = assumptions.deductions
         deductions.forEachIntMin { id, value -> if (sample.intValue(id) < value) return false }
         deductions.forEachIntMax { id, value -> if (sample.intValue(id) > value) return false }
@@ -193,7 +197,7 @@ class CompiledDecisionSpace internal constructor(
     /** Evaluate an arbitrary klause [BoolExpr] against [sample]. Same machinery the
      *  active-condition checks use; exposed so tree-side split predicates can share
      *  one evaluator with user-facing constraints. */
-    fun evaluate(expr: BoolExpr, sample: Sample): Boolean = evaluateBool(expr, sample, compiled)
+    fun evaluate(expr: BoolExpr, sample: Sample): Boolean = evaluateBool(expr, sample, coordinates)
 }
 
 internal fun InteractionHandle.toDef(): InteractionDef =
@@ -210,9 +214,9 @@ private fun Any.toScalarRef(): ScalarRef = when (this) {
     else -> error("unsupported handle in interaction: $this")
 }
 
-private fun evaluateBool(expr: BoolExpr, sample: Sample, compiled: CompiledSchema): Boolean = when (expr) {
+private fun evaluateBool(expr: BoolExpr, sample: Sample, compiled: DecisionCoordinates): Boolean = when (expr) {
     is com.eignex.klause.model.BoolRef -> {
-        val id = coordinates.boolVarIdByName[expr.name]
+        val id = compiled.boolVarIdByName[expr.name]
             ?: error("evaluating active condition: unknown bool variable '${expr.name}'")
         val raw = sample.boolValue(id)
         if (expr.negated) !raw else raw

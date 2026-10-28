@@ -16,7 +16,8 @@ import kotlin.math.roundToLong
 /** A row-only rewrite keeps every coordinate; drop the temporary problem's frame before original decoding. */
 internal fun com.eignex.klause.solver.Sample.unframed(): com.eignex.klause.solver.Sample =
     com.eignex.klause.solver.Sample(
-        bools, if (exactInts?.any { !it.fitsLong() } == true) longArrayOf() else ints, reals, exactReals = exactReals, exactInts = exactInts,
+        bools, if (exactInts?.any { !it.fitsLong() } == true) longArrayOf() else ints, reals,
+        exactReals = exactReals, exactInts = exactInts,
         algebraicReals = algebraicReals, symbolicReals = symbolicReals,
     )
 
@@ -32,7 +33,9 @@ fun CompiledDecisionSpace.conditionedProblem(context: Context): Problem {
     )
     val rows = context.exactInts.map { (id, value) ->
         require(id in 0 until problem.numIntVars) { "unknown integer $id" }
-        ExactLinear.of(intArrayOf(Term.ofIntVar(id)), listOf(BigFraction.ONE), LinearOp.EQ, BigFraction.of(value, BIG_ONE))
+        ExactLinear.of(
+            intArrayOf(Term.ofIntVar(id)), listOf(BigFraction.ONE), LinearOp.EQ, BigFraction.of(value, BIG_ONE),
+        )
     } + context.exactReals.map { (id, value) ->
         require(id in 0 until problem.numRealVars) { "unknown real $id" }
         ExactLinear.of(intArrayOf(Term.ofRealVar(id)), listOf(BigFraction.ONE), LinearOp.EQ, value)
@@ -73,7 +76,9 @@ fun DecisionCoordinates.pinFloats(values: Map<FloatHandle, Double>): Problem {
         }
         Linear(intArrayOf(), doubleArrayOf(), intArrayOf(id), doubleArrayOf(1.0), LinearOp.EQ, value)
     }
-    return if (rows.isEmpty()) problem else problem.withFactors(problem.factors + rows, problem.impliedFactorMask?.copyOf(problem.factors.size + rows.size))
+    return if (rows.isEmpty()) problem else problem.withFactors(
+        problem.factors + rows, problem.impliedFactorMask?.copyOf(problem.factors.size + rows.size),
+    )
 }
 
 internal fun floatBucket(spec: FloatSpec, value: Double): Long {

@@ -47,7 +47,9 @@ class LinearTrialOptimizer(
             else if (projection.space.coordinates.schema == null) projection.space.minimizeNative(
                 objective, context, BacktrackParams(maxDecisions = 100_000, assumptions = assumptions),
             ).assignment
-            else if (!context.hasRealValues && projection.space.contextFloats.isEmpty()) innerOptimizer(objective, assumptions)
+            else if (!context.hasRealValues && projection.space.contextFloats.isEmpty()) {
+                innerOptimizer(objective, assumptions)
+            }
             else BacktrackSolver(projection.space.conditionedProblem(context).bake()).minimize(
                 objective, BacktrackParams(maxDecisions = 100_000, assumptions = assumptions),
             ).assignment

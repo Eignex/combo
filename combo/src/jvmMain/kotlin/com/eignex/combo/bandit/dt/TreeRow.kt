@@ -22,7 +22,7 @@ interface TreeRow {
     val space: CompiledDecisionSpace
 
     fun bool(handle: BoolHandle): Boolean
-    fun int(handle: IntHandle): Int
+    fun int(handle: IntHandle): Long
     fun nominal(handle: NominalHandle): String
 
     /** Float value decoded by Klause in its declared units. */
@@ -38,7 +38,7 @@ interface TreeRow {
 
 internal class SampleTreeRow(override val space: CompiledDecisionSpace, override val sample: BanditSample) : TreeRow {
     override fun bool(handle: BoolHandle): Boolean = space.coordinates.decode(handle, sample.sample)
-    override fun int(handle: IntHandle): Int = Math.toIntExact(space.coordinates.decode(handle, sample.sample))
+    override fun int(handle: IntHandle): Long = space.coordinates.decode(handle, sample.sample)
     override fun nominal(handle: NominalHandle): String = space.coordinates.decode(handle, sample.sample)
 
     override fun float(handle: FloatHandle): Double = sample.float(handle, space)

@@ -1,6 +1,7 @@
 package com.eignex.combo.bandit.dt
 
 import com.eignex.koblas.Vector
+import com.eignex.klause.util.toDouble
 import com.eignex.kumulant.stat.regression.tree.SerializableSplit
 import com.eignex.kumulant.stat.regression.tree.ThresholdSplit
 import com.eignex.kumulant.stat.regression.tree.Split as VectorSplit
@@ -18,10 +19,16 @@ class TreeVectorLayout(candidates: List<Split>) {
     /** Kumulant predicates over the numeric view, in the caller's candidate order. */
     val splits: List<SerializableSplit> = candidates.map { split ->
         val (key, threshold, read) = when (split) {
-            is IntThresholdSplit -> Triple(
+            is IntThresholdSplit -> if (split.threshold >= 9007199254740992L || split.threshold <= -9007199254740992L) {
+                Triple(split.expr, 0.5, { row: TreeRow -> if (split.direction(row)) 0.0 else 1.0 })
+            } else Triple(
                 "int:${split.handle.name}",
                 split.threshold.toDouble(),
-                { row: TreeRow -> row.int(split.handle).toDouble() },
+                { row: TreeRow ->
+                    if (row.space.coordinates.schema == null) row.sample.sample.exactIntValue(
+                        row.space.coordinates.intVarIdByName.getValue(split.handle.name),
+                    ).toDouble() else row.int(split.handle).toDouble()
+                },
             )
 
             is FloatThresholdSplit -> Triple(

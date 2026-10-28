@@ -17,7 +17,8 @@ class Context internal constructor(
     internal val bools: Map<BoolContextHandle, Boolean>,
     internal val ints: Map<IntContextHandle, Int>,
     internal val floats: Map<FloatContextHandle, Double> = emptyMap(),
-    internal val nativeAssumptions: com.eignex.klause.propagation.Assumptions = com.eignex.klause.propagation.Assumptions.None,
+    internal val nativeAssumptions: com.eignex.klause.propagation.Assumptions =
+        com.eignex.klause.propagation.Assumptions.None,
     internal val nativeReals: Map<Int, Double> = emptyMap(),
     internal val exactInts: Map<Int, BigInt> = emptyMap(),
     internal val exactReals: Map<Int, BigFraction> = emptyMap(),
@@ -44,7 +45,8 @@ class Context internal constructor(
     fun isPresent(handle: BoolContextHandle): Boolean = handle in bools
     fun isPresent(handle: IntContextHandle): Boolean = handle in ints
 
-    internal val hasRealValues: Boolean get() = floats.isNotEmpty() || nativeReals.isNotEmpty() || exactInts.isNotEmpty() || exactReals.isNotEmpty()
+    internal val hasRealValues: Boolean get() =
+        floats.isNotEmpty() || nativeReals.isNotEmpty() || exactInts.isNotEmpty() || exactReals.isNotEmpty()
 
     companion object {
         val Empty: Context = Context(emptyMap(), emptyMap())
@@ -102,7 +104,9 @@ class ContextBuilder internal constructor() {
         exactReals.remove(id.index)
     }
 
-    internal fun build() = Context(bools.toMap(), ints.toMap(), floats.toMap(), native, nativeReals.toMap(), exactInts.toMap(), exactReals.toMap())
+    internal fun build() = Context(
+        bools.toMap(), ints.toMap(), floats.toMap(), native, nativeReals.toMap(), exactInts.toMap(), exactReals.toMap(),
+    )
 }
 
 fun context(build: ContextBuilder.() -> Unit): Context = ContextBuilder().apply(build).build()

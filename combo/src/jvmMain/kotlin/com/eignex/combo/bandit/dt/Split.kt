@@ -1,5 +1,7 @@
 package com.eignex.combo.bandit.dt
 
+import com.eignex.klause.util.bigIntOf
+import com.eignex.klause.util.compareTo
 import com.eignex.klause.model.And
 import com.eignex.klause.model.AtLeast
 import com.eignex.klause.model.AtMost
@@ -70,14 +72,22 @@ data class BoolSplit(val handle: BoolHandle) : Split {
 }
 
 /** Route by `int <= threshold`. Threshold is inclusive on the "left" side. */
-data class IntThresholdSplit(val handle: IntHandle, val threshold: Int) : Split {
+data class IntThresholdSplit(val handle: IntHandle, val threshold: Long) : Split {
     init {
         require(threshold in handle.min..handle.max) {
             "threshold $threshold outside int handle '${handle.name}' domain [${handle.min}, ${handle.max}]"
         }
     }
-    override val expr: BoolExpr = handle le threshold
-    override fun direction(row: TreeRow): Boolean = row.int(handle) <= threshold
+    override val expr: BoolExpr = if (threshold in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong()) {
+        handle le threshold.toInt()
+    } else com.eignex.klause.schema.factor(
+        com.eignex.klause.factor.arithmetic.Linear(
+            longArrayOf(1), intArrayOf(0), com.eignex.klause.ir.LinearOp.LE, threshold,
+        ), ints = listOf(handle),
+    )
+    override fun direction(row: TreeRow): Boolean = if (row.space.coordinates.schema == null) {
+        row.sample.sample.exactIntValue(row.space.coordinates.intVarIdByName.getValue(handle.name)) <= bigIntOf(threshold)
+    } else row.int(handle) <= threshold
     override fun toString(): String = "${handle.name} <= $threshold"
 }
 

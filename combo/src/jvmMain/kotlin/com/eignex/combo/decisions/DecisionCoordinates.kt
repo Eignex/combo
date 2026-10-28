@@ -33,7 +33,9 @@ class DecisionCoordinates private constructor(
 
     /** Real columns in native units, with their original open or finite bounds. */
     val realHandles: Map<Int, FloatHandle> = if (schema == null) {
-        (0 until problem.numRealVars).associateWith { FloatHandle("reals.$it", problem.realLower[it], problem.realUpper[it]) }
+        (0 until problem.numRealVars).associateWith {
+            FloatHandle("reals.$it", problem.realLower[it], problem.realUpper[it])
+        }
     } else {
         schema.floatDecoders.mapNotNull { (name, spec) ->
             val handle = FloatHandle(name, spec.min, spec.max)

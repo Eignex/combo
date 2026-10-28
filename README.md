@@ -44,6 +44,23 @@ Using it requires three steps:
 2. Pick a streaming learner or history-based optimizer and wire it to the compiled space.
 3. Loop choose → serve the configuration → update with the observed reward.
 
+A complete Klause `Problem` can also be used directly, including native factors,
+sparse or open domains, and exact constants:
+
+```kotlin
+val space = CompiledDecisionSpace.fromProblem(problem)
+val projection = SearchTransform(space)
+val search = HybridDescentSession.klause(space)
+// Use projection and search with the existing BayesianOptimizer.
+val optimum = space.minimizeNative(space.coordinates.objective("ints.0"))
+```
+
+The native problem is retained unchanged. Source-coordinate names (`bools.0`,
+`ints.0`, `reals.0`) and optional schema metadata are kept separately from its
+factor representation. Native search delegates source routing to Klause, retaining
+open-domain and exact-result semantics. The [HTTP API](server/README.md#native-problems)
+embeds the same canonical document under `problem`.
+
 ## Decision space
 
 The decision space describes what the optimizer can vary. In the example below the

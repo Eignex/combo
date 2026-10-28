@@ -213,10 +213,9 @@ internal fun synthesizePin(qualifiedName: String, spec: VarSpec, gateName: Strin
 
         is IntSpec -> Implies(notGate, IntCompare(IntRef(qualifiedName), IntCmpOp.EQ, IntLit(spec.min)))
 
-        is com.eignex.klause.model.IntDomainSpec -> {
-            val default = spec.values?.first()?.first() ?: spec.lower ?: 0L.coerceAtMost(spec.upper ?: 0L)
-            Implies(notGate, IntCompare(IntRef(qualifiedName), IntCmpOp.EQ, IntLit(default)))
-        }
+        is com.eignex.klause.model.IntDomainSpec -> throw UnsupportedOperationException(
+            "optional wide or open integer '$qualifiedName' requires a native Problem declaration",
+        )
 
         is NominalSpec -> Implies(notGate, NominalEq(qualifiedName, spec.labels[0]))
 

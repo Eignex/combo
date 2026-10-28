@@ -1,6 +1,12 @@
 package com.eignex.combo.bandit.dt
 
 import com.eignex.combo.decisions.CompiledDecisionSpace
+import com.eignex.klause.util.bigIntOf
+import com.eignex.klause.util.minus
+import com.eignex.klause.util.plus
+import com.eignex.klause.util.times
+import com.eignex.klause.util.div
+import com.eignex.klause.util.toLongExact
 import com.eignex.klause.schema.BoolHandle
 import com.eignex.klause.schema.FloatHandle
 import com.eignex.klause.schema.IntHandle
@@ -45,8 +51,18 @@ fun defaultSplitCandidates(space: CompiledDecisionSpace, numericThresholds: Int 
     for ((name, _) in compiled.intVarIdByName) {
         if (name in floatNames) continue
         val handle = intHandleFor(space, name) ?: continue
+        if (compiled.schema == null) {
+            if (numericThresholds <= 0 || handle.min == handle.max) continue
+            val lower = bigIntOf(handle.min)
+            val span = bigIntOf(handle.max) - lower
+            out += List(numericThresholds) { i ->
+                val offset = span * bigIntOf(i.toLong() + 1) / bigIntOf(numericThresholds.toLong() + 1)
+                IntThresholdSplit(handle, (lower + offset).toLongExact())
+            }.distinctBy { it.threshold }
+            continue
+        }
         out += thresholdsAcross(space, name, handle.min.toDouble(), handle.max.toDouble(), numericThresholds).map { t ->
-            IntThresholdSplit(handle, t.toInt())
+            IntThresholdSplit(handle, t.toLong())
         }
     }
 
@@ -68,6 +84,12 @@ fun defaultSplitCandidates(space: CompiledDecisionSpace, numericThresholds: Int 
         }
     }
 
+    if (compiled.schema == null) for ((_, handle) in compiled.realHandles) {
+        if (!handle.min.isFinite() || !handle.max.isFinite()) continue
+        out += thresholdsAcross(space, handle.name, handle.min, handle.max, numericThresholds).map {
+            FloatThresholdSplit(handle, it)
+        }
+    }
     return out
 }
 
@@ -91,6 +113,12 @@ private fun thresholdsAcross(space: CompiledDecisionSpace, name: String, lo: Dou
  * was added via raw klause and not declared with a domain).
  */
 private fun intHandleFor(space: CompiledDecisionSpace, name: String): IntHandle? {
+    if (space.coordinates.schema == null) {
+        val id = space.coordinates.intVarIdByName[name] ?: return null
+        val bounds = space.problem.intBounds
+        if (!bounds.hasLower(id) || !bounds.hasUpper(id)) return null
+        return IntHandle(name, bounds.lower(id), bounds.upper(id))
+    }
     val spec = lookupIntSpec(space.definition, name) ?: return null
     return IntHandle(name, spec.min.toLong(), spec.max.toLong())
 }

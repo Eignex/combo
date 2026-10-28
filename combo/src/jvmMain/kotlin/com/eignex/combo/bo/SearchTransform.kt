@@ -27,7 +27,9 @@ class SearchTransform(override val space: CompiledDecisionSpace) : FeatureEncode
     override val featureSize: Int get() = layout.size
 
     private val boolNames = space.coordinates.boolVarIdByName.entries.associate { it.value to it.key } +
-        space.coordinates.nominalIndicators.flatMap { (name, indicators) -> indicators.values.map { it to name } }.toMap()
+        space.coordinates.nominalIndicators.flatMap { (name, indicators) ->
+            indicators.values.map { it to name }
+        }.toMap()
     private val intNames = space.coordinates.intVarIdByName.entries.associate { it.value to it.key }
     private fun active(name: String?, sample: Sample): Boolean =
         space.activeConditions[name]?.let { space.evaluate(it, sample) } ?: true
