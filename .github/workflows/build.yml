@@ -36,7 +36,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           repository: Eignex/klause
-          ref: ca8ed07311
+          ref: 8d4b436055e6645af2e0e9e44472b6d5d7bc1f33
           path: upstream/klause
           persist-credentials: false
       - uses: actions/setup-java@v6

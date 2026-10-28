@@ -88,7 +88,7 @@ class NativeProblemRoutesTest {
                 assertEquals("estimated", evaluated.getValue("status").jsonPrimitive.content)
                 assertEquals(proposal["given"], evaluated["given"])
             }
-            val retained = client.get(base).objectBody().getValue("proposals").jsonArray.map { it.jsonObject }
+            val retained = client.get(base).objectBody().getValue("state").jsonObject.getValue("proposals").jsonArray.map { it.jsonObject }
             assertEquals(proposals.map { it["given"] }, retained.map { it["given"] })
         }
     }
