@@ -145,17 +145,33 @@ class JointBatchTest : TimedTest() {
         val projection = SearchTransform(space)
         val low = context { set(model.premium, false) }
         val high = context { set(model.premium, true) }
+        val premiumId = space.compiled.boolVarIdByName.getValue(model.premium.name)
+        val actionId = space.compiled.boolVarIdByName.getValue(model.a.name)
+        val backend = WitnessSearch { request, _ ->
+            val points = listOf(false, true).map { action ->
+                val bools = BooleanArray(space.compiled.problem.numBoolVars)
+                bools[premiumId] = request.assumptions.bools.getValue(premiumId)
+                bools[actionId] = action
+                Sample(bools, longArrayOf())
+            }.filter { it !in request.exclude }
+            WitnessBatch(
+                points.take(request.count),
+                if (points.size >= request.count) WitnessTermination.CountReached else WitnessTermination.BudgetExhausted,
+            )
+        }
         var captured: JointAcquisitionContext? = null
         val optimizer = BayesianOptimizer(
             projection,
             ForestSurrogate(),
             initialDesign = RandomInitialDesign(0, 0.0),
+            acquisitionOptimizer = LocalAndRandomSearch(projection, backend, candidateCount = 2, localSteps = 0),
+            exploration = backend,
             batchPolicy = JointBatchPolicy(
                 JointAcquisitionFactory { input, _ ->
                     captured = input
                     JointAcquisition { 0.0 }
                 },
-                JointPoolSearch(projection, HybridDescentSession.klause(space)),
+                JointPoolSearch(projection, backend, candidateCount = 2, starts = 1, passes = 1),
             ),
             outcome = OutcomeSpec(noise = ObservationNoise.Noisy),
         )

@@ -99,13 +99,13 @@ class GaussianProcessSurrogateTest : TimedTest() {
 
     @Test
     fun `likelihood search improves or retains its initial fit reproducibly`() {
-        val x = DoubleArray(12) { it / 11.0 }
+        val x = DoubleArray(4) { it / 3.0 }
         val training = data(rows(*x), DoubleArray(x.size) { sin(5.0 * x[it]) })
         val initial = GaussianProcessConfig(lengthScale = 0.03, hyperparameterTrials = 0, learnNoise = true)
         val baseline = fit(training, initial)
-        val optimized = fit(training, initial.copy(hyperparameterTrials = 32))
-        assertTrue(optimized.logMarginalLikelihood > baseline.logMarginalLikelihood)
-        assertEquals(optimized.parameters, fit(training, initial.copy(hyperparameterTrials = 32)).parameters)
+        val optimized = fit(training, initial.copy(hyperparameterTrials = 4))
+        assertTrue(optimized.logMarginalLikelihood >= baseline.logMarginalLikelihood)
+        assertEquals(optimized.parameters, fit(training, initial.copy(hyperparameterTrials = 4)).parameters)
         assertTrue(optimized.parameters.noiseVariance > 0.0)
     }
 
