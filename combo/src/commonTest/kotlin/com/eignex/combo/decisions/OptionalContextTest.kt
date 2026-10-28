@@ -4,6 +4,8 @@ import com.eignex.combo.bandit.glm.LinearBandit
 import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.shared.LinearFeatureProjection
 import com.eignex.combo.test.TimedTest
+import com.eignex.klause.backtrack.BacktrackParams
+import com.eignex.klause.backtrack.BacktrackSolver
 import com.eignex.klause.localsearch.LocalSearchParams
 import com.eignex.klause.localsearch.LocalSearchSolver
 import com.eignex.klause.propagation.bake
@@ -128,8 +130,8 @@ class OptionalContextTest : TimedTest() {
         val model = OptionalCtxInteraction()
         val space = model.compileSpace()
         val projection = LinearFeatureProjection(space)
-        val solver = LocalSearchSolver(space.compiled.problem.bake())
-        val params = LocalSearchParams(maxFlips = 1_000, randomSeed = 7L)
+        val solver = BacktrackSolver(space.compiled.problem.bake())
+        val params = BacktrackParams(maxDecisions = 16, randomSeed = 7L)
 
         val regression = DiagonalRegressionStat(
             featureSize = projection.featureSize,
