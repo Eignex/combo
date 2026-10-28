@@ -22,7 +22,9 @@ internal class WitnessValidator(private val space: CompiledDecisionSpace) {
 
     fun valid(sample: Sample): Boolean {
         checked[sample]?.let { return it }
-        val valid = if (space.coordinates.schema == null && (sample.symbolicReals != null || sample.algebraicReals != null)) {
+        val nativeExact = space.coordinates.schema == null &&
+            (sample.symbolicReals != null || sample.algebraicReals != null)
+        val valid = if (nativeExact) {
             space.problem.checkExactRealSample(sample, budget()) == true
         } else verifier?.verify(
             SourceEvidence(scope, SourceClaim.Witness(sample), SourceDerivation.SourceWitness),
