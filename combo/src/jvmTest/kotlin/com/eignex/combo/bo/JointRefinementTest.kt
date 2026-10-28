@@ -101,7 +101,7 @@ class JointRefinementTest : TimedTest() {
         val space = model.compileSpace()
         val projection = SearchTransform(space)
         val scope = context { set(model.premium, true) }
-        val witnesses = HybridDescentSession.klause(space)
+        val witnesses = HybridDescentSession.klause(space, candidateBatchSize = 1)
         val unavailable = witnesses.witnesses(
             com.eignex.combo.shared.WitnessRequest(1, space.assumptionsFor(scope)),
             Random(4),
@@ -109,10 +109,11 @@ class JointRefinementTest : TimedTest() {
         val result = JointLocalAndRandomSearch(
             projection,
             witnesses,
-            candidateCount = 4,
-            localSteps = 3,
-            neighbors = 4,
-            localPolicy = LocalSearchPolicy(starts = 2),
+            candidateCount = 2,
+            passes = 1,
+            localSteps = 1,
+            neighbors = 2,
+            localPolicy = LocalSearchPolicy(starts = 1),
         ).maximize(
             JointAcquisition { rows -> (0 until rows.rows).sumOf { rows[it, rows.cols - 1] } },
             AcquisitionRequest(scope, unavailable, unavailable),

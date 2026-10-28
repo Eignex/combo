@@ -10,6 +10,8 @@ import com.eignex.klause.backtrack.BacktrackParams
 import com.eignex.klause.backtrack.BacktrackSolver
 import com.eignex.klause.formats.json.ProblemJson
 import com.eignex.klause.propagation.bake
+import com.eignex.koblas.DenseVector
+import com.eignex.koblas.dot
 import com.eignex.skema.SchemaJson
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.buildJsonObject
@@ -29,8 +31,10 @@ actual abstract class TimedTest actual constructor() {
             val rate by floatVar(0.0, 1.0)
         }
 
-        // Load the compiler, codecs and solver once before timing individual checks.
+        // Load the compiler, codecs, solver and SIMD backend before timing individual checks.
         private val runtime by lazy {
+            val vector = DenseVector.of(doubleArrayOf(1.0))
+            check((vector dot vector) == 1.0)
             val model = RuntimeProbe()
             val space = model.compileSpace()
             SchemaJson.encodeToString(space.definition)
