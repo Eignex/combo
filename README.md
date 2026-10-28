@@ -718,30 +718,62 @@ library, and `:server` is the Eignex Server Ktor application. The root project
 aggregates their builds. Source code and ABI references for the library live under
 `combo/`; the server depends on the library through `project(":combo")`.
 
-Koblas is a direct public dependency, with platform artifacts pinned independently
-of Klause and Kumulant. Vector dot products, scaling, weighted reductions, and batch
-matrix construction use Koblas APIs rather than parallel numerical helpers.
+The library implementation lives in `combo/src/commonMain`, with portable tests in
+`combo/src/commonTest`. JVM-only benchmark and fixture-file harnesses remain in
+`combo/src/jvmTest`. Small JVM/Native adapters supply thread-local construction
+contexts and monotonic timestamps.
 
-The build uses Kbuild 1.3.5, Kotlin 2.4.21, Gradle 9.7.1, and a JDK 25 toolchain
-that Gradle provisions automatically. Klause follows the latest published
-`0.0.1-SNAPSHOT` for each platform; Gradle checks changing dependencies on every build.
-Kumulant, Koblas, and Skema use immutable platform artifact versions in
-`combo/build.gradle.kts`, with shared numerical and codec dependencies resolving their
-conflicting transitive versions. The configured targets are JVM and Linux
-x64, matching Klause's available snapshots; Combo's implementation is currently JVM.
+The build uses the `com.eignex.kmp` conventions from Kbuild 1.3.5, Kotlin 2.4.21,
+Gradle 9.7.1, and an automatically provisioned JDK 25 toolchain. The target set is
+JVM, Linux x64, Linux ARM64, and macOS ARM64, matching Klause and Kumulant. Like
+Klause, normal builds configure JVM and Linux x64; `-Ptargets.full` adds both ARM64
+targets for release builds. Native tests run on compatible hosts.
+
+Klause follows `0.0.1-SNAPSHOT`; Gradle checks changing dependencies on every build.
+Kumulant, Koblas, and Skema use pinned KMP dependencies and exported platform
+constraints in `combo/build.gradle.kts`. Koblas is a direct public dependency for
+vector operations, scaling, weighted reductions, and matrix construction.
 
 Build and validate with the published dependencies:
 
 ```sh
-./gradlew :combo:jvmTest :server:test
-./gradlew check lintDocs
+./gradlew :combo:jvmTest :combo:linuxX64Test :server:test
+./gradlew check lintDocs :server:installDist
+./gradlew koverXmlReport
 ```
 
-For sibling development, `-Pkumulant.local` substitutes `../kumulant`.
-`-Pkoblas.local` substitutes `../koblas`; `-Pkoblas.local=../another-checkout` selects an isolated numerical checkout.
-Use `-Pdependencies.local` to develop against both `../klause` and `../kumulant`.
-The Detekt baseline records existing documentation and style debt surfaced by the
-new Kbuild checks; new findings remain checked. ABI references live under `combo/api/`.
+For sibling development, `-Pklause.local` substitutes `../klause`,
+`-Pkumulant.local` substitutes `../kumulant`, and `-Pkoblas.local` substitutes
+`../koblas`. Each also accepts a path, such as `-Pkoblas.local=../another-checkout`.
+Use `-Pdependencies.local` to develop against both Klause and Kumulant.
+
+Klause's current published snapshots contain only JVM and Linux x64. Until Klause
+publishes its full target set, validate the additional native compilation with its
+sibling checkout matching the snapshot API:
+
+```sh
+./gradlew :combo:compileKotlinLinuxArm64 -Ptargets.full -Pklause.local=/path/to/klause
+# Run on macOS ARM64 for its native compilation and tests:
+./gradlew :combo:macosArm64Test -Ptargets.full -Pklause.local=/path/to/klause
+```
+
+The Detekt baseline records existing documentation and style debt; new findings
+remain checked. JVM and native ABI references live under `combo/api/` for normal
+builds and `combo/api-full/` for `-Ptargets.full`. Update the matching references
+with `./gradlew :combo:updateKotlinAbi`, adding `-Ptargets.full` for the full set.
+
+The build workflow runs documentation lint, tests, server distribution assembly,
+and Kover coverage, uploads test reports, and sends main-branch coverage to
+Codecov. A successful main push triggers the release workflow, which publishes the
+next patch snapshot for the default targets to Sonatype. A `vX.Y.Z` tag validates the same revision, builds
+with `-Ptargets.full`, publishes to Maven Central, and creates a GitHub release.
+Manual releases support `dryRun` to build and test without publishing. Full-target
+publication requires matching Klause artifacts for both ARM64 targets.
+
+Publishing uses the same repository secrets as Kumulant: `CENTRAL_PORTAL_USER`,
+`CENTRAL_PORTAL_PASSWORD`, `SIGNING_KEY`, and `SIGNING_PASSWORD`. The optional
+`GRADLE_ENCRYPTION_KEY` and `CODECOV_TOKEN` enable encrypted configuration caching
+and coverage uploads.
 
 JVM applications using the vector backend should enable
 `--add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED`; the test

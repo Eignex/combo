@@ -3,10 +3,6 @@ package com.eignex.combo.bo
 import com.eignex.combo.bo.model.BatchForestConfig
 import com.eignex.combo.bo.model.BatchSplitStrategy
 import com.eignex.combo.decisions.BanditSample
-import com.eignex.combo.shared.WitnessBatch
-import com.eignex.combo.shared.WitnessSearch
-import com.eignex.combo.shared.WitnessTermination
-import com.eignex.combo.shared.assignmentKey
 import com.eignex.kumulant.math.nextNormal
 import com.eignex.kumulant.stat.score.MseLossStat
 import com.eignex.kumulant.stat.summary.MeanStat
@@ -14,31 +10,6 @@ import java.io.File
 import kotlin.math.abs
 import kotlin.math.sqrt
 import kotlin.random.Random
-
-internal fun noisyWitnesses(): WitnessSearch = WitnessSearch { request, random ->
-    val excluded = request.exclude.map { it.assignmentKey() }.toMutableSet()
-    val points = mutableListOf<com.eignex.klause.solver.Sample>()
-    repeat(request.maxAttempts) {
-        if (points.size < request.count) {
-            val sample = continuousPoint(doubleArrayOf(random.nextDouble(), random.nextDouble())).sample
-            if (excluded.add(sample.assignmentKey())) points += sample
-        }
-    }
-    WitnessBatch(
-        points,
-        if (points.size == request.count) WitnessTermination.CountReached else WitnessTermination.BudgetExhausted,
-    )
-}
-
-internal fun noisySearch(problem: RefinementProblem, count: Int = 64): AcquisitionOptimizer = LocalAndRandomSearch(
-    SearchTransform(problem.space),
-    noisyWitnesses(),
-    candidateCount = count,
-    maxAttempts = count * 2,
-    localSteps = 4,
-    neighbors = 8,
-    localPolicy = LocalSearchPolicy(starts = 4),
-)
 
 internal fun noisyMeasurement(
     problem: RefinementProblem,
