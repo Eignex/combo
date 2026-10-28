@@ -39,12 +39,12 @@ kotlin {
         // platform versions and lose dependency exclusions across that redirect.
         for ((sourceSet, modules) in mapOf(
             "jvmMain" to mapOf(
-                "klause-jvm" to "0.0.1-20261027.144441-1030",
-                "kumulant-jvm" to "0.3.4-20261027.145936-101",
+                "klause-jvm" to "0.0.1-20261028.121308-1047",
+                "kumulant-jvm" to "0.3.4-20261027.205951-103",
             ),
             "linuxX64Main" to mapOf(
-                "klause-linuxx64" to "0.0.1-20261027.144441-1029",
-                "kumulant-linuxx64" to "0.3.4-20261027.145936-101",
+                "klause-linuxx64" to "0.0.1-20261028.121308-1046",
+                "kumulant-linuxx64" to "0.3.4-20261027.205951-103",
             ),
         )) {
             getByName(sourceSet).dependencies {
@@ -68,10 +68,10 @@ kotlin {
         }
         // Public numerical APIs use Koblas directly, independently of the statistical libraries.
         jvmMain.dependencies {
-            api("com.eignex:koblas-jvm:0.1.1-20261027.124722-278")
+            api("com.eignex:koblas-jvm:0.1.1-20261028.120512-279")
             api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
         }
-        linuxX64Main.dependencies { api("com.eignex:koblas-linuxx64:0.1.1-20261027.124722-274") }
+        linuxX64Main.dependencies { api("com.eignex:koblas-linuxx64:0.1.1-20261028.120512-275") }
         commonTest.dependencies {
             implementation(kotlin("test"))
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
