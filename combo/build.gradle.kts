@@ -39,11 +39,11 @@ kotlin {
         // platform versions and lose dependency exclusions across that redirect.
         for ((sourceSet, modules) in mapOf(
             "jvmMain" to mapOf(
-                "klause-jvm" to "0.0.1-20261028.121308-1047",
+                "klause-jvm" to "0.0.1-20261028.153451-1056",
                 "kumulant-jvm" to "0.3.4-20261027.205951-103",
             ),
             "linuxX64Main" to mapOf(
-                "klause-linuxx64" to "0.0.1-20261028.121308-1046",
+                "klause-linuxx64" to "0.0.1-20261028.153451-1055",
                 "kumulant-linuxx64" to "0.3.4-20261027.205951-103",
             ),
         )) {
@@ -51,11 +51,14 @@ kotlin {
                 for ((module, pinned) in modules) {
                     api("com.eignex:$module:$pinned") {
                         if (!module.startsWith("koblas-")) {
-                            // Kumulant and Klause pin incompatible backend versions.
-                            // Export exclusions and supply the shared Koblas above.
+                            // Kumulant and Klause pin different numerical and codec versions.
+                            // Export exclusions and supply the shared platform artifacts below.
                             exclude(group = "com.eignex", module = "koblas")
                             exclude(group = "com.eignex", module = "koblas-jvm")
                             exclude(group = "com.eignex", module = "koblas-linuxx64")
+                            exclude(group = "com.eignex", module = "skema")
+                            exclude(group = "com.eignex", module = "skema-jvm")
+                            exclude(group = "com.eignex", module = "skema-linuxx64")
                             if (module.startsWith("klause-")) {
                                 exclude(group = "com.eignex", module = "kumulant")
                                 exclude(group = "com.eignex", module = "kumulant-jvm")
@@ -69,9 +72,13 @@ kotlin {
         // Public numerical APIs use Koblas directly, independently of the statistical libraries.
         jvmMain.dependencies {
             api("com.eignex:koblas-jvm:0.1.1-20261028.120512-279")
+            api("com.eignex:skema-jvm:0.3.1-20261028.100806-19")
             api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
         }
-        linuxX64Main.dependencies { api("com.eignex:koblas-linuxx64:0.1.1-20261028.120512-275") }
+        linuxX64Main.dependencies {
+            api("com.eignex:koblas-linuxx64:0.1.1-20261028.120512-275")
+            api("com.eignex:skema-linuxx64:0.3.1-20261028.100806-19")
+        }
         commonTest.dependencies {
             implementation(kotlin("test"))
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")

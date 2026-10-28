@@ -163,6 +163,7 @@ class Study(val space: CompiledDecisionSpace, val store: ObservationStore = InMe
             space.contextInts.filter { it.name in ints }.associateWith { ints.getValue(it.name) },
             space.contextFloats.filter { it.name in floats }.associateWith { floats.getValue(it.name) },
             context.nativeAssumptions, context.nativeReals, context.exactInts, context.exactReals,
+            context.exactRealValues,
         )
     }
 

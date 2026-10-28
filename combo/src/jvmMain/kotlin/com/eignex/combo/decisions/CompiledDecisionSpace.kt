@@ -7,6 +7,8 @@ import com.eignex.klause.schema.BoolHandle
 import com.eignex.klause.schema.IntHandle
 import com.eignex.klause.schema.NominalHandle
 import com.eignex.klause.solver.Sample
+import com.eignex.klause.arithmetic.real.exactRealValue
+import com.eignex.klause.arithmetic.real.compareExactly
 import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.util.bigIntOf
 import com.eignex.klause.util.compareTo
@@ -163,6 +165,8 @@ class CompiledDecisionSpace internal constructor(
                 ) == value
         } && context.nativeReals.all { (id, value) ->
             id in 0 until problem.numRealVars && sample.rationalReal(id) == BigFraction.ofDouble(value)
+        } && context.exactRealValues.all { (id, value) ->
+            id in 0 until problem.numRealVars && sample.exactRealValue(id).compareExactly(value) == 0
         }
 
     /** True iff [sample] satisfies every pin in [assumptions]. */

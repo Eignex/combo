@@ -8,6 +8,13 @@ import com.eignex.combo.decisions.Context
 import com.eignex.combo.decisions.context
 import com.eignex.combo.decisions.conditionedProblem
 import com.eignex.combo.decisions.minimizeNative
+import com.eignex.combo.decisions.solveNative
+import com.eignex.combo.shared.assignmentKey
+import com.eignex.klause.arithmetic.real.exactRealValue
+import com.eignex.klause.arithmetic.real.compareExactly
+import com.eignex.klause.formats.json.ExactRealJson
+import com.eignex.klause.solver.Sample
+import com.eignex.klause.solver.SolveResult
 import com.eignex.combo.bo.SearchTransform
 import com.eignex.combo.shared.HybridDescentSession
 import com.eignex.combo.shared.LinearFeatureProjection
@@ -24,6 +31,49 @@ import kotlin.random.Random
 import kotlin.test.*
 
 class NativeProblemTest {
+    @Test
+    fun `exact algebraic and symbolic contexts retain their native witnesses`() {
+        val problem = ProblemJson.default.decodeFromString("""{"bools":1,"reals":[{}]}""")
+        val space = CompiledDecisionSpace.fromProblem(problem)
+        for (text in listOf(
+            """{"root":{"coefficients":["-2","0","1"],"index":2}}""",
+            """{"add":[{"pi":{}},{"exp":"1"}]}""",
+        )) {
+            val value = ExactRealJson.decodeFromString(text)
+            val given = context { set(SourceRealId(0), value) }
+            val sample = assertIs<SolveResult.Sat>(space.solveNative(given)).assignment
+            assertEquals(0, sample.exactRealValue(0).compareExactly(value))
+            assertTrue(space.matches(sample, given))
+            val features = SearchTransform(space).encode(BanditSample(sample), given).toDoubleArray()
+            assertTrue(features.all { it.isFinite() })
+            val encoded = ExactRealJson.encodeToString(sample.exactRealValue(0))
+            val decoded = Sample(
+                sample.bools, sample.ints, sample.reals,
+                symbolicReals = listOf(ExactRealJson.decodeFromString(encoded)),
+            )
+            assertEquals(sample.assignmentKey(), decoded.assignmentKey())
+            val search = HybridDescentSession.klause(space, candidateBatchSize = 1)
+            assertTrue(search.witnesses(WitnessRequest(1, context = given, anchors = listOf(sample),
+                exclude = listOf(decoded), maxAttempts = 0), Random(42)).witnesses.isEmpty())
+            val batch = search.witnesses(WitnessRequest(1, context = given), Random(42))
+            assertEquals(1, batch.witnesses.size)
+            assertTrue(space.matches(batch.witnesses.single(), given))
+        }
+    }
+
+    @Test
+    fun `exact context matching distinguishes equal Double approximations and setter replacement`() {
+        val space = CompiledDecisionSpace.fromProblem(ProblemJson.default.decodeFromString("""{"reals":[{}]}"""))
+        val value = ExactRealJson.decodeFromString("""{"exp":"1"}""")
+        val other = ExactRealJson.decodeFromString("""{"exp":"100000000000000000001/100000000000000000000"}""")
+        val sample = Sample(booleanArrayOf(), longArrayOf(), doubleArrayOf(Math.E), symbolicReals = listOf(value))
+        assertTrue(space.matches(sample, context { set(SourceRealId(0), value) }))
+        assertFalse(space.matches(sample, context { set(SourceRealId(0), other) }))
+        assertFalse(space.matches(sample, context { set(SourceRealId(0), Math.E) }))
+        val replaced = context { set(SourceRealId(0), value); set(SourceRealId(0), 1.0) }
+        assertTrue(space.matches(Sample(booleanArrayOf(), longArrayOf(), doubleArrayOf(1.0)), replaced))
+    }
+
     @Test
     fun `canonical problem document survives model serialization without schema lowering`() {
         val problem = ProblemJson.default.decodeFromString("""

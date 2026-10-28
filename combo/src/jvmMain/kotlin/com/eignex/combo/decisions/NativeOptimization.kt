@@ -1,6 +1,8 @@
 package com.eignex.combo.decisions
 
 import com.eignex.combo.shared.sourceMinimize
+import com.eignex.combo.shared.sourceSolve
+import com.eignex.klause.solver.SolveResult
 import com.eignex.klause.backtrack.BacktrackParams
 import com.eignex.klause.solver.objective.LinearObjective
 import com.eignex.klause.solver.result.QuadraticOptimizationResult
@@ -18,4 +20,14 @@ fun CompiledDecisionSpace.minimizeNative(
     require(coordinates.schema == null) { "use the compiled schema's bound source strategy for schema objectives" }
     val pins = discreteAssumptionsFor(context).mergedWith(params.assumptions)
     return conditionedProblem(context).sourceMinimize(objective, params.copy(assumptions = pins))
+}
+
+/** Find a native exact witness, including symbolic values whose optimization is unsupported. */
+fun CompiledDecisionSpace.solveNative(
+    context: Context = Context.Empty,
+    params: BacktrackParams = BacktrackParams(),
+): SolveResult {
+    require(coordinates.schema == null) { "use the compiled source strategy for schema problems" }
+    val pins = discreteAssumptionsFor(context).mergedWith(params.assumptions)
+    return conditionedProblem(context).sourceSolve(params.copy(assumptions = pins))
 }

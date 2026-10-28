@@ -209,7 +209,8 @@ class HybridDescentSession(
 
     private fun remember(sample: Sample, assumptions: Assumptions) {
         check(space.matches(sample, assumptions)) { "solver returned a witness outside the requested scope" }
-        pool.remove(sample)
+        val key = sample.assignmentKey()
+        pool.removeAll { it.assignmentKey() == key }
         pool.addLast(sample)
         if (pool.size > poolCapacity) pool.removeFirst()
     }
@@ -326,9 +327,13 @@ class HybridDescentSession(
                 val result = model.sourceMinimize(
                     objective, params.copy(randomSeed = rng.nextLong(), assumptions = proposed),
                 ).sampleResult()
-                return if (result is SampleResult.Found || proposed === requested) result else model.sourceMinimize(
+                if (result is SampleResult.Found) return result
+                val fallback = if (proposed === requested) result else model.sourceMinimize(
                     objective, params.copy(randomSeed = rng.nextLong(), assumptions = requested),
                 ).sampleResult()
+                return if (fallback is SampleResult.Unknown) model.sourceSolve(
+                    params.copy(randomSeed = rng.nextLong(), assumptions = requested),
+                ).sampleResult() else fallback
             }
             return HybridDescentSession(
                 space, { rng, pins, _ -> search(rng, pins, true) }, { rng, pins -> search(rng, pins, false) },
