@@ -46,8 +46,11 @@ class NativeProblemTest {
             assertTrue(space.matches(sample, given))
             val features = SearchTransform(space).encode(BanditSample(sample), given).toDoubleArray()
             assertTrue(features.all { it.isFinite() })
-            val decoded = Sample(sample.bools, sample.ints, sample.reals,
-                symbolicReals = listOf(ExactRealJson.decodeFromString(ExactRealJson.encodeToString(sample.exactRealValue(0)))))
+            val encoded = ExactRealJson.encodeToString(sample.exactRealValue(0))
+            val decoded = Sample(
+                sample.bools, sample.ints, sample.reals,
+                symbolicReals = listOf(ExactRealJson.decodeFromString(encoded)),
+            )
             assertEquals(sample.assignmentKey(), decoded.assignmentKey())
             val search = HybridDescentSession.klause(space, candidateBatchSize = 1)
             assertTrue(search.witnesses(WitnessRequest(1, context = given, anchors = listOf(sample),
