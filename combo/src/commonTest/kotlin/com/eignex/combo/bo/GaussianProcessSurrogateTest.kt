@@ -2,6 +2,7 @@ package com.eignex.combo.bo
 
 import com.eignex.combo.bo.model.GaussianKernel
 import com.eignex.combo.bo.model.GaussianProcessConfig
+import com.eignex.combo.test.TimedTest
 import com.eignex.klause.schema.le
 import com.eignex.koblas.DenseMatrix
 import com.eignex.koblas.DenseVector
@@ -14,7 +15,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
-class GaussianProcessSurrogateTest {
+class GaussianProcessSurrogateTest : TimedTest() {
     private val fixed = GaussianProcessConfig(
         kernel = GaussianKernel.Rbf,
         lengthScale = 1.0,
@@ -205,6 +206,19 @@ class GaussianProcessSurrogateTest {
         val optimizer = BayesianOptimizer(
             SearchTransform(space),
             GaussianProcessSurrogate(fixed),
+            acquisitionOptimizer = LocalAndRandomSearch(
+                SearchTransform(space),
+                com.eignex.combo.shared.WitnessSearch { request, _ ->
+                    val points = (1..6).map { continuousPoint(doubleArrayOf(it / 10.0)).sample }
+                        .filter { it !in request.exclude }
+                    com.eignex.combo.shared.WitnessBatch(
+                        points.take(request.count),
+                        com.eignex.combo.shared.WitnessTermination.CountReached,
+                    )
+                },
+                candidateCount = 6,
+                localSteps = 0,
+            ),
             outcome = OutcomeSpec(standardize = true, noise = ObservationNoise.Noisy),
             initialDesign = RandomInitialDesign(observations = 1, probability = 0.0),
             batchPolicy = SequentialBatchPolicy(FantasyPolicy.PosteriorMean),

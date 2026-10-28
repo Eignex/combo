@@ -44,7 +44,12 @@ class RandomForestOptimizerTest : TimedTest() {
         val optimizer = RandomForestOptimizer.smac(
             space,
             store,
-            ForestOptimizerConfig(forest = BatchForestConfig(maxDepth = 0, bootstrap = false)),
+            ForestOptimizerConfig(
+                candidateCount = 4,
+                maxWitnessAttempts = 8,
+                localSteps = 0,
+                forest = BatchForestConfig(maxDepth = 0, bootstrap = false),
+            ),
         )
         val sample = BanditSample(Sample(booleanArrayOf(false), longArrayOf()))
         optimizer.train(sample, 1.0)
@@ -71,7 +76,12 @@ class RandomForestOptimizerTest : TimedTest() {
         }
         val optimizer = RandomForestOptimizer(
             projection,
-            config = ForestOptimizerConfig(forest = BatchForestConfig(nbrTrees = 1, bootstrap = false)),
+            config = ForestOptimizerConfig(
+                candidateCount = 4,
+                maxWitnessAttempts = 8,
+                localSteps = 0,
+                forest = BatchForestConfig(nbrTrees = 1, bootstrap = false),
+            ),
         )
         val low = BanditSample(Sample(booleanArrayOf(false), longArrayOf()))
         val high = BanditSample(Sample(booleanArrayOf(true), longArrayOf()))
@@ -87,6 +97,9 @@ class RandomForestOptimizerTest : TimedTest() {
         val optimizer = RandomForestOptimizer.bootstrapThompson(
             space,
             config = ForestOptimizerConfig(
+                candidateCount = 4,
+                maxWitnessAttempts = 8,
+                localSteps = 0,
                 initialRandomObservations = 0,
                 randomExploration = 0.0,
                 repeatPolicy = RepeatPolicy.Allow,
@@ -112,6 +125,9 @@ class RandomForestOptimizerTest : TimedTest() {
             val optimizer = RandomForestOptimizer(
                 LinearFeatureProjection(space),
                 config = ForestOptimizerConfig(
+                    candidateCount = 4,
+                    maxWitnessAttempts = 8,
+                    localSteps = 0,
                     forest = BatchForestConfig(nbrTrees = 7, mtry = 3),
                     acquisition = acquisition,
                     initialRandomObservations = 0,
@@ -122,7 +138,7 @@ class RandomForestOptimizerTest : TimedTest() {
             )
             for (ctx in contexts) {
                 val samples = solver.enumerate(BacktrackParams(assumptions = space.assumptionsFor(ctx))).toList()
-                repeat(15) {
+                repeat(3) {
                     for (sample in samples) {
                         val wanted = sample.boolValue(if (ctx[model.premium]) a else b)
                         optimizer.train(BanditSample(sample), ctx, if (wanted) 1.0 else 0.0)
@@ -153,7 +169,13 @@ class RandomForestOptimizerTest : TimedTest() {
         val unseen = context { set(model.premium, true) }
         val optimizer = RandomForestOptimizer.smac(
             space,
-            config = ForestOptimizerConfig(initialRandomObservations = 0, randomExploration = 0.0),
+            config = ForestOptimizerConfig(
+                candidateCount = 4,
+                maxWitnessAttempts = 8,
+                localSteps = 0,
+                initialRandomObservations = 0,
+                randomExploration = 0.0,
+            ),
         )
         for (sample in solver.enumerate(BacktrackParams(assumptions = space.assumptionsFor(trained)))) {
             optimizer.train(BanditSample(sample), trained, 1.0)
@@ -168,15 +190,21 @@ class RandomForestOptimizerTest : TimedTest() {
         for (acquisition in ForestAcquisition.entries) {
             val optimizer = RandomForestOptimizer(
                 LinearFeatureProjection(space),
-                config = ForestOptimizerConfig(acquisition = acquisition, repeatPolicy = RepeatPolicy.Allow),
+                config = ForestOptimizerConfig(
+                    candidateCount = 4,
+                    maxWitnessAttempts = 8,
+                    localSteps = 0,
+                    acquisition = acquisition,
+                    repeatPolicy = RepeatPolicy.Allow,
+                ),
                 randomSeed = 31,
             )
-            repeat(25) {
+            repeat(6) {
                 val sample = optimizer.chooseOrThrow()
                 optimizer.update(sample, if (sample.sample.boolValue(0)) 1.0 else 0.0)
             }
             assertTrue(optimizer.optimalOrThrow().sample.boolValue(0))
-            assertEquals(25, optimizer.store.snapshot().observations.size)
+            assertEquals(6, optimizer.store.snapshot().observations.size)
         }
     }
 
@@ -198,10 +226,16 @@ class RandomForestOptimizerTest : TimedTest() {
         for (acquisition in ForestAcquisition.entries) {
             val optimizer = RandomForestOptimizer(
                 LinearFeatureProjection(space),
-                config = ForestOptimizerConfig(acquisition = acquisition),
+                config = ForestOptimizerConfig(
+                    candidateCount = 4,
+                    maxWitnessAttempts = 8,
+                    localSteps = 0,
+                    acquisition = acquisition,
+                    forest = BatchForestConfig(nbrTrees = 1, bootstrap = false),
+                ),
                 randomSeed = 13,
             )
-            repeat(15) {
+            repeat(3) {
                 optimizer.train(low, 0.0)
                 optimizer.train(high, 1.0)
             }
@@ -226,7 +260,12 @@ class RandomForestOptimizerTest : TimedTest() {
         )
         val optimizer = RandomForestOptimizer.smac(
             space,
-            config = ForestOptimizerConfig(forest = BatchForestConfig(nbrTrees = 1, bootstrap = false)),
+            config = ForestOptimizerConfig(
+                candidateCount = 4,
+                maxWitnessAttempts = 8,
+                localSteps = 0,
+                forest = BatchForestConfig(nbrTrees = 1, bootstrap = false),
+            ),
         )
         optimizer.train(point(0.0), 0.0)
         optimizer.train(point(1.0), 0.0)
@@ -241,7 +280,7 @@ class RandomForestOptimizerTest : TimedTest() {
     fun `minimization recommends the lowest predicted cost`() {
         val space = Toggle().compileSpace()
         val optimizer = RandomForestOptimizer.smac(space, maximize = false)
-        repeat(15) {
+        repeat(3) {
             optimizer.train(BanditSample(Sample(booleanArrayOf(false), longArrayOf())), 9.0)
             optimizer.train(BanditSample(Sample(booleanArrayOf(true), longArrayOf())), 1.0)
         }

@@ -4,8 +4,8 @@ import com.eignex.combo.bandit.PredictionBanditTestSuite
 import com.eignex.combo.decisions.CompiledDecisionSpace
 import com.eignex.combo.shared.LinearFeatureProjection
 import com.eignex.combo.shared.PredictionLearner
-import com.eignex.klause.localsearch.LocalSearchParams
-import com.eignex.klause.localsearch.LocalSearchSolver
+import com.eignex.klause.backtrack.BacktrackParams
+import com.eignex.klause.backtrack.BacktrackSolver
 import com.eignex.klause.propagation.bake
 import com.eignex.klause.solver.Sample
 import com.eignex.kumulant.stat.regression.glm.ConstantRate
@@ -13,17 +13,8 @@ import com.eignex.kumulant.stat.regression.glm.DiagonalRegressionStat
 import com.eignex.kumulant.stat.regression.glm.FactorisedGaussian
 import com.eignex.kumulant.stat.summary.MeanStat
 
-/**
- * Plug [LinearBandit] into the shared bandit harness.
- *
- * Convergence under Bernoulli rewards is harder for the linear model than for a beta-
- * Bernoulli bandit because the model trains a linear regression on 0/1 features rather
- * than tracking sufficient stats per arm. Disable the strict win-rate assertion via
- * [converges]=false; the rest of the contract still applies.
- */
+/** Plug [LinearBandit] into the shared bandit contract checks. */
 class LinearBanditSuiteTest : PredictionBanditTestSuite<LinearLearnerData>() {
-
-    override val converges: Boolean = false
 
     override fun buildPrediction(
         space: CompiledDecisionSpace,
@@ -33,7 +24,7 @@ class LinearBanditSuiteTest : PredictionBanditTestSuite<LinearLearnerData>() {
         rewards: MeanStat?,
     ): PredictionLearner<LinearLearnerData> {
         val projection = LinearFeatureProjection(space)
-        val solver = LocalSearchSolver(space.compiled.problem.bake())
+        val solver = BacktrackSolver(space.compiled.problem.bake())
         val regression = DiagonalRegressionStat(
             featureSize = projection.featureSize,
             priorPrecision = 0.01,
@@ -47,7 +38,7 @@ class LinearBanditSuiteTest : PredictionBanditTestSuite<LinearLearnerData>() {
             innerOptimizer = { obj, asm ->
                 solver.minimize(
                     obj,
-                    LocalSearchParams(maxFlips = 200L, randomSeed = randomSeed.toLong(), assumptions = asm),
+                    BacktrackParams(maxDecisions = 16L, randomSeed = randomSeed.toLong(), assumptions = asm),
                 ).assignment
             },
             randomSeed = randomSeed,

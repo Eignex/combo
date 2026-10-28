@@ -1,5 +1,6 @@
 package com.eignex.combo.bo
 
+import com.eignex.combo.test.TimedTest
 import com.eignex.koblas.DenseMatrix
 import com.eignex.koblas.DenseVector
 import kotlin.random.Random
@@ -7,7 +8,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-class ForestUncertaintyTest {
+class ForestUncertaintyTest : TimedTest() {
     @Test
     fun `leaf mean uncertainty propagates supplied noise while disagreement remains unchanged`() {
         val query = DenseMatrix.ofRows(arrayOf(doubleArrayOf(0.0)))

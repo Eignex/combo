@@ -1,12 +1,13 @@
 package com.eignex.combo.util
 
+import com.eignex.combo.test.TimedTest
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
-class PortabilityTest {
+class PortabilityTest : TimedTest() {
     @Test
     fun `integer narrowing preserves boundaries and rejects overflow`() {
         for (value in listOf(Int.MIN_VALUE, -1, 0, 1, Int.MAX_VALUE)) {

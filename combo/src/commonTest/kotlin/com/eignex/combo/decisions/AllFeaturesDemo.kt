@@ -1,5 +1,6 @@
 package com.eignex.combo.decisions
 
+import com.eignex.combo.test.TimedTest
 import com.eignex.klause.schema.implies
 import com.eignex.klause.schema.not
 import com.eignex.skema.SchemaJson
@@ -35,7 +36,7 @@ private class FullModel : DecisionSpace() {
     val premiumXsegment by interact(premiumCtx, segment)
 }
 
-class AllFeaturesDemo {
+class AllFeaturesDemo : TimedTest() {
 
     @Test
     fun `print full DecisionSpaceDef JSON`() {

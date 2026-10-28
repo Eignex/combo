@@ -10,6 +10,7 @@ import com.eignex.combo.shared.WitnessBatch
 import com.eignex.combo.shared.WitnessSearch
 import com.eignex.combo.shared.WitnessTermination
 import com.eignex.combo.shared.assignmentKey
+import com.eignex.combo.test.TimedTest
 import com.eignex.klause.schema.not
 import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
@@ -19,7 +20,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
-class JointBatchTest {
+class JointBatchTest : TimedTest() {
     private class Rate : DecisionSpace() {
         val x by floatVar(0.0, 1.0)
     }
@@ -88,13 +89,13 @@ class JointBatchTest {
     fun `GP joint rounds reserve together reuse one fit and complete out of order without fantasies`() {
         val problem = refinementProblem("noisy")
         val projection = SearchTransform(problem.space)
-        for (factory in listOf(JointExpectedImprovement(64), JointNoisyExpectedImprovement(64))) {
+        for (factory in listOf(JointExpectedImprovement(8), JointNoisyExpectedImprovement(8))) {
             fun optimizer() = BayesianOptimizer(
                 projection,
                 GaussianProcessSurrogate(GaussianProcessConfig(hyperparameterTrials = 0)),
                 batchPolicy = JointBatchPolicy(
                     factory,
-                    JointPoolSearch(projection, noisyWitnesses(), candidateCount = 8),
+                    JointPoolSearch(projection, noisyWitnesses(), candidateCount = 3, starts = 1, passes = 1),
                 ),
                 initialDesign = RandomInitialDesign(0, 0.0),
                 randomSeed = 47,

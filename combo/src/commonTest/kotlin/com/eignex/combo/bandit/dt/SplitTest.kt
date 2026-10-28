@@ -2,6 +2,7 @@ package com.eignex.combo.bandit.dt
 
 import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.DecisionSpace
+import com.eignex.combo.test.TimedTest
 import com.eignex.klause.localsearch.LocalSearchParams
 import com.eignex.klause.localsearch.LocalSearchSolver
 import com.eignex.klause.propagation.bake
@@ -24,7 +25,7 @@ private class SplitTestSpace : DecisionSpace() {
     val tier by nominal("free", "pro", "enterprise")
 }
 
-class SplitTest {
+class SplitTest : TimedTest() {
 
     @Test
     fun `BoolSplit prints as the handle name`() {

@@ -1,6 +1,7 @@
 package com.eignex.combo.model
 
 import com.eignex.combo.decisions.DecisionSpaceDef
+import com.eignex.combo.test.TimedTest
 import com.eignex.klause.backtrack.BacktrackParams
 import com.eignex.klause.backtrack.BacktrackSolver
 import com.eignex.klause.compile.compile
@@ -16,7 +17,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import kotlin.test.*
 
-class StatisticalLoweringTest {
+class StatisticalLoweringTest : TimedTest() {
     private val latency = StatisticalInt("latency")
     private val snapshot = mapOf("timings" to encodeStatisticResult(BandResult(100.0, 20.0, 1.0, 80.0, 120.0)))
 

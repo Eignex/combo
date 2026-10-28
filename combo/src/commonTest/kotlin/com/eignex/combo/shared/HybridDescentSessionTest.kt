@@ -1,6 +1,7 @@
 package com.eignex.combo.shared
 
 import com.eignex.combo.decisions.DecisionSpace
+import com.eignex.combo.test.TimedTest
 import com.eignex.klause.propagation.Assumptions
 import com.eignex.klause.solver.Sample
 import com.eignex.klause.solver.result.SampleResult
@@ -14,7 +15,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
-class HybridDescentSessionTest {
+class HybridDescentSessionTest : TimedTest() {
     private class Space : DecisionSpace() {
         val a by boolVar()
         val b by boolVar()

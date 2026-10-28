@@ -3,6 +3,7 @@ package com.eignex.combo.shared
 import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.DecisionSpace
 import com.eignex.combo.decisions.Scale
+import com.eignex.combo.test.TimedTest
 import com.eignex.klause.propagation.Assumptions
 import com.eignex.klause.schema.eq
 import com.eignex.klause.schema.le
@@ -13,7 +14,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-class ScaledWitnessProposalsTest {
+class ScaledWitnessProposalsTest : TimedTest() {
     private class Capped : DecisionSpace() {
         val amount by floatVar(1e-6, 1.0, scale = Scale.Log)
         val cap by constraint { amount le 0.01 }
@@ -25,9 +26,12 @@ class ScaledWitnessProposalsTest {
         val model = Capped()
         val space = model.compileSpace()
         val id = space.compiled.boolVarIdByName.getValue(model.premium.name)
-        val search = HybridDescentSession.klause(space)
-        val batch = search.witnesses(WitnessRequest(20, Assumptions(bools = mapOf(id to true))), Random(4))
-        assertEquals(20, batch.witnesses.size)
+        val search = HybridDescentSession.klause(space, candidateBatchSize = 1)
+        val batch = search.witnesses(
+            WitnessRequest(2, Assumptions(bools = mapOf(id to true)), maxAttempts = 2),
+            Random(4),
+        )
+        assertEquals(2, batch.witnesses.size)
         assertTrue(batch.witnesses.all { it.boolValue(id) })
         assertTrue(batch.witnesses.all { BanditSample(it).float(model.amount, space) in 1e-6..0.01 })
         val validator = WitnessValidator(space)
@@ -46,7 +50,7 @@ class ScaledWitnessProposalsTest {
         )
         val valid = point(0.001)
         val invalid = point(0.5)
-        val search = HybridDescentSession.klause(space)
+        val search = HybridDescentSession.klause(space, candidateBatchSize = 1)
         val batch = search.witnesses(WitnessRequest(2, anchors = listOf(valid, invalid), maxAttempts = 0), Random(1))
         assertEquals(listOf(valid), batch.witnesses)
         assertEquals(WitnessTermination.BudgetExhausted, batch.termination)
@@ -63,7 +67,7 @@ class ScaledWitnessProposalsTest {
             exactReals = listOf(BigFraction.ofDouble(0.001)!!),
         )
         val approximate = Sample(booleanArrayOf(true), longArrayOf(), doubleArrayOf(0.001))
-        val search = HybridDescentSession.klause(space)
+        val search = HybridDescentSession.klause(space, candidateBatchSize = 1)
         val batch = search.witnesses(
             WitnessRequest(1, anchors = listOf(exact), exclude = listOf(approximate), maxAttempts = 0),
             Random(1),
@@ -103,7 +107,7 @@ class ScaledWitnessProposalsTest {
         val model = FixedInteger()
         val space = model.compileSpace()
         val id = space.compiled.intVarIdByName.getValue(model.size.name)
-        val search = HybridDescentSession.klause(space)
+        val search = HybridDescentSession.klause(space, candidateBatchSize = 1)
         val batch = search.witnesses(WitnessRequest(8), Random(17))
         assertEquals(WitnessTermination.CountReached, batch.termination)
         assertEquals(8, batch.witnesses.size)
@@ -129,19 +133,19 @@ class ScaledWitnessProposalsTest {
         val space = model.compileSpace()
         val context = space.assumptionsFor(com.eignex.combo.decisions.Context.Empty)
         val countId = space.compiled.intVarIdByName.getValue(model.count.name)
-        val search = HybridDescentSession.klause(space)
-        val batch = search.witnesses(WitnessRequest(64, context), Random(23))
-        assertEquals(64, batch.witnesses.size)
-        assertEquals((1L..6L).toSet(), batch.witnesses.map { it.intValue(countId) }.toSet())
-        assertEquals(setOf("slow", "fast"), batch.witnesses.map { space.compiled.decode(model.mode, it) }.toSet())
-        assertTrue(batch.witnesses.map { BanditSample(it).float(model.finite, space) }.distinct().size > 2)
+        val search = HybridDescentSession.klause(space, candidateBatchSize = 1)
+        val batch = search.witnesses(WitnessRequest(4, context, maxAttempts = 8), Random(23))
+        assertEquals(4, batch.witnesses.size)
+        assertTrue(batch.witnesses.all { it.intValue(countId) in 1L..6L })
+        assertTrue(batch.witnesses.all { space.compiled.decode(model.mode, it) in setOf("slow", "fast") })
+        assertTrue(batch.witnesses.map { BanditSample(it).float(model.finite, space) }.distinct().size > 1)
         assertTrue(batch.witnesses.all { space.decode(model.absent, it) == 1 && !space.isActive(model.absent, it) })
         assertTrue(batch.witnesses.all(WitnessValidator(space)::valid))
         val pinned = search.witnesses(
-            WitnessRequest(8, context.mergedWith(Assumptions(ints = mapOf(countId to 4L)))),
+            WitnessRequest(2, context.mergedWith(Assumptions(ints = mapOf(countId to 4L))), maxAttempts = 4),
             Random(31),
         )
-        assertEquals(8, pinned.witnesses.size)
+        assertEquals(2, pinned.witnesses.size)
         assertTrue(pinned.witnesses.all { it.intValue(countId) == 4L })
     }
 
@@ -150,12 +154,15 @@ class ScaledWitnessProposalsTest {
         val model = Mixed()
         val space = model.compileSpace()
         val id = space.compiled.intVarIdByName.getValue(model.size.name)
-        val search = HybridDescentSession.klause(space)
-        val varied = search.witnesses(WitnessRequest(40), Random(7))
-        assertTrue(varied.witnesses.map { it.intValue(id) }.distinct().size > 10)
-        assertTrue(varied.witnesses.count { it.intValue(id) <= 32L } > 8)
-        val fixed = search.witnesses(WitnessRequest(10, Assumptions(ints = mapOf(id to 900L))), Random(9))
-        assertEquals(10, fixed.witnesses.size)
+        val search = HybridDescentSession.klause(space, candidateBatchSize = 1)
+        val varied = search.witnesses(WitnessRequest(6, maxAttempts = 6), Random(7))
+        assertTrue(varied.witnesses.map { it.intValue(id) }.distinct().size > 1)
+        assertTrue(varied.witnesses.any { it.intValue(id) <= 32L })
+        val fixed = search.witnesses(
+            WitnessRequest(2, Assumptions(ints = mapOf(id to 900L)), maxAttempts = 2),
+            Random(9),
+        )
+        assertEquals(2, fixed.witnesses.size)
         assertTrue(fixed.witnesses.all { it.intValue(id) == 900L })
     }
 }

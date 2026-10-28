@@ -1,5 +1,6 @@
 package com.eignex.combo.decisions
 
+import com.eignex.combo.test.TimedTest
 import com.eignex.klause.localsearch.LocalSearchParams
 import com.eignex.klause.localsearch.LocalSearchSolver
 import com.eignex.klause.model.BoolSpec
@@ -64,7 +65,7 @@ private class NestedOptionals : DecisionSpace() {
     val outer by optionalDecisionSpace(::OptionalAudioInner)
 }
 
-class SubSpaceTest {
+class SubSpaceTest : TimedTest() {
 
     @Test
     fun `sub-space variables should get qualified klause names`() {

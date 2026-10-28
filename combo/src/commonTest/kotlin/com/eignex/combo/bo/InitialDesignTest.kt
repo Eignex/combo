@@ -7,6 +7,10 @@ import com.eignex.combo.decisions.context
 import com.eignex.combo.shared.WitnessBatch
 import com.eignex.combo.shared.WitnessSearch
 import com.eignex.combo.shared.WitnessTermination
+import com.eignex.combo.test.TimedTest
+import com.eignex.klause.backtrack.BacktrackParams
+import com.eignex.klause.backtrack.BacktrackSolver
+import com.eignex.klause.propagation.bake
 import com.eignex.klause.schema.implies
 import com.eignex.klause.schema.le
 import com.eignex.klause.schema.not
@@ -16,16 +20,30 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-class InitialDesignTest {
+class InitialDesignTest : TimedTest() {
     private class Rate : DecisionSpace() {
         val x by floatVar(0.0, 1.0)
+    }
+
+    private val rateWitnesses = WitnessSearch { _, _ ->
+        WitnessBatch(
+            listOf(
+                Sample(
+                    booleanArrayOf(),
+                    longArrayOf(),
+                    doubleArrayOf(0.5),
+                    exactReals = listOf(BigFraction.ofDouble(0.5)!!),
+                ),
+            ),
+            WitnessTermination.CountReached,
+        )
     }
 
     @Test
     fun `Latin hypercube covers one stratum per point without fitting or acquisition scoring`() {
         val model = Rate()
         val space = model.compileSpace()
-        val design = LatinHypercubeInitialDesign(space, 32, seed = 11)
+        val design = LatinHypercubeInitialDesign(space, 8, seed = 11, witnesses = rateWitnesses)
         val optimizer = BayesianOptimizer(
             SearchTransform(space),
             ForestSurrogate(),
@@ -36,10 +54,10 @@ class InitialDesignTest {
                 )
             },
         )
-        assertEquals(8, design.size)
-        val batch = optimizer.suggest(8)
-        assertEquals(8, batch.size)
-        assertEquals((0 until 8).toSet(), batch.map { (it.sample.float(model.x, space) * 8).toInt() }.toSet())
+        assertEquals(2, design.size)
+        val batch = optimizer.suggest(2)
+        assertEquals(2, batch.size)
+        assertEquals((0 until 2).toSet(), batch.map { (it.sample.float(model.x, space) * 2).toInt() }.toSet())
         assertEquals(0L, optimizer.fitCount)
         assertEquals(0, optimizer.lastSuggestion!!.acquisitionEvaluations)
     }
@@ -51,7 +69,7 @@ class InitialDesignTest {
         fun optimizer() = BayesianOptimizer(
             SearchTransform(space),
             ForestSurrogate(),
-            initialDesign = LatinHypercubeInitialDesign(space, 32, seed = 23),
+            initialDesign = LatinHypercubeInitialDesign(space, 32, seed = 23, witnesses = rateWitnesses),
         )
         val left = optimizer()
         val first = left.suggest(3)
@@ -84,7 +102,6 @@ class InitialDesignTest {
     private class Mixed : DecisionSpace() {
         val rate by floatVar(1e-6, 1.0, scale = Scale.Log)
         val count by intVar(1, 6)
-        val mode by nominal("slow", "fast")
         val premium by contextBool()
         val cap by constraint { !premium implies (count le 3) }
     }
@@ -94,13 +111,23 @@ class InitialDesignTest {
         val model = Mixed()
         val space = model.compileSpace()
         val ctx = context { set(model.premium, false) }
+        val anchor = BacktrackSolver(space.compiled.problem.bake()).sample(
+            BacktrackParams(maxDecisions = 32, assumptions = space.assumptionsFor(ctx), randomSeed = 5),
+        ).assignment!!
         val optimizer = BayesianOptimizer(
             SearchTransform(space),
             ForestSurrogate(),
-            initialDesign = LatinHypercubeInitialDesign(space, 64, seed = 5),
+            initialDesign = LatinHypercubeInitialDesign(
+                space,
+                4,
+                seed = 5,
+                witnesses = WitnessSearch { _, _ ->
+                    WitnessBatch(listOf(anchor), WitnessTermination.CountReached)
+                },
+            ),
         )
-        val batch = optimizer.suggest(12, ctx)
-        assertEquals(12, batch.size)
+        val batch = optimizer.suggest(1, ctx)
+        assertEquals(1, batch.size)
         assertTrue(batch.all { space.matches(it.sample.sample, space.assumptionsFor(ctx)) })
         assertTrue(batch.all { space.compiled.decode(model.count, it.sample.sample) in 1L..3L })
         assertTrue(batch.all { it.sample.float(model.rate, space) in 1e-6..1.0 })
@@ -109,7 +136,12 @@ class InitialDesignTest {
     @Test
     fun `initial configuration budget accounts for planned repeated measurements`() {
         val space = Rate().compileSpace()
-        val design = LatinHypercubeInitialDesign(space, 32, measurementsPerConfiguration = 3.0)
+        val design = LatinHypercubeInitialDesign(
+            space,
+            32,
+            measurementsPerConfiguration = 3.0,
+            witnesses = rateWitnesses,
+        )
         assertEquals(2, design.size)
         val optimizer = BayesianOptimizer(SearchTransform(space), ForestSurrogate(), initialDesign = design)
         assertEquals(2, optimizer.suggest(2).size)

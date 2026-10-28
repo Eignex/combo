@@ -4,6 +4,7 @@ import com.eignex.combo.decisions.DecisionSpace
 import com.eignex.combo.decisions.context
 import com.eignex.combo.shared.LinearFeatureProjection
 import com.eignex.combo.shared.WitnessTermination
+import com.eignex.combo.test.TimedTest
 import com.eignex.kumulant.core.PairedStat
 import com.eignex.kumulant.stat.score.MaeLossStat
 import com.eignex.kumulant.stat.summary.WeightedMeanResult
@@ -13,7 +14,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
-class TrialsTest {
+class TrialsTest : TimedTest() {
     private class Toggles : DecisionSpace() {
         val a by boolVar()
         val b by boolVar()
@@ -31,6 +32,9 @@ class TrialsTest {
                 LinearFeatureProjection(space),
                 config = ForestOptimizerConfig(
                     acquisition = acquisition,
+                    candidateCount = 8,
+                    maxWitnessAttempts = 32,
+                    localSteps = 0,
                     initialRandomObservations = 0,
                     randomExploration = 0.0,
                 ),

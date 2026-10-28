@@ -2,12 +2,13 @@ package com.eignex.combo.bo
 
 import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.Context
+import com.eignex.combo.test.TimedTest
 import com.eignex.klause.solver.Sample
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
-class ObservationStoreTest {
+class ObservationStoreTest : TimedTest() {
     @Test
     fun `snapshots retain insertion order and remain stable after appends`() {
         val store: ObservationStore = InMemoryObservationStore()
