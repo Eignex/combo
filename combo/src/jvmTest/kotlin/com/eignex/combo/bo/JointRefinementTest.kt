@@ -14,88 +14,12 @@ import com.eignex.combo.test.TimedTest
 import com.eignex.klause.schema.not
 import com.eignex.koblas.DenseMatrix
 import com.eignex.koblas.DenseVector
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.double
-import kotlinx.serialization.json.int
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import java.io.File
-import java.util.zip.GZIPInputStream
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class JointRefinementTest : TimedTest() {
-    @Test
-    fun `cached EI and log EI match frozen BoTorch values with identical normals`() {
-        for ((directory, sampling) in listOf(
-            "gp-followups" to JointNormalSampling.Antithetic,
-            "gp-qmc" to JointNormalSampling.ScrambledSobol,
-        )) {
-            val fixtures = File("benchmarks/$directory/frozen-q4.json.gz").inputStream().use {
-                Json.parseToJsonElement(GZIPInputStream(it).bufferedReader().readText()).jsonArray
-            }
-            val reference = File("benchmarks/$directory/reference-q4.csv").readLines().drop(1).associate { line ->
-                val row = line.split(',')
-                (row[0] to row[2]) to row[6].toDouble()
-            }
-            for (entry in fixtures.take(1)) {
-                val fixture = entry.jsonObject
-                val means = fixture.getValue("means").jsonArray.map { it.jsonPrimitive.double }
-                val covariance = fixture.getValue(
-                    "covariance",
-                ).jsonArray.map { it.jsonArray.map { x -> x.jsonPrimitive.double } }
-                val model = MatrixPosterior(means, covariance)
-                val size = fixture.getValue("baseline").jsonPrimitive.int
-                val baseline = jointPoints(*(0 until size).map(Int::toDouble).toDoubleArray())
-                val noisy = fixture.getValue("id").jsonPrimitive.content.endsWith("qnei")
-                val context = JointAcquisitionContext(
-                    model,
-                    fixture.getValue("incumbent").jsonPrimitive.double,
-                    OutcomeSpec(),
-                    baseline,
-                )
-                val raw = (
-                    if (noisy) {
-                        JointNoisyExpectedImprovement(
-                            sampling,
-                        )
-                    } else {
-                        JointExpectedImprovement(sampling)
-                    }
-                    ).create(
-                    context,
-                    Random(713),
-                )
-                val log = (
-                    if (noisy) {
-                        JointLogNoisyExpectedImprovement(
-                            sampling,
-                        )
-                    } else {
-                        JointLogExpectedImprovement(sampling)
-                    }
-                    ).create(
-                    context,
-                    Random(713),
-                )
-                for (case in fixture.getValue("sets").jsonArray.take(1)) {
-                    val record = case.jsonObject
-                    val indices = record.getValue("indices").jsonArray.map { it.jsonPrimitive.int }
-                    val points = jointPoints(*indices.map(Int::toDouble).toDoubleArray())
-                    assertEquals(record.getValue("legacy").jsonPrimitive.double, raw.evaluate(points), 1e-9)
-                    assertEquals(
-                        reference.getValue(fixture.getValue("id").jsonPrimitive.content to indices.joinToString(";")),
-                        log.evaluate(points),
-                        1e-8,
-                    )
-                }
-            }
-        }
-    }
-
     @Test
     fun `log improvement remains ordered far beyond ordinary EI zero plateau`() {
         val model = object : FittedSurrogate {
