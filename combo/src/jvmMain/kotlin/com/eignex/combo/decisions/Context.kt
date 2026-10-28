@@ -88,7 +88,10 @@ class ContextBuilder internal constructor() {
 
     /** Pin an arbitrary-width integer using Klause's exact native arithmetic. */
     fun set(id: com.eignex.klause.ir.SourceIntId, value: BigInt) {
-        if (value.fitsLong()) set(id, value.toLongExact()) else exactInts[id.index] = value
+        if (value.fitsLong()) set(id, value.toLongExact()) else {
+            native = com.eignex.klause.propagation.Assumptions(native.bools, native.ints - id.index)
+            exactInts[id.index] = value
+        }
     }
 
     /** Pin an exact rational real without rounding it through a Double. */

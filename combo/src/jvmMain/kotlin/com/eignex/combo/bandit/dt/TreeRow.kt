@@ -22,6 +22,7 @@ interface TreeRow {
     val space: CompiledDecisionSpace
 
     fun bool(handle: BoolHandle): Boolean
+    /** Integer value in native Long units, without a 32-bit projection. */
     fun int(handle: IntHandle): Long
     fun nominal(handle: NominalHandle): String
 

@@ -29,7 +29,7 @@ class TreeFeatureProjectionTest {
 
         // Each handle dispatches to klause's typed decode under the hood.
         assertEquals(space.compiled.decode(model.premium, sample), row.bool(model.premium))
-        assertEquals(Math.toIntExact(space.compiled.decode(model.budget, sample)), row.int(model.budget))
+        assertEquals(space.compiled.decode(model.budget, sample), row.int(model.budget))
         assertEquals(space.compiled.decode(model.tier, sample), row.nominal(model.tier))
     }
 

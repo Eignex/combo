@@ -2,6 +2,7 @@ package com.eignex.combo.shared
 
 import com.eignex.klause.propagation.Assumptions
 import com.eignex.klause.solver.Sample
+import com.eignex.klause.simplex.exact.BigFraction
 import kotlin.random.Random
 
 /** Why a bounded witness request stopped; a short batch alone never establishes infeasibility. */
@@ -56,6 +57,21 @@ fun interface WitnessSearch {
     fun witnesses(request: WitnessRequest, random: Random): WitnessBatch
 }
 
-internal data class AssignmentKey(val sample: Sample)
+internal data class AssignmentKey(val bools: List<Boolean>, val ints: List<String>, val reals: List<Any>)
 
-internal fun Sample.assignmentKey(): AssignmentKey = AssignmentKey(this)
+internal fun Sample.assignmentKey(): AssignmentKey = AssignmentKey(
+    bools.toList(),
+    List(numIntVars) { exactIntValue(it).toString() },
+    reals.indices.map { id ->
+        val symbolic = symbolicReals?.get(id)
+        val algebraic = symbolic?.algebraic ?: algebraicReals?.get(id)
+        when {
+            symbolic?.rational != null -> requireNotNull(symbolic.rational)
+            algebraic?.rational != null -> requireNotNull(algebraic.rational)
+            algebraic != null -> algebraic.definingCoefficients to algebraic.rootIndex
+            symbolic != null -> symbolic.expression
+            else -> exactReals?.get(id) ?: BigFraction.ofDouble(approximateRealValue(id))
+                ?: approximateRealValue(id)
+        }
+    },
+)

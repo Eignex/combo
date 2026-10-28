@@ -71,7 +71,11 @@ data class BoolSplit(val handle: BoolHandle) : Split {
     override fun toString(): String = handle.name
 }
 
-/** Route by `int <= threshold`. Threshold is inclusive on the "left" side. */
+/**
+ * Route by `int <= threshold` without narrowing native integer values.
+ * @property handle Native integer variable.
+ * @property threshold Inclusive upper threshold of the left branch, in source units.
+ */
 data class IntThresholdSplit(val handle: IntHandle, val threshold: Long) : Split {
     init {
         require(threshold in handle.min..handle.max) {
@@ -86,7 +90,8 @@ data class IntThresholdSplit(val handle: IntHandle, val threshold: Long) : Split
         ), ints = listOf(handle),
     )
     override fun direction(row: TreeRow): Boolean = if (row.space.coordinates.schema == null) {
-        row.sample.sample.exactIntValue(row.space.coordinates.intVarIdByName.getValue(handle.name)) <= bigIntOf(threshold)
+        val id = row.space.coordinates.intVarIdByName.getValue(handle.name)
+        row.sample.sample.exactIntValue(id) <= bigIntOf(threshold)
     } else row.int(handle) <= threshold
     override fun toString(): String = "${handle.name} <= $threshold"
 }

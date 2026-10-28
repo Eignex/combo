@@ -213,22 +213,20 @@ internal fun synthesizePin(qualifiedName: String, spec: VarSpec, gateName: Strin
 
         is IntSpec -> Implies(notGate, IntCompare(IntRef(qualifiedName), IntCmpOp.EQ, IntLit(spec.min)))
 
-        is com.eignex.klause.model.IntDomainSpec -> throw UnsupportedOperationException(
-            "optional wide or open integer '$qualifiedName' requires a native Problem declaration",
-        )
 
         is NominalSpec -> Implies(notGate, NominalEq(qualifiedName, spec.labels[0]))
 
         is com.eignex.klause.model.FloatSpec ->
             Implies(notGate, FloatLinearConstraint(doubleArrayOf(1.0), listOf(qualifiedName), IntCmpOp.EQ, spec.min))
 
-        is com.eignex.klause.model.SetSpec, is com.eignex.klause.model.MultipleSpec ->
+        is com.eignex.klause.model.SetSpec, is com.eignex.klause.model.MultipleSpec,
+        is com.eignex.klause.model.IntDomainSpec ->
             // Set/multiple variables are not exposed as optional gated variables by combo
             // yet (multi-selects flow through the dedicated `multiples` map, not VarSpec).
             // When that migration lands the gated-off default is "empty set" — assert no
             // indicator is selected. Guarded explicitly so the omission is loud, not silent.
             throw UnsupportedOperationException(
-                "optional set/multiple variable '$qualifiedName' is not supported yet",
+                "optional native-only variable '$qualifiedName' requires a native Problem declaration",
             )
     }
 }

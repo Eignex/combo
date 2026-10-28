@@ -86,7 +86,9 @@ internal fun values(compiled: DecisionCoordinates, entries: Map<String, SchemaEn
                 put(handle.name, when {
                     exact != null && BigFraction.ofDouble(approximation) == exact -> JsonPrimitive(approximation)
                     exact != null -> JsonPrimitive(exact.toString())
-                    else -> buildJsonObject { if (approximation.isFinite()) put("approximation", approximation) }
+                    else -> buildJsonObject {
+                        put("approximation", if (approximation.isFinite()) JsonPrimitive(approximation) else kotlinx.serialization.json.JsonNull)
+                    }
                 })
             }
             return@buildJsonObject

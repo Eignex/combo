@@ -172,7 +172,10 @@ class Study(val space: CompiledDecisionSpace, val store: ObservationStore = InMe
             SchemaJson.encodeToString(com.eignex.combo.decisions.DecisionSpaceDef.serializer(), data.definition) ==
                 SchemaJson.encodeToString(com.eignex.combo.decisions.DecisionSpaceDef.serializer(), space.definition),
         ) { "history belongs to a different decision-space definition" }
-        if (space.coordinates.schema == null || data.problem != null) {
+        require((space.coordinates.schema == null) == (data.problem != null)) {
+            "history must use the same native or schema coordinate model"
+        }
+        if (space.coordinates.schema == null) {
             val original = requireNotNull(data.problem) { "history belongs to a schema model" }
             val codec = com.eignex.klause.formats.json.ProblemJson.default
             require(codec.encodeToString(original) == codec.encodeToString(space.problem)) {

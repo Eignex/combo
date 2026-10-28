@@ -84,4 +84,39 @@ class NativeProblemTest {
             assertEquals(2, LinearFeatureProjection(space).encode(BanditSample(sample), Context.Empty).size)
         }
     }
+
+    @Test
+    fun `native history transfer checks the problem rather than empty schema metadata`() {
+        val codec = ProblemJson.default
+        val problem = codec.decodeFromString("""{"ints":[{"lower":0,"upper":3}]}""")
+        val snapshot = com.eignex.combo.bo.Study(CompiledDecisionSpace.fromProblem(problem)).exportData()
+        val same = codec.decodeFromString(codec.encodeToString(problem))
+        com.eignex.combo.bo.Study(CompiledDecisionSpace.fromProblem(same)).importData(snapshot)
+        val changed = codec.decodeFromString("""{"ints":[{"lower":0,"upper":4}]}""")
+        assertFailsWith<IllegalArgumentException> {
+            com.eignex.combo.bo.Study(CompiledDecisionSpace.fromProblem(changed)).importData(snapshot)
+        }
+    }
+
+
+    @Test
+    fun `native integer feature geometry preserves adjacent large Long values`() {
+        val problem = ProblemJson.default.decodeFromString("""
+            {"ints":[{"lower":9007199254740992,"upper":9007199254740993}]}
+        """.trimIndent())
+        val space = CompiledDecisionSpace.fromProblem(problem)
+        val transform = SearchTransform(space)
+        val lower = BanditSample(com.eignex.klause.solver.Sample(booleanArrayOf(), longArrayOf(9007199254740992L)))
+        val upper = BanditSample(com.eignex.klause.solver.Sample(booleanArrayOf(), longArrayOf(9007199254740993L)))
+        assertEquals(0.0, transform.encode(lower, Context.Empty)[0])
+        assertEquals(1.0, transform.encode(upper, Context.Empty)[0])
+        val split = com.eignex.combo.bandit.dt.defaultSplitCandidates(space).single()
+        val rows = com.eignex.combo.bandit.dt.TreeFeatureProjection(space)
+        assertTrue(split.direction(rows.encode(lower, Context.Empty)))
+        assertFalse(split.direction(rows.encode(upper, Context.Empty)))
+        val layout = com.eignex.combo.bandit.dt.TreeVectorLayout(listOf(split))
+        assertEquals(0.0, layout.encode(rows.encode(lower, Context.Empty))[0])
+        assertEquals(1.0, layout.encode(rows.encode(upper, Context.Empty))[0])
+    }
+
 }

@@ -148,17 +148,17 @@ public final class com/eignex/combo/bandit/dt/ForestData : com/eignex/combo/shar
 }
 
 public final class com/eignex/combo/bandit/dt/IntThresholdSplit : com/eignex/combo/bandit/dt/Split {
-	public fun <init> (Lcom/eignex/klause/schema/IntHandle;I)V
+	public fun <init> (Lcom/eignex/klause/schema/IntHandle;J)V
 	public final fun component1 ()Lcom/eignex/klause/schema/IntHandle;
-	public final fun component2 ()I
-	public final fun copy (Lcom/eignex/klause/schema/IntHandle;I)Lcom/eignex/combo/bandit/dt/IntThresholdSplit;
-	public static synthetic fun copy$default (Lcom/eignex/combo/bandit/dt/IntThresholdSplit;Lcom/eignex/klause/schema/IntHandle;IILjava/lang/Object;)Lcom/eignex/combo/bandit/dt/IntThresholdSplit;
+	public final fun component2 ()J
+	public final fun copy (Lcom/eignex/klause/schema/IntHandle;J)Lcom/eignex/combo/bandit/dt/IntThresholdSplit;
+	public static synthetic fun copy$default (Lcom/eignex/combo/bandit/dt/IntThresholdSplit;Lcom/eignex/klause/schema/IntHandle;JILjava/lang/Object;)Lcom/eignex/combo/bandit/dt/IntThresholdSplit;
 	public fun direction (Lcom/eignex/combo/bandit/dt/TreeRow;)Z
 	public synthetic fun direction (Ljava/lang/Object;)Z
 	public fun equals (Ljava/lang/Object;)Z
 	public fun getExpr ()Lcom/eignex/klause/model/BoolExpr;
 	public final fun getHandle ()Lcom/eignex/klause/schema/IntHandle;
-	public final fun getThreshold ()I
+	public final fun getThreshold ()J
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
@@ -308,7 +308,7 @@ public abstract interface class com/eignex/combo/bandit/dt/TreeRow {
 	public abstract fun float (Lcom/eignex/klause/schema/FloatHandle;)D
 	public abstract fun getSample ()Lcom/eignex/combo/decisions/BanditSample;
 	public abstract fun getSpace ()Lcom/eignex/combo/decisions/CompiledDecisionSpace;
-	public abstract fun int (Lcom/eignex/klause/schema/IntHandle;)I
+	public abstract fun int (Lcom/eignex/klause/schema/IntHandle;)J
 	public abstract fun isPresent (Lcom/eignex/klause/schema/BoolHandle;)Z
 	public abstract fun isPresent (Lcom/eignex/klause/schema/FloatHandle;)Z
 	public abstract fun isPresent (Lcom/eignex/klause/schema/IntHandle;)Z
@@ -805,6 +805,7 @@ public final class com/eignex/combo/bo/HistoryData : com/eignex/combo/shared/Lea
 	public final fun getDefinition ()Lcom/eignex/combo/decisions/DecisionSpaceDef;
 	public final fun getHistory ()Lcom/eignex/combo/bo/ObservationHistory;
 	public final fun getNextTrialId ()J
+	public final fun getProblem ()Lcom/eignex/klause/ir/Problem;
 	public final fun getRound ()J
 	public final fun getTrials ()Ljava/util/List;
 	public fun remap (Lcom/eignex/combo/shared/SlotRemap;)Lcom/eignex/combo/shared/LearnerData;
@@ -1759,6 +1760,7 @@ public final class com/eignex/combo/decisions/BoolContextHandle : com/eignex/kla
 }
 
 public final class com/eignex/combo/decisions/CompiledDecisionSpace {
+	public static final field Companion Lcom/eignex/combo/decisions/CompiledDecisionSpace$Companion;
 	public final fun assumptionsFor (Lcom/eignex/combo/decisions/Context;)Lcom/eignex/klause/propagation/Assumptions;
 	public final fun decode (Lcom/eignex/combo/decisions/BoolContextHandle;Lcom/eignex/klause/solver/Sample;)Z
 	public final fun decode (Lcom/eignex/combo/decisions/IntContextHandle;Lcom/eignex/klause/solver/Sample;)I
@@ -1770,9 +1772,11 @@ public final class com/eignex/combo/decisions/CompiledDecisionSpace {
 	public final fun getContextBools ()Ljava/util/List;
 	public final fun getContextFloats ()Ljava/util/List;
 	public final fun getContextInts ()Ljava/util/List;
+	public final fun getCoordinates ()Lcom/eignex/combo/decisions/DecisionCoordinates;
 	public final fun getDefinition ()Lcom/eignex/combo/decisions/DecisionSpaceDef;
 	public final fun getGates ()Ljava/util/Map;
 	public final fun getInteractions ()Ljava/util/List;
+	public final fun getProblem ()Lcom/eignex/klause/ir/Problem;
 	public final fun isActive (Lcom/eignex/combo/decisions/BoolContextHandle;Lcom/eignex/klause/solver/Sample;)Z
 	public final fun isActive (Lcom/eignex/combo/decisions/IntContextHandle;Lcom/eignex/klause/solver/Sample;)Z
 	public final fun isActive (Lcom/eignex/klause/schema/BoolHandle;Lcom/eignex/klause/solver/Sample;)Z
@@ -1787,9 +1791,15 @@ public final class com/eignex/combo/decisions/CompiledDecisionSpace {
 	public final fun matches (Lcom/eignex/klause/solver/Sample;Lcom/eignex/klause/propagation/Assumptions;)Z
 }
 
+public final class com/eignex/combo/decisions/CompiledDecisionSpace$Companion {
+	public final fun fromProblem (Lcom/eignex/klause/ir/Problem;)Lcom/eignex/combo/decisions/CompiledDecisionSpace;
+}
+
 public final class com/eignex/combo/decisions/ConditionedContextKt {
 	public static final fun conditionedProblem (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/combo/decisions/Context;)Lcom/eignex/klause/ir/Problem;
+	public static final fun floatAssumptions (Lcom/eignex/combo/decisions/DecisionCoordinates;Ljava/util/Map;)Lcom/eignex/klause/propagation/Assumptions;
 	public static final fun floatAssumptions (Lcom/eignex/klause/compile/CompiledSchema;Ljava/util/Map;)Lcom/eignex/klause/propagation/Assumptions;
+	public static final fun pinFloats (Lcom/eignex/combo/decisions/DecisionCoordinates;Ljava/util/Map;)Lcom/eignex/klause/ir/Problem;
 	public static final fun pinFloats (Lcom/eignex/klause/compile/CompiledSchema;Ljava/util/Map;)Lcom/eignex/klause/ir/Problem;
 }
 
@@ -1811,10 +1821,39 @@ public final class com/eignex/combo/decisions/ContextBuilder {
 	public final fun set (Lcom/eignex/combo/decisions/BoolContextHandle;Z)V
 	public final fun set (Lcom/eignex/combo/decisions/FloatContextHandle;D)V
 	public final fun set (Lcom/eignex/combo/decisions/IntContextHandle;I)V
+	public final fun set-E8b0QYE (IZ)V
+	public final fun set-SdYqGek (IJ)V
+	public final fun set-SdYqGek (ILjava/math/BigInteger;)V
+	public final fun set-TUNxH2k (ID)V
+	public final fun set-TUNxH2k (ILcom/eignex/klause/simplex/exact/BigFraction;)V
 }
 
 public final class com/eignex/combo/decisions/ContextKt {
 	public static final fun context (Lkotlin/jvm/functions/Function1;)Lcom/eignex/combo/decisions/Context;
+}
+
+public final class com/eignex/combo/decisions/DecisionCoordinates {
+	public static final field Companion Lcom/eignex/combo/decisions/DecisionCoordinates$Companion;
+	public final fun decode (Lcom/eignex/klause/schema/BoolHandle;Lcom/eignex/klause/solver/Sample;)Z
+	public final fun decode (Lcom/eignex/klause/schema/FloatHandle;Lcom/eignex/klause/solver/Sample;)D
+	public final fun decode (Lcom/eignex/klause/schema/IntHandle;Lcom/eignex/klause/solver/Sample;)J
+	public final fun decode (Lcom/eignex/klause/schema/NominalHandle;Lcom/eignex/klause/solver/Sample;)Ljava/lang/String;
+	public final fun getBoolVarIdByName ()Ljava/util/Map;
+	public final fun getFloatDecoders ()Ljava/util/Map;
+	public final fun getIntVarIdByName ()Ljava/util/Map;
+	public final fun getNominalIndicators ()Ljava/util/Map;
+	public final fun getProblem ()Lcom/eignex/klause/ir/Problem;
+	public final fun getRealHandles ()Ljava/util/Map;
+	public final fun getSchema ()Lcom/eignex/klause/compile/CompiledSchema;
+	public final fun minimize (Lcom/eignex/klause/schema/BoolHandle;)Lcom/eignex/klause/solver/objective/LinearObjective;
+	public final fun minimize (Lcom/eignex/klause/schema/FloatHandle;)Lcom/eignex/klause/solver/objective/LinearObjective;
+	public final fun minimize (Lcom/eignex/klause/schema/IntHandle;)Lcom/eignex/klause/solver/objective/LinearObjective;
+	public final fun objective (Ljava/lang/String;)Lcom/eignex/klause/solver/objective/LinearObjective;
+}
+
+public final class com/eignex/combo/decisions/DecisionCoordinates$Companion {
+	public final fun of (Lcom/eignex/klause/compile/CompiledSchema;)Lcom/eignex/combo/decisions/DecisionCoordinates;
+	public final fun of (Lcom/eignex/klause/ir/Problem;)Lcom/eignex/combo/decisions/DecisionCoordinates;
 }
 
 public abstract class com/eignex/combo/decisions/DecisionSpace : com/eignex/combo/decisions/SubSpace {
@@ -1977,6 +2016,11 @@ public final class com/eignex/combo/decisions/MultipleHandle {
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class com/eignex/combo/decisions/NativeOptimizationKt {
+	public static final fun minimizeNative (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/klause/solver/objective/LinearObjective;Lcom/eignex/combo/decisions/Context;Lcom/eignex/klause/backtrack/BacktrackParams;)Lcom/eignex/klause/solver/result/QuadraticOptimizationResult;
+	public static synthetic fun minimizeNative$default (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/klause/solver/objective/LinearObjective;Lcom/eignex/combo/decisions/Context;Lcom/eignex/klause/backtrack/BacktrackParams;ILjava/lang/Object;)Lcom/eignex/klause/solver/result/QuadraticOptimizationResult;
+}
+
 public final class com/eignex/combo/decisions/ScalarKind : java/lang/Enum {
 	public static final field BoolContext Lcom/eignex/combo/decisions/ScalarKind;
 	public static final field BoolDecision Lcom/eignex/combo/decisions/ScalarKind;
@@ -2098,8 +2142,8 @@ public final class com/eignex/combo/model/LinearLearning$Companion {
 public final class com/eignex/combo/model/ModelDefinition {
 	public static final field Companion Lcom/eignex/combo/model/ModelDefinition$Companion;
 	public fun <init> ()V
-	public fun <init> (Lcom/eignex/combo/decisions/DecisionSpaceDef;Lcom/eignex/combo/model/ModelObjective;Ljava/lang/String;Lkotlinx/serialization/json/JsonObject;ILjava/util/Map;Ljava/util/Map;Lcom/eignex/combo/model/LinearLearning;)V
-	public synthetic fun <init> (Lcom/eignex/combo/decisions/DecisionSpaceDef;Lcom/eignex/combo/model/ModelObjective;Ljava/lang/String;Lkotlinx/serialization/json/JsonObject;ILjava/util/Map;Ljava/util/Map;Lcom/eignex/combo/model/LinearLearning;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lcom/eignex/combo/decisions/DecisionSpaceDef;Lcom/eignex/combo/model/ModelObjective;Ljava/lang/String;Lkotlinx/serialization/json/JsonObject;ILjava/util/Map;Ljava/util/Map;Lcom/eignex/combo/model/LinearLearning;Lcom/eignex/klause/ir/Problem;)V
+	public synthetic fun <init> (Lcom/eignex/combo/decisions/DecisionSpaceDef;Lcom/eignex/combo/model/ModelObjective;Ljava/lang/String;Lkotlinx/serialization/json/JsonObject;ILjava/util/Map;Ljava/util/Map;Lcom/eignex/combo/model/LinearLearning;Lcom/eignex/klause/ir/Problem;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Lcom/eignex/combo/decisions/DecisionSpaceDef;
 	public final fun component2 ()Lcom/eignex/combo/model/ModelObjective;
 	public final fun component3 ()Ljava/lang/String;
@@ -2108,14 +2152,16 @@ public final class com/eignex/combo/model/ModelDefinition {
 	public final fun component6 ()Ljava/util/Map;
 	public final fun component7 ()Ljava/util/Map;
 	public final fun component8 ()Lcom/eignex/combo/model/LinearLearning;
-	public final fun copy (Lcom/eignex/combo/decisions/DecisionSpaceDef;Lcom/eignex/combo/model/ModelObjective;Ljava/lang/String;Lkotlinx/serialization/json/JsonObject;ILjava/util/Map;Ljava/util/Map;Lcom/eignex/combo/model/LinearLearning;)Lcom/eignex/combo/model/ModelDefinition;
-	public static synthetic fun copy$default (Lcom/eignex/combo/model/ModelDefinition;Lcom/eignex/combo/decisions/DecisionSpaceDef;Lcom/eignex/combo/model/ModelObjective;Ljava/lang/String;Lkotlinx/serialization/json/JsonObject;ILjava/util/Map;Ljava/util/Map;Lcom/eignex/combo/model/LinearLearning;ILjava/lang/Object;)Lcom/eignex/combo/model/ModelDefinition;
+	public final fun component9 ()Lcom/eignex/klause/ir/Problem;
+	public final fun copy (Lcom/eignex/combo/decisions/DecisionSpaceDef;Lcom/eignex/combo/model/ModelObjective;Ljava/lang/String;Lkotlinx/serialization/json/JsonObject;ILjava/util/Map;Ljava/util/Map;Lcom/eignex/combo/model/LinearLearning;Lcom/eignex/klause/ir/Problem;)Lcom/eignex/combo/model/ModelDefinition;
+	public static synthetic fun copy$default (Lcom/eignex/combo/model/ModelDefinition;Lcom/eignex/combo/decisions/DecisionSpaceDef;Lcom/eignex/combo/model/ModelObjective;Ljava/lang/String;Lkotlinx/serialization/json/JsonObject;ILjava/util/Map;Ljava/util/Map;Lcom/eignex/combo/model/LinearLearning;Lcom/eignex/klause/ir/Problem;ILjava/lang/Object;)Lcom/eignex/combo/model/ModelDefinition;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getInputs ()Ljava/util/Map;
 	public final fun getLearned ()Z
 	public final fun getLearning ()Lcom/eignex/combo/model/LinearLearning;
 	public final fun getObjective ()Lcom/eignex/combo/model/ModelObjective;
 	public final fun getOutcome ()Ljava/lang/String;
+	public final fun getProblem ()Lcom/eignex/klause/ir/Problem;
 	public final fun getSeed ()I
 	public final fun getSpace ()Lcom/eignex/combo/decisions/DecisionSpaceDef;
 	public final fun getStat ()Lkotlinx/serialization/json/JsonObject;
@@ -2252,6 +2298,15 @@ public final class com/eignex/combo/model/ModelStatistics : java/lang/AutoClosea
 	public static synthetic fun resolve$default (Lcom/eignex/combo/model/ModelStatistics;JILjava/lang/Object;)Lcom/eignex/combo/model/ResolvedStatisticalModel;
 	public final fun snapshot (J)Lkotlinx/serialization/json/JsonObject;
 	public static synthetic fun snapshot$default (Lcom/eignex/combo/model/ModelStatistics;JILjava/lang/Object;)Lkotlinx/serialization/json/JsonObject;
+}
+
+public final class com/eignex/combo/model/NativeProblemSerializer : kotlinx/serialization/KSerializer {
+	public static final field INSTANCE Lcom/eignex/combo/model/NativeProblemSerializer;
+	public fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/eignex/klause/ir/Problem;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/eignex/klause/ir/Problem;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
 }
 
 public final class com/eignex/combo/model/ResolvedStatisticalModel {

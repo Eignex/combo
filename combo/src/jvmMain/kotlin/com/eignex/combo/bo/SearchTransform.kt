@@ -9,6 +9,8 @@ import com.eignex.combo.shared.WitnessValidator
 import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
 import com.eignex.klause.util.toDouble
+import com.eignex.klause.util.bigIntOf
+import com.eignex.klause.util.minus
 import com.eignex.koblas.DenseVector
 import com.eignex.koblas.Vector
 import kotlin.math.roundToLong
@@ -43,6 +45,13 @@ class SearchTransform(override val space: CompiledDecisionSpace) : FeatureEncode
 
     /** Number of nonconstant independent decision variables, excluding pinned contexts and category indicators. */
     val dimension: Int get() {
+        if (space.coordinates.schema == null) {
+            val problem = space.problem
+            val bounds = problem.intBounds
+            return problem.numBoolVars + (0 until problem.numIntVars).count {
+                !bounds.hasLower(it) || !bounds.hasUpper(it) || bounds.lower(it) < bounds.upper(it)
+            } + (0 until problem.numRealVars).count { problem.realLower[it] < problem.realUpper[it] }
+        }
         val contexts = (
             space.contextBools.map { it.name } + space.contextInts.map { it.name } +
                 space.contextFloats.map { it.name } +
@@ -176,10 +185,20 @@ class SearchTransform(override val space: CompiledDecisionSpace) : FeatureEncode
         }
         for ((name, slot, domain) in slots) {
             if (!active(name, source)) continue
+            val nativeInt = space.coordinates.intVarIdByName[name]
+            if (space.coordinates.schema == null && nativeInt != null) {
+                val lower = bigIntOf(space.problem.intBounds.lower(nativeInt))
+                val span = bigIntOf(space.problem.intBounds.upper(nativeInt)) - lower
+                features[slot] = if (span == bigIntOf(0)) 0.0 else BigFraction.of(
+                    source.exactIntValue(nativeInt) - lower, span,
+                ).toDouble()
+                continue
+            }
             val lo = domain.feature(domain.min)
             val hi = domain.feature(domain.max)
             features[slot] = if (lo == hi) 0.0 else (domain.feature(features[slot]) - lo) / (hi - lo)
         }
+        require(features.all { it.isFinite() }) { "a native coordinate exceeds the learner's finite Double features" }
         return DenseVector.wrap(features)
     }
 }

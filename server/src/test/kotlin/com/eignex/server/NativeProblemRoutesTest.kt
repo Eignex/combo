@@ -79,4 +79,23 @@ class NativeProblemRoutesTest {
             assertEquals(3, selection.getValue("inputs").jsonObject.getValue("ints.1.mean").jsonPrimitive.int)
         }
     }
+
+    @Test
+    fun `arbitrary width integer witnesses round trip through evaluation`() = testApplication {
+        application { resourceApi() }
+        val number = "18446744073709551616"
+        val model = client.model("""
+            {"problem":{"ints":[{}],"factors":[{"linear":{"vars":[0],"op":"EQ",
+              "wideCoefficients":["1"],"wideBound":"$number"}}]}}
+        """.trimIndent())
+        val base = "/v1/models/${model.id}"
+        val recommendation = client.send("$base/recommend", "{}").objectBody()
+        assertEquals("feasible", recommendation.getValue("status").jsonPrimitive.content)
+        val values = recommendation.getValue("values").jsonObject
+        assertEquals(number, values.getValue("ints.0").jsonPrimitive.content)
+        val checked = client.send("$base/evaluate", buildJsonObject { put("values", values) }.toString()).objectBody()
+        assertEquals("feasible", checked.getValue("status").jsonPrimitive.content)
+        assertEquals(values, checked["values"])
+    }
+
 }
