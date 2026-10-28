@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   pull_request:
   workflow_dispatch:
   workflow_call:
@@ -19,38 +19,71 @@ on:
 permissions:
   contents: read
 
+# A newer push supersedes any in-flight run for the same ref.
 concurrency:
   group: build-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  check:
+  test:
+    name: Run tests and collect coverage
     runs-on: ubuntu-latest
     timeout-minutes: 45
+
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout
+        uses: actions/checkout@v7
         with:
-          persist-credentials: false
           ref: ${{ inputs.ref || github.sha }}
-      - uses: actions/setup-java@v6
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Set up JDK
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 25
+
+      # Build jobs persist dependency and encrypted configuration caches.
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
         with:
           cache-read-only: false
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
-      - run: ./gradlew check lintDocs :server:installDist --continue
+
+      - name: Cache Kotlin/Native toolchain
+        uses: actions/cache@v6
+        with:
+          path: ~/.konan
+          key: ${{ runner.os }}-${{ runner.arch }}-konan-${{ hashFiles('**/*.gradle.kts', '**/gradle.properties', '**/gradle-wrapper.properties', '**/*.versions.toml') }}
+          restore-keys: ${{ runner.os }}-${{ runner.arch }}-konan-
+
+      - name: Grant execute permission for Gradle
+        run: chmod +x gradlew
+
+      - name: Run linter
+        run: ./gradlew lintDocs
+
+      - name: Run tests with coverage
+        run: ./gradlew check koverXmlReport :server:installDist
+
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: test-reports
           path: |
-            combo/build/test-results/
             combo/build/reports/tests/
+            combo/build/test-results/
             combo/build/kotlin/abi/
-            server/build/test-results/
             server/build/reports/tests/
+            server/build/test-results/
           if-no-files-found: ignore
+
+      - name: Upload results to Codecov (main only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: combo/build/reports/kover/report.xml
+          fail_ci_if_error: false

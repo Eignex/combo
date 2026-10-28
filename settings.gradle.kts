@@ -17,8 +17,9 @@ plugins {
 if (providers.gradleProperty("dependencies.local").isPresent || providers.gradleProperty("klause.local").isPresent) {
     includeBuild(providers.gradleProperty("klause.local").orNull?.ifBlank { "../klause" } ?: "../klause") {
         dependencySubstitution {
-            substitute(module("com.eignex:klause-jvm")).using(project(":klause"))
-            substitute(module("com.eignex:klause-linuxx64")).using(project(":klause"))
+            for (module in listOf("klause", "klause-jvm", "klause-linuxx64", "klause-linuxarm64", "klause-macosarm64")) {
+                substitute(module("com.eignex:$module")).using(project(":klause"))
+            }
         }
     }
 }
@@ -27,10 +28,11 @@ if (providers.gradleProperty("dependencies.local").isPresent || providers.gradle
 if (providers.gradleProperty("dependencies.local").isPresent ||
     providers.gradleProperty("kumulant.local").isPresent
 ) {
-    includeBuild("../kumulant") {
+    includeBuild(providers.gradleProperty("kumulant.local").orNull?.ifBlank { "../kumulant" } ?: "../kumulant") {
         dependencySubstitution {
-            substitute(module("com.eignex:kumulant-jvm")).using(project(":kumulant"))
-            substitute(module("com.eignex:kumulant-linuxx64")).using(project(":kumulant"))
+            for (module in listOf("kumulant", "kumulant-jvm", "kumulant-linuxx64", "kumulant-linuxarm64", "kumulant-macosarm64")) {
+                substitute(module("com.eignex:$module")).using(project(":kumulant"))
+            }
         }
     }
 }
@@ -39,9 +41,9 @@ if (providers.gradleProperty("dependencies.local").isPresent ||
 providers.gradleProperty("koblas.local").orNull?.let { requested ->
     includeBuild(requested.ifBlank { "../koblas" }) {
         dependencySubstitution {
-            substitute(module("com.eignex:koblas")).using(project(":koblas"))
-            substitute(module("com.eignex:koblas-jvm")).using(project(":koblas"))
-            substitute(module("com.eignex:koblas-linuxx64")).using(project(":koblas"))
+            for (module in listOf("koblas", "koblas-jvm", "koblas-linuxx64", "koblas-linuxarm64", "koblas-macosarm64")) {
+                substitute(module("com.eignex:$module")).using(project(":koblas"))
+            }
         }
     }
 }

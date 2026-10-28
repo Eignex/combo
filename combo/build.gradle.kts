@@ -26,58 +26,46 @@ tasks.withType<Test>().configureEach {
 
 tasks.withType<JavaExec>().configureEach { workingDir(rootDir) }
 
+// Match Klause's default test targets; releases include both ARM64 compute hosts.
+val fullTargets = providers.gradleProperty("targets.full").isPresent
+
+@OptIn(org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation::class)
 kotlin {
+    // Conditional target sets need matching ABI references in both build modes.
+    abiValidation {
+        referenceDumpDir.set(layout.projectDirectory.dir(if (fullTargets) "api-full" else "api"))
+    }
+    applyDefaultHierarchyTemplate()
+    compilerOptions {
+        freeCompilerArgs.add("-Xexpect-actual-classes")
+    }
     jvm()
-    // Match the targets available in Klause's published snapshots.
     linuxX64()
+    if (fullTargets) {
+        linuxArm64()
+        macosArm64()
+    }
 
     sourceSets {
         commonMain.dependencies {
-            compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-core:1.12.0")
-        }
-        // Depend on platform artifacts directly so dependency exclusions survive
-        // the KMP root-to-platform redirect.
-        for ((sourceSet, modules) in mapOf(
-            "jvmMain" to mapOf(
-                "klause-jvm" to "0.0.1-SNAPSHOT",
-                "kumulant-jvm" to "0.3.4-20261027.205951-103",
-            ),
-            "linuxX64Main" to mapOf(
-                "klause-linuxx64" to "0.0.1-SNAPSHOT",
-                "kumulant-linuxx64" to "0.3.4-20261027.205951-103",
-            ),
-        )) {
-            getByName(sourceSet).dependencies {
-                for ((module, version) in modules) {
-                    api("com.eignex:$module:$version") {
-                        if (!module.startsWith("koblas-")) {
-                            // Kumulant and Klause pin different numerical and codec versions.
-                            // Export exclusions and supply the shared platform artifacts below.
-                            exclude(group = "com.eignex", module = "koblas")
-                            exclude(group = "com.eignex", module = "koblas-jvm")
-                            exclude(group = "com.eignex", module = "koblas-linuxx64")
-                            exclude(group = "com.eignex", module = "skema")
-                            exclude(group = "com.eignex", module = "skema-jvm")
-                            exclude(group = "com.eignex", module = "skema-linuxx64")
-                            if (module.startsWith("klause-")) {
-                                exclude(group = "com.eignex", module = "kumulant")
-                                exclude(group = "com.eignex", module = "kumulant-jvm")
-                                exclude(group = "com.eignex", module = "kumulant-linuxx64")
-                            }
-                        }
-                    }
-                }
+            api("com.eignex:klause:0.0.1-SNAPSHOT") {
+                exclude(group = "com.eignex", module = "kumulant")
+                exclude(group = "com.eignex", module = "koblas")
+                exclude(group = "com.eignex", module = "skema")
             }
-        }
-        // Public numerical APIs use Koblas directly, independently of the statistical libraries.
-        jvmMain.dependencies {
-            api("com.eignex:koblas-jvm:0.1.1-20261028.120512-279")
-            api("com.eignex:skema-jvm:0.3.1-20261028.100806-19")
+            api("com.eignex:kumulant:0.3.4-20261027.205951-103") {
+                version { strictly("0.3.4-20261027.205951-103") }
+                exclude(group = "com.eignex", module = "koblas")
+                exclude(group = "com.eignex", module = "skema")
+            }
+            api("com.eignex:koblas:0.1.1-20261028.120512-276") {
+                version { strictly("0.1.1-20261028.120512-276") }
+            }
+            api("com.eignex:skema:0.3.1-20261028.100806-19") {
+                version { strictly("0.3.1-20261028.100806-19") }
+            }
+            compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-core:1.12.0")
             api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
-        }
-        linuxX64Main.dependencies {
-            api("com.eignex:koblas-linuxx64:0.1.1-20261028.120512-275")
-            api("com.eignex:skema-linuxx64:0.3.1-20261028.100806-19")
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
@@ -86,6 +74,38 @@ kotlin {
     }
 }
 
+// A timestamped KMP root redirects to mutable platform snapshots. Export constraints so
+// downstream consumers use the same numerical and codec binaries as this build.
+dependencies {
+    constraints {
+        for ((library, platforms) in mapOf(
+            "kumulant" to mapOf(
+                "jvm" to "0.3.4-20261027.205951-103",
+                "linuxx64" to "0.3.4-20261027.205951-103",
+                "linuxarm64" to "0.3.4-20261027.205951-103",
+                "macosarm64" to "0.3.4-20261027.205951-102",
+            ),
+            "koblas" to mapOf(
+                "jvm" to "0.1.1-20261028.120512-279",
+                "linuxx64" to "0.1.1-20261028.120512-275",
+                "linuxarm64" to "0.1.1-20261028.120512-276",
+                "macosarm64" to "0.1.1-20261028.120512-299",
+            ),
+            "skema" to mapOf(
+                "jvm" to "0.3.1-20261028.100806-19",
+                "linuxx64" to "0.3.1-20261028.100806-19",
+                "linuxarm64" to "0.3.1-20261028.100806-19",
+                "macosarm64" to "0.3.1-20261028.100806-19",
+            ),
+        )) {
+            for ((platform, pinned) in platforms) {
+                add("commonMainApi", "com.eignex:$library-$platform:$pinned") {
+                    version { strictly(pinned) }
+                }
+            }
+        }
+    }
+}
 
 dokka {
     dokkaSourceSets.configureEach {
