@@ -38,7 +38,7 @@ class LinearTrialOptimizer(
     private var round = 0L
     private val learner = learning.materialize(projection, innerOptimizer, seed, maximize,
         contextOptimizer = { objective, assumptions, context ->
-            if (excluded.isNotEmpty()) {
+            val optimized = if (excluded.isNotEmpty()) {
                 search.witnesses(
                     WitnessRequest(64, assumptions, exclude = excluded, context = context),
                     Random(seed.toLong() xor round++),
@@ -53,6 +53,10 @@ class LinearTrialOptimizer(
             else BacktrackSolver(projection.space.conditionedProblem(context).bake()).minimize(
                 objective, BacktrackParams(maxDecisions = 100_000, assumptions = assumptions),
             ).assignment
+            optimized ?: if (projection.space.coordinates.schema == null) search.witnesses(
+                WitnessRequest(64, assumptions, exclude = excluded, context = context),
+                Random(seed.toLong() xor round++),
+            ).witnesses.minByOrNull(objective::evaluate) else null
         },
     )
 

@@ -6,6 +6,7 @@ import com.eignex.klause.backtrack.BacktrackSolver
 import com.eignex.combo.decisions.DecisionCoordinates
 import com.eignex.combo.decisions.CompiledDecisionSpace
 import com.eignex.combo.decisions.minimizeNative
+import com.eignex.combo.decisions.solveNative
 import com.eignex.klause.solver.objective.LinearObjective
 import com.eignex.klause.solver.result.QuadraticOptimizationResult
 import com.eignex.klause.util.fitsLong
@@ -42,12 +43,7 @@ internal fun checkedAssignment(
 ): SolveResult {
     if (compiled.schema == null) {
         val space = CompiledDecisionSpace.fromProblem(compiled.problem)
-        val result = space.minimizeNative(LinearObjective(), readContext(space, input), params)
-        return when (result) {
-            is QuadraticOptimizationResult.WithIncumbent -> SolveResult.Sat(result.incumbent.sample)
-            is QuadraticOptimizationResult.Infeasible -> SolveResult.Unsat()
-            is QuadraticOptimizationResult.Unknown -> SolveResult.Unknown(result.reason)
-        }
+        return space.solveNative(readContext(space, input), params)
     }
     val problem = compiled.pinFloats(realValues(entries, input))
     val pins = assumptions(compiled, entries, input)

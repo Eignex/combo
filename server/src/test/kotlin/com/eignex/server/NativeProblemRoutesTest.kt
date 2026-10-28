@@ -8,6 +8,92 @@ import kotlin.test.*
 
 class NativeProblemRoutesTest {
     @Test
+    fun `irrational solver results round trip through evaluation and exact given values`() = testApplication {
+        application { resourceApi() }
+        val model = client.model("""
+            {"problem":{"reals":[{"lower":0,"upper":2},{"lower":2,"upper":2}],
+             "factors":[{"power":{"base":0,"exponent":2,"result":1,"real":true}}]}}
+        """.trimIndent())
+        val base = "/v1/models/${model.id}"
+        val recommendation = client.send("$base/recommend", "{}").objectBody()
+        assertEquals("feasible", recommendation.getValue("status").jsonPrimitive.content)
+        val values = recommendation.getValue("values").jsonObject
+        val exact = values.getValue("reals.0").jsonObject.getValue("exact")
+        assertTrue("root" in exact.jsonObject)
+        val checked = client.send("$base/evaluate", """{"values":$values}""").objectBody()
+        assertEquals("feasible", checked.getValue("status").jsonPrimitive.content)
+        val given = client.send("$base/recommend", """{"given":{"reals.0":{"exact":$exact,"approximation":999}}}""").objectBody()
+        assertEquals("feasible", given.getValue("status").jsonPrimitive.content)
+        assertEquals(exact, given.getValue("given").jsonObject.getValue("reals.0").jsonObject["exact"])
+        val rounded = client.send("$base/evaluate", """{"values":{"reals.0":1.4142135623730951,"reals.1":2}}""").objectBody()
+        assertEquals("infeasible", rounded.getValue("status").jsonPrimitive.content)
+    }
+
+    @Test
+    fun `symbolic results use the same native exact contract for values and given`() = testApplication {
+        application { resourceApi() }
+        val exact = """{"add":[{"pi":{}},{"exp":"1"}]}"""
+        val model = client.model("""
+            {"problem":{"reals":[{}],"factors":[{"exactRealEquality":{"real":0,"value":$exact}}]}}
+        """.trimIndent())
+        val base = "/v1/models/${model.id}"
+        val recommended = client.send("$base/recommend", "{}").objectBody()
+        assertEquals("feasible", recommended.getValue("status").jsonPrimitive.content)
+        val values = recommended.getValue("values").jsonObject
+        assertEquals(Json.parseToJsonElement(exact), values.getValue("reals.0").jsonObject["exact"])
+        val checked = client.send("$base/evaluate", """{"values":$values}""").objectBody()
+        assertEquals("feasible", checked.getValue("status").jsonPrimitive.content)
+        assertEquals(values, checked["values"])
+        val given = client.send("$base/evaluate", """{"values":{},"given":{"reals.0":{"exact":$exact}}}""").objectBody()
+        assertEquals("feasible", given.getValue("status").jsonPrimitive.content)
+        assertEquals(Json.parseToJsonElement(exact), given.getValue("given").jsonObject.getValue("reals.0").jsonObject["exact"])
+    }
+
+    @Test
+    fun `malformed or approximation only real objects are rejected`() = testApplication {
+        application { resourceApi() }
+        val model = client.model("""{"problem":{"reals":[{}]}}""")
+        for (value in listOf(
+            """{"approximation":1.4}""", """{"exact":{"unknown":"1"}}""",
+            """{"exact":{"root":{"coefficients":["-2","0","1"],"index":3}}}""",
+            """{"exact":{"power":[{"pi":{}},-1]}}""", """{"exact":{"log":"0"}}""",
+            """{"exact":"exp(1)"}""", """{"exact":{"ref":"reals.0"}}""",
+            """{"exact":{"pi":{}},"other":1}""",
+        )) {
+            val response = client.send("/v1/models/${model.id}/evaluate", """{"values":{"reals.0":$value}}""")
+            assertEquals(HttpStatusCode.BadRequest, response.status, value)
+        }
+    }
+
+    @Test
+    fun `learned proposals retain exact contexts through asynchronous feedback`() = testApplication {
+        application { resourceApi() }
+        for (learning in listOf("", """, "learning":{"regression":{"bayesianRegression":{"featureSize":2}},"posterior":"multivariateGaussian"}""")) {
+            val model = client.model("""
+                {"problem":{"bools":1,"reals":[{}]},"outcome":"reward",
+                 "objective":{"maximize":"reward"},"seed":42$learning}
+            """.trimIndent())
+            val base = "/v1/models/${model.id}"
+            val proposals = listOf("""{"exp":"1"}""", """{"pi":{}}""").map { exact ->
+                val proposal = client.proposals(model.id, """{"given":{"reals.0":{"exact":$exact}}}""").single().jsonObject
+                assertEquals(Json.parseToJsonElement(exact), proposal.getValue("given").jsonObject.getValue("reals.0").jsonObject["exact"])
+                proposal
+            }
+            for (proposal in proposals.reversed()) {
+                val id = proposal.getValue("id").jsonPrimitive.long
+                assertEquals(HttpStatusCode.OK, client.send("$base/observe", """{"proposal":$id,"values":{"reward":10}}""").status)
+                val evaluated = client.send("$base/evaluate", buildJsonObject {
+                    put("values", proposal.getValue("values")); put("given", proposal.getValue("given"))
+                }.toString()).objectBody()
+                assertEquals("estimated", evaluated.getValue("status").jsonPrimitive.content)
+                assertEquals(proposal["given"], evaluated["given"])
+            }
+            val retained = client.get(base).objectBody().getValue("proposals").jsonArray.map { it.jsonObject }
+            assertEquals(proposals.map { it["given"] }, retained.map { it["given"] })
+        }
+    }
+
+    @Test
     fun `native table and sparse Long domain use the existing lifecycle unchanged`() = testApplication {
         application { resourceApi() }
         val problem = """{"ints":[{"lower":3000000000,"upper":3000000010,"values":[[3000000000,3000000000],[3000000010,3000000010]]}],"factors":[{"table":{"vars":[0],"tuples":[[3000000010]]}}]}"""

@@ -2,6 +2,8 @@ package com.eignex.combo.decisions
 
 import com.eignex.klause.compile.CompiledSchema
 import com.eignex.klause.factor.arithmetic.Linear
+import com.eignex.klause.factor.arithmetic.ExactRealEquality
+import com.eignex.klause.ir.SourceRealId
 import com.eignex.klause.ir.LinearOp
 import com.eignex.klause.ir.Problem
 import com.eignex.klause.model.FloatSpec
@@ -39,6 +41,9 @@ fun CompiledDecisionSpace.conditionedProblem(context: Context): Problem {
     } + context.exactReals.map { (id, value) ->
         require(id in 0 until problem.numRealVars) { "unknown real $id" }
         ExactLinear.of(intArrayOf(Term.ofRealVar(id)), listOf(BigFraction.ONE), LinearOp.EQ, value)
+    } + context.exactRealValues.map { (id, value) ->
+        require(id in 0 until problem.numRealVars) { "unknown real $id" }
+        ExactRealEquality(SourceRealId(id), value)
     }
     return if (rows.isEmpty()) pinned else pinned.withFactors(
         pinned.factors + rows, pinned.impliedFactorMask?.copyOf(pinned.factors.size + rows.size),

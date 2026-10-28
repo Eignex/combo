@@ -20,6 +20,7 @@ import com.eignex.combo.decisions.CompiledDecisionSpace
 import com.eignex.combo.decisions.compileSpace
 import com.eignex.combo.decisions.DecisionCoordinates
 import com.eignex.combo.decisions.minimizeNative
+import com.eignex.combo.decisions.solveNative
 import com.eignex.klause.ir.Problem
 import com.eignex.klause.solver.objective.LinearObjective
 import com.eignex.klause.solver.result.QuadraticOptimizationResult
@@ -122,6 +123,8 @@ internal class ProblemResource private constructor(
     private fun recommendNative(
         space: CompiledDecisionSpace, goal: ModelObjective?, given: JsonObject, seed: Long, control: OperationControl,
     ): JsonObject {
+        if (goal == null) return selection(space.solveNative(readContext(space, given),
+            BacktrackParams(maxDecisions = 100_000, randomSeed = seed, cancellation = control.cancellation)), null)
         val objective = goal?.let { space.coordinates.objective(it.name) } ?: LinearObjective()
         val result = space.minimizeNative(
             if (goal?.ascending == false) objective.negated() else objective, readContext(space, given),

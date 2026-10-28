@@ -89,10 +89,34 @@ route; accepting its document does not promise a proof for every factor combinat
 Known-objective solving retains native exact assignments. Integer responses beyond
 `Long` use decimal strings; rational reals that are not exactly binary64 use fraction
 strings such as `"1/3"`. These values can be submitted again for evaluation.
-Irrational or symbolic real responses expose a tagged `{"approximation":...}`;
-that tag is informational, not an exact input value. Learned numerical features use
-Double approximations. Native candidate generation preserves exact solver witnesses
-rather than reconstructing them through those features.
+Irrational and symbolic real values use an exact envelope, for example:
+
+```json
+{"exact":{"root":{"coefficients":["-2","0","1"],"index":2}},"approximation":1.4142135623730951}
+```
+
+`exact` is Klause's canonical `ExactRealJson` value. A root uses rational polynomial
+coefficients in ascending exponent order and a one-based index among distinct real
+roots. Closed analytic values use the same codec, such as `{"exact":{"exp":"1"}}`
+or `{"exact":{"pi":{}}}`. Sums, products and powers retain structured native
+expressions. Variable references and expression strings are not exact values.
+
+The envelope can be submitted unchanged in `values` to `/evaluate`, or in `given`
+to `/recommend`, `/evaluate`, and `/propose`. `approximation` is optional on input
+and never constrains the solver; an approximation without `exact` is rejected.
+Nonfinite display approximations are returned as `null`. Klause checks root
+selection and function domains, and pins the authoritative value through native
+constraints. Unsupported symbolic optimization or factor encodings retain
+`unknown`; exact satisfaction can still return a feasible witness.
+
+Learned numerical features and predictions use Double approximations. Native
+candidate generation and retained proposal contexts preserve exact solver witnesses.
+Exact matching and proposal identity never use the feature approximation.
+
+This development branch depends on [Klause PR #3788](https://github.com/Eignex/klause/pull/3788).
+CI uses its pinned source commit; local development can select that checkout with
+`-Pklause.local=/path/to/klause`. Replace the temporary CI source dependency with
+immutable published artifact pins after the upstream change is released.
 
 ## A moving average
 

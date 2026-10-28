@@ -1,6 +1,9 @@
 package com.eignex.combo.decisions
 
 import com.eignex.combo.shared.Learner
+import com.eignex.klause.arithmetic.polynomial.AlgebraicReal
+import com.eignex.klause.arithmetic.real.ExactRealValue
+import com.eignex.klause.arithmetic.real.toExactRealValue
 import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.util.BigInt
 import com.eignex.klause.util.fitsLong
@@ -22,6 +25,7 @@ class Context internal constructor(
     internal val nativeReals: Map<Int, Double> = emptyMap(),
     internal val exactInts: Map<Int, BigInt> = emptyMap(),
     internal val exactReals: Map<Int, BigFraction> = emptyMap(),
+    internal val exactRealValues: Map<Int, ExactRealValue> = emptyMap(),
 ) {
     operator fun get(handle: BoolContextHandle): Boolean = bools[handle] ?: if (handle.isOptional) {
         false
@@ -46,7 +50,8 @@ class Context internal constructor(
     fun isPresent(handle: IntContextHandle): Boolean = handle in ints
 
     internal val hasRealValues: Boolean get() =
-        floats.isNotEmpty() || nativeReals.isNotEmpty() || exactInts.isNotEmpty() || exactReals.isNotEmpty()
+        floats.isNotEmpty() || nativeReals.isNotEmpty() || exactInts.isNotEmpty() || exactReals.isNotEmpty() ||
+            exactRealValues.isNotEmpty()
 
     companion object {
         val Empty: Context = Context(emptyMap(), emptyMap())
@@ -61,6 +66,7 @@ class ContextBuilder internal constructor() {
     private val nativeReals = mutableMapOf<Int, Double>()
     private val exactInts = mutableMapOf<Int, BigInt>()
     private val exactReals = mutableMapOf<Int, BigFraction>()
+    private val exactRealValues = mutableMapOf<Int, ExactRealValue>()
 
     fun set(handle: BoolContextHandle, value: Boolean) {
         bools[handle] = value
@@ -98,6 +104,17 @@ class ContextBuilder internal constructor() {
     fun set(id: com.eignex.klause.ir.SourceRealId, value: BigFraction) {
         exactReals[id.index] = value
         nativeReals.remove(id.index)
+        exactRealValues.remove(id.index)
+    }
+
+    /** Pin an exact algebraic real using its native root identity. */
+    fun set(id: com.eignex.klause.ir.SourceRealId, value: AlgebraicReal) = set(id, value.toExactRealValue())
+
+    /** Pin an authoritative exact real expression without using its feature approximation. */
+    fun set(id: com.eignex.klause.ir.SourceRealId, value: ExactRealValue) {
+        exactRealValues[id.index] = value
+        nativeReals.remove(id.index)
+        exactReals.remove(id.index)
     }
 
     /** Pin a native real column without inventing finite bounds or a grid. */
@@ -105,10 +122,12 @@ class ContextBuilder internal constructor() {
         require(value.isFinite()) { "real context must be finite" }
         nativeReals[id.index] = value
         exactReals.remove(id.index)
+        exactRealValues.remove(id.index)
     }
 
     internal fun build() = Context(
         bools.toMap(), ints.toMap(), floats.toMap(), native, nativeReals.toMap(), exactInts.toMap(), exactReals.toMap(),
+        exactRealValues.toMap(),
     )
 }
 

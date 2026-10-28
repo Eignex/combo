@@ -8,6 +8,8 @@ import com.eignex.combo.decisions.Context
 import com.eignex.combo.decisions.context
 import com.eignex.combo.decisions.floatAssumptions
 import com.eignex.combo.decisions.DecisionCoordinates
+import com.eignex.klause.arithmetic.real.exactRealValue
+import com.eignex.klause.formats.json.ExactRealJson
 import com.eignex.klause.ir.SourceBoolId
 import com.eignex.klause.ir.SourceIntId
 import com.eignex.klause.ir.SourceRealId
@@ -80,18 +82,14 @@ internal fun values(compiled: DecisionCoordinates, entries: Map<String, SchemaEn
                 put(name, if (value.fitsLong()) JsonPrimitive(value.toLongExact()) else JsonPrimitive(value.toString()))
             }
             for ((id, handle) in compiled.realHandles) {
-                val symbolic = sample.symbolicReals?.get(id)
-                val algebraic = sample.algebraicReals?.get(id)
-                val exact = when {
-                    symbolic != null -> symbolic.rational
-                    algebraic != null -> algebraic.rational
-                    else -> sample.exactReals?.get(id)
-                }
+                val value = sample.exactRealValue(id)
+                val exact = value.rational
                 val approximation = sample.approximateRealValue(id)
                 put(handle.name, when {
                     exact != null && BigFraction.ofDouble(approximation) == exact -> JsonPrimitive(approximation)
                     exact != null -> JsonPrimitive(exact.toString())
                     else -> buildJsonObject {
+                        put("exact", ExactRealJson.encodeToJsonElement(value))
                         put("approximation", if (approximation.isFinite()) JsonPrimitive(approximation) else kotlinx.serialization.json.JsonNull)
                     }
                 })
@@ -184,16 +182,17 @@ private fun nativeContext(space: CompiledDecisionSpace, input: JsonObject): Cont
     val coordinates = space.coordinates
     val result = context {
         for ((name, element) in input) {
-            val primitive = element.jsonPrimitive
             val bool = coordinates.boolVarIdByName[name]
             val int = coordinates.intVarIdByName[name]
             val real = coordinates.realHandles.entries.firstOrNull { it.value.name == name }
             when {
                 bool != null -> {
+                    val primitive = element.jsonPrimitive
                     require(!primitive.isString) { "'$name' must be Boolean" }
                     set(SourceBoolId(bool), requireNotNull(primitive.booleanOrNull) { "'$name' must be Boolean" })
                 }
                 int != null -> {
+                    val primitive = element.jsonPrimitive
                     val integer = if (primitive.isString) {
                         require(primitive.content.matches(Regex("-?[0-9]+"))) { "'$name' must be an integer" }
                         primitive.content
@@ -205,6 +204,15 @@ private fun nativeContext(space: CompiledDecisionSpace, input: JsonObject): Cont
                     set(SourceIntId(int), parseBigInt(integer))
                 }
                 real != null -> {
+                    if (element is JsonObject) {
+                        require(element.keys.all { it == "exact" || it == "approximation" } && "exact" in element) {
+                            "'$name' requires an exact Klause real value"
+                        }
+                        val value = ExactRealJson.decodeFromJsonElement(element.getValue("exact"))
+                        set(SourceRealId(real.key), value)
+                        continue
+                    }
+                    val primitive = element.jsonPrimitive
                     if (primitive.isString) {
                         val parts = primitive.content.split('/')
                         require(parts.size in 1..2 && parts.all { it.matches(Regex("-?[0-9]+")) }) {
