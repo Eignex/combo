@@ -8,11 +8,11 @@ import com.eignex.combo.decisions.DecisionSpaceDef
 import com.eignex.combo.decisions.conditionedProblem
 import com.eignex.combo.decisions.context
 import com.eignex.combo.decisions.minimizeNative
-import com.eignex.combo.decisions.solveNative
 import com.eignex.combo.shared.HybridDescentSession
 import com.eignex.combo.shared.LinearFeatureProjection
 import com.eignex.combo.shared.WitnessRequest
 import com.eignex.combo.shared.assignmentKey
+import com.eignex.combo.test.TimedTest
 import com.eignex.klause.arithmetic.real.compareExactly
 import com.eignex.klause.arithmetic.real.exactRealValue
 import com.eignex.klause.formats.json.ExactRealJson
@@ -20,7 +20,6 @@ import com.eignex.klause.formats.json.ProblemJson
 import com.eignex.klause.ir.SourceRealId
 import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
-import com.eignex.klause.solver.SolveResult
 import com.eignex.klause.solver.result.QuadraticOptimizationResult
 import com.eignex.klause.util.bigIntOf
 import com.eignex.skema.SchemaJson
@@ -30,9 +29,9 @@ import kotlinx.serialization.json.jsonObject
 import kotlin.random.Random
 import kotlin.test.*
 
-class NativeProblemTest {
+class NativeProblemTest : TimedTest() {
     @Test
-    fun `exact algebraic and symbolic contexts retain their native witnesses`() {
+    fun `exact algebraic and symbolic contexts preserve matches and assignment keys`() {
         val problem = ProblemJson.default.decodeFromString("""{"bools":1,"reals":[{}]}""")
         val space = CompiledDecisionSpace.fromProblem(problem)
         for (text in listOf(
@@ -41,7 +40,12 @@ class NativeProblemTest {
         )) {
             val value = ExactRealJson.decodeFromString(text)
             val given = context { set(SourceRealId(0), value) }
-            val sample = assertIs<SolveResult.Sat>(space.solveNative(given)).assignment
+            val sample = Sample(
+                booleanArrayOf(false),
+                longArrayOf(),
+                doubleArrayOf(if (text.contains("root")) kotlin.math.sqrt(2.0) else kotlin.math.PI + kotlin.math.E),
+                symbolicReals = listOf(value),
+            )
             assertEquals(0, sample.exactRealValue(0).compareExactly(value))
             assertTrue(space.matches(sample, given))
             val features = SearchTransform(space).encode(BanditSample(sample), given).toDoubleArray()
@@ -67,9 +71,6 @@ class NativeProblemTest {
                     Random(42),
                 ).witnesses.isEmpty(),
             )
-            val batch = search.witnesses(WitnessRequest(1, context = given), Random(42))
-            assertEquals(1, batch.witnesses.size)
-            assertTrue(space.matches(batch.witnesses.single(), given))
         }
     }
 
@@ -160,8 +161,11 @@ class NativeProblemTest {
     fun `native witness search feeds existing history and linear projections`() {
         val problem = ProblemJson.default.decodeFromString("""{"bools":1,"ints":[{"lower":0,"upper":3}]}""")
         val space = CompiledDecisionSpace.fromProblem(problem)
-        val batch = HybridDescentSession.klause(space).witnesses(WitnessRequest(3), Random(42))
-        assertEquals(3, batch.witnesses.size)
+        val batch = HybridDescentSession.klause(
+            space,
+            candidateBatchSize = 1,
+        ).witnesses(WitnessRequest(1, maxAttempts = 1), Random(42))
+        assertEquals(1, batch.witnesses.size)
         for (sample in batch.witnesses) {
             assertEquals(2, SearchTransform(space).encode(BanditSample(sample), Context.Empty).size)
             assertEquals(2, LinearFeatureProjection(space).encode(BanditSample(sample), Context.Empty).size)

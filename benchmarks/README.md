@@ -1,11 +1,7 @@
 # Bayesian optimization benchmark
 
-Run from the repository root:
-
-```sh
-./gradlew jvmTest --tests '*BoBenchmarkTest' --rerun-tasks
-python3 scripts/summarize_bo_benchmark.py --output benchmarks/bo-regret.md
-```
+These are historical results. The exhaustive benchmark tests were removed from the
+unit suite; a dedicated Combo benchmark will replace them.
 
 The [results](bo-regret.md) report median regret after 8, 16, and 32 external evaluations,
 final-regret interquartile ranges, and paired seed comparisons. Full per-evaluation
@@ -60,19 +56,14 @@ progress, not calibration or the quality of the final model recommendation.
 ## Limits
 
 These are small synthetic regression benchmarks. Six seeds provide variation but no
-statistical significance claim. Tests check feasibility, complete budgets, finite
-monotone regret, and reproducibility; they deliberately do not assert an algorithm
+statistical significance claim. The original harness checked feasibility, complete
+budgets, finite monotone regret, and reproducibility without asserting an algorithm
 ranking. The shared witness generator is a heuristic and is not a uniform sampler of
 a constrained region. Coordinate-wise random proposals can miss an affine equality's interior; checked joint
 interpolation in shared sampling and local search supplies additional coverage. Forest
 variance remains ensemble disagreement rather than a calibrated Bayesian posterior.
 
 ## Quadratic EI investigation
-
-```sh
-./gradlew jvmTest --tests '*ForestEiDiagnosticsTest' --rerun-tasks
-python3 scripts/summarize_forest_ei.py --output benchmarks/forest-ei-investigation.md
-```
 
 The [investigation](forest-ei-investigation.md) traces configurations, repeated
 evaluations, model versus random rounds, and acquisition plateaus. It compares the

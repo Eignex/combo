@@ -1,4 +1,4 @@
 package com.eignex.combo.test
 
-/** Retains the JVM's per-test JUnit timeout without adding JUnit to portable tests. */
+/** Limits unit tests to 300ms; JVM interrupts overruns and Native checks elapsed time. */
 expect abstract class TimedTest()

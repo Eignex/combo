@@ -5,6 +5,7 @@ import com.eignex.combo.decisions.Context
 import com.eignex.combo.decisions.DecisionSpace
 import com.eignex.combo.shared.LinearFeatureLayout
 import com.eignex.combo.shared.LinearFeatureProjection
+import com.eignex.combo.test.TimedTest
 import com.eignex.klause.backtrack.BacktrackParams
 import com.eignex.klause.backtrack.BacktrackSolver
 import com.eignex.klause.model.FloatSpec
@@ -13,7 +14,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-class LinearFeatureProjectionTest {
+class LinearFeatureProjectionTest : TimedTest() {
     private class Space : DecisionSpace() {
         val temperature by floatVar(0.0, 100.0)
         val pressure by floatVar(-5.0, 5.0)

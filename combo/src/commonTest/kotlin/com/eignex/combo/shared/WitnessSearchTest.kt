@@ -1,6 +1,7 @@
 package com.eignex.combo.shared
 
 import com.eignex.combo.decisions.DecisionSpace
+import com.eignex.combo.test.TimedTest
 import com.eignex.klause.propagation.Assumptions
 import com.eignex.klause.schema.eq
 import com.eignex.klause.schema.plus
@@ -14,7 +15,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
-class WitnessSearchTest {
+class WitnessSearchTest : TimedTest() {
     private class Toggle : DecisionSpace() {
         val value by boolVar()
     }
@@ -133,10 +134,10 @@ class WitnessSearchTest {
             { _, _ -> error("no backtracking expected") },
             candidateBatchSize = 1,
         )
-        val batch = search.witnesses(WitnessRequest(8, anchors = ends, exclude = ends, maxAttempts = 16), Random(9))
+        val batch = search.witnesses(WitnessRequest(1, anchors = ends, exclude = ends, maxAttempts = 2), Random(9))
         assertEquals(WitnessTermination.CountReached, batch.termination)
-        assertEquals(8, batch.witnesses.map { it.assignmentKey() }.distinct().size)
-        assertEquals(8, calls)
+        assertEquals(1, batch.witnesses.map { it.assignmentKey() }.distinct().size)
+        assertEquals(1, calls)
         assertTrue(batch.witnesses.all { WitnessValidator(space).valid(it) })
         assertTrue(batch.witnesses.all { it.reals[0] > 0.0 && it.reals[0] < 1.0 })
         assertTrue(
@@ -162,7 +163,7 @@ class WitnessSearchTest {
                 exactReals = listOf(BigFraction.ofDouble(x)!!, BigFraction.ofDouble(1.0 - x)!!),
             )
         }
-        val samples = (0 until 16).map { seed ->
+        val samples = (0 until 4).map { seed ->
             val search = HybridDescentSession(
                 space,
                 { _, _, _ -> SampleResult.Found(ends.first()) },

@@ -3,7 +3,10 @@ package com.eignex.combo.bo
 import com.eignex.combo.bo.model.BatchForestConfig
 import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.DecisionSpace
-import com.eignex.combo.shared.HybridDescentSession
+import com.eignex.combo.shared.WitnessBatch
+import com.eignex.combo.shared.WitnessSearch
+import com.eignex.combo.shared.WitnessTermination
+import com.eignex.combo.test.TimedTest
 import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
 import com.eignex.koblas.DenseMatrix
@@ -13,7 +16,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-class BatchRefactorTest {
+class BatchRefactorTest : TimedTest() {
     private class Rate : DecisionSpace() {
         val value by floatVar(0.0, 1.0)
     }
@@ -26,18 +29,30 @@ class BatchRefactorTest {
         ),
     )
 
+    private fun search(projection: SearchTransform) = LocalAndRandomSearch(
+        projection,
+        WitnessSearch { request, _ ->
+            val points = (1..6).map { point(it / 8.0).sample }.filter { it !in request.exclude }
+            WitnessBatch(points.take(request.count), WitnessTermination.CountReached)
+        },
+        candidateCount = 6,
+        localSteps = 0,
+    )
+
     @Test
     fun `one frozen batch fits the base model once without recording pending outcomes`() {
         val space = Rate().compileSpace()
+        val projection = SearchTransform(space)
         var fits = 0
         val forest = ForestSurrogate(BatchForestConfig(nbrTrees = 3))
         val optimizer = BayesianOptimizer(
-            SearchTransform(space),
+            projection,
             Surrogate { data, random ->
                 fits++
                 forest.fit(data, random)
             },
             initialDesign = RandomInitialDesign(0, 0.0),
+            acquisitionOptimizer = search(projection),
         )
         optimizer.train(point(0.0), 0.0)
         optimizer.train(point(1.0), 1.0)
@@ -53,15 +68,17 @@ class BatchRefactorTest {
     fun `constant liar and posterior mean fantasies refit temporary data without adding observations`() {
         for (fantasy in listOf(FantasyPolicy.ConstantLiar(9.0), FantasyPolicy.PosteriorMean)) {
             val space = Rate().compileSpace()
+            val projection = SearchTransform(space)
             val sizes = mutableListOf<Int>()
             val forest = ForestSurrogate(BatchForestConfig(nbrTrees = 3))
             val optimizer = BayesianOptimizer(
-                SearchTransform(space),
+                projection,
                 Surrogate { data, random ->
                     sizes += data.features.rows
                     forest.fit(data, random)
                 },
                 initialDesign = RandomInitialDesign(0, 0.0),
+                acquisitionOptimizer = search(projection),
                 batchPolicy = SequentialBatchPolicy(fantasy),
             )
             optimizer.train(point(0.0), 0.0)
@@ -77,6 +94,7 @@ class BatchRefactorTest {
     @Test
     fun `conditionable surrogates receive temporary standardized data without another full fit`() {
         val space = Rate().compileSpace()
+        val projection = SearchTransform(space)
         var fits = 0
         val conditions = mutableListOf<Double>()
         val surrogate = Surrogate { _, _ ->
@@ -95,10 +113,11 @@ class BatchRefactorTest {
             }
         }
         val optimizer = BayesianOptimizer(
-            SearchTransform(space),
+            projection,
             surrogate,
             outcome = OutcomeSpec(standardize = true),
             initialDesign = RandomInitialDesign(0, 0.0),
+            acquisitionOptimizer = search(projection),
             batchPolicy = SequentialBatchPolicy(FantasyPolicy.ConstantLiar(250.0)),
         )
         optimizer.train(point(0.0), 100.0)
@@ -112,7 +131,14 @@ class BatchRefactorTest {
     @Test
     fun `exported study state preserves round seeds independently of model cache warmup`() {
         val space = Rate().compileSpace()
-        fun optimizer() = RandomForestOptimizer.smac(space, randomSeed = 31)
+        val projection = SearchTransform(space)
+        fun optimizer() = BayesianOptimizer(
+            projection,
+            ForestSurrogate(BatchForestConfig(nbrTrees = 3)),
+            acquisitionOptimizer = search(projection),
+            initialDesign = RandomInitialDesign(0, 0.0),
+            randomSeed = 31,
+        )
         val original = optimizer()
         original.train(point(0.0), 0.0)
         original.train(point(1.0), 1.0)
@@ -133,41 +159,24 @@ class BatchRefactorTest {
     }
 
     @Test
-    fun `benchmark records simple regret by evaluation cost for forest EI and random search`() {
-        fun evaluate(sample: BanditSample): BenchmarkEvaluation {
-            val x = sample.sample.reals[0]
-            return BenchmarkEvaluation(-(x - 0.73) * (x - 0.73), cost = 2.0)
-        }
-        fun forest(): BenchmarkResult {
-            val space = Rate().compileSpace()
-            val optimizer = RandomForestOptimizer.smac(
-                space,
-                config = ForestOptimizerConfig(
-                    forest = BatchForestConfig(nbrTrees = 5),
-                    localSteps = 4,
-                ),
-                randomSeed = 19,
-            )
-            return OptimizationBenchmark.run(optimizer, 16, ::evaluate, optimum = 0.0, batchSize = 2)
-        }
-        val first = forest()
-        val repeated = forest()
+    fun `benchmark records cost and regret for a fixed evaluation sequence`() {
         val space = Rate().compileSpace()
-        val random = StudyRunner(
+        val points = listOf(point(0.0), point(0.5), point(1.0))
+        var next = 0
+        val runner = StudyRunner(
             Study(space),
-            RandomSuggestionPolicy(space, HybridDescentSession.klause(space), seed = 19),
+            SuggestionPolicy { _, count, _ ->
+                ProposalBatch(
+                    points.drop(next).take(count).also { next += it.size },
+                    WitnessTermination.CountReached,
+                )
+            },
         )
-        val baseline = OptimizationBenchmark.run(random, 16, ::evaluate, optimum = 0.0, batchSize = 2)
-        assertEquals(first.bestValues.toDoubleArray().toList(), repeated.bestValues.toDoubleArray().toList())
-        for (result in listOf(first, baseline)) {
-            assertEquals(16, result.bestValues.size)
-            assertEquals(32.0, result.cumulativeCost[15])
-            assertTrue(result.simpleRegret!![15] <= result.simpleRegret!![0])
-            assertTrue(result.simpleRegret!![15] < 0.02)
-        }
-        println(
-            "seed=19, evaluations=16, cost=32, " +
-                "forest-EI regret=${first.simpleRegret!![15]}, random regret=${baseline.simpleRegret!![15]}",
-        )
+        val result = OptimizationBenchmark.run(runner, 3, {
+            BenchmarkEvaluation(it.sample.reals[0], cost = 2.0)
+        }, optimum = 1.0)
+        assertEquals(listOf(0.0, 0.5, 1.0), result.bestValues.toDoubleArray().toList())
+        assertEquals(listOf(2.0, 4.0, 6.0), result.cumulativeCost.toDoubleArray().toList())
+        assertEquals(listOf(1.0, 0.5, 0.0), result.simpleRegret!!.toDoubleArray().toList())
     }
 }

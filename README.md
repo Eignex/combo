@@ -701,9 +701,10 @@ exported, so replaying an entire run requires the same initial state and search 
 
 `OptimizationBenchmark.run` records best evaluated values, cumulative evaluation cost,
 and simple regret when a known optimum is supplied. Synthetic noisy objectives can
-provide a separate noiseless reference value. The component tests compare seeded
-forest/EI and random search on a bounded continuous quadratic, verify replay from a
-fresh study, and check that local acquisition search improves beyond an initial pool.
+provide a separate noiseless reference value. The unit tests check cost and regret on
+fixed evaluations, verify replay from a fresh study, and check small acquisition-search
+examples. Each library unit test has a 300 ms limit; convergence studies belong in a
+separate benchmark suite.
 The [multi-seed benchmark](benchmarks/README.md) additionally compares guided forest/EI,
 normalized pool-only forest/EI, a legacy-style pool-only baseline, and random search
 on five objectives. It records full regret-versus-cost traces and a checked-in summary.

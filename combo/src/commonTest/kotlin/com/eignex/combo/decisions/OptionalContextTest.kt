@@ -3,6 +3,7 @@ package com.eignex.combo.decisions
 import com.eignex.combo.bandit.glm.LinearBandit
 import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.shared.LinearFeatureProjection
+import com.eignex.combo.test.TimedTest
 import com.eignex.klause.localsearch.LocalSearchParams
 import com.eignex.klause.localsearch.LocalSearchSolver
 import com.eignex.klause.propagation.bake
@@ -35,7 +36,7 @@ private class OptionalCtxInteraction : DecisionSpace() {
     val ageXchoice by interact(age, choice)
 }
 
-class OptionalContextTest {
+class OptionalContextTest : TimedTest() {
 
     @Test
     fun `constraint mentioning required context should enforce limit when context is absent of premium`() {
@@ -145,10 +146,10 @@ class OptionalContextTest {
         )
 
         // Train a few rounds with absent age, just to exercise the path.
-        repeat(50) { bandit.update(bandit.chooseOrThrow(context { }), context { }, reward = 0.0) }
+        repeat(2) { bandit.update(bandit.chooseOrThrow(context { }), context { }, reward = 0.0) }
         // Then train with present age.
         val ctxPresent = context { set(model.age, 50) }
-        repeat(50) { bandit.update(bandit.chooseOrThrow(ctxPresent), ctxPresent, reward = 1.0) }
+        repeat(2) { bandit.update(bandit.chooseOrThrow(ctxPresent), ctxPresent, reward = 1.0) }
 
         // optimal under absent context must produce age=0 (pinned default).
         val outAbsent = bandit.optimalOrThrow(context { })

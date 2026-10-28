@@ -4,6 +4,7 @@ import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.DecisionSpace
 import com.eignex.combo.shared.WitnessTermination
 import com.eignex.combo.shared.assignmentKey
+import com.eignex.combo.test.TimedTest
 import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
 import com.eignex.kumulant.core.PairedStat
@@ -15,7 +16,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-class RacingOptimizerTest {
+class RacingOptimizerTest : TimedTest() {
     private class Rate : DecisionSpace() {
         val x by floatVar(0.0, 1.0)
     }

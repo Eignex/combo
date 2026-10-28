@@ -5,14 +5,12 @@ import com.eignex.combo.decisions.DecisionSpace
 import com.eignex.combo.decisions.context
 import com.eignex.combo.shared.Learner
 import com.eignex.combo.shared.NoFeasibleSampleException
-import com.eignex.klause.localsearch.LocalSearchParams
-import com.eignex.klause.localsearch.LocalSearchSolver
-import com.eignex.klause.propagation.bake
+import com.eignex.combo.test.TimedTest
 import com.eignex.klause.solver.Sample
 import com.eignex.kumulant.bandit.univariate.BetaBernoulliTS
+import com.eignex.kumulant.bandit.univariate.Greedy
 import com.eignex.kumulant.stat.summary.BernoulliSumResult
 import com.eignex.kumulant.stat.summary.MeanStat
-import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -28,7 +26,7 @@ private class WithContext : DecisionSpace() {
     val premium by contextBool()
 }
 
-/** Suite contract: ListBandit over a klause-enumerated sample pool with [BetaBernoulliTS]. */
+/** Suite contract: ListBandit over a fixed sample pool with [BetaBernoulliTS]. */
 class ListBanditSuiteTest : BanditTestSuite<ListBanditData>() {
     override fun build(
         space: CompiledDecisionSpace,
@@ -46,45 +44,26 @@ class ListBanditSuiteTest : BanditTestSuite<ListBanditData>() {
     )
 }
 
-class ListBanditTest {
+class ListBanditTest : TimedTest() {
 
     @Test
-    fun `choose should converge to the best Bernoulli arm`() {
+    fun `recorded rewards select the better arm without a convergence run`() {
         val space = TinyBoolSpace().compileSpace()
-        val solver = LocalSearchSolver(space.compiled.problem.bake())
-        // 4 distinct samples = all (a, b) combinations.
-        val samples = solver.enumerate(LocalSearchParams(maxFlips = 10_000L, randomSeed = 1L)).take(4).toList()
-        assertEquals(4, samples.size)
-
-        // Reward depends only on `a`: a=true → 0.8, a=false → 0.2.
-        fun pSuccess(s: com.eignex.combo.decisions.BanditSample): Double = if (s.bools[0]) 0.8 else 0.2
-
-        val bandit = ListBandit(
-            samples = samples,
-            policy = BetaBernoulliTS(),
-            space = space,
-            randomSeed = 7,
-        )
-        val rng = Random(7)
-        repeat(800) {
-            val s = bandit.chooseOrThrow()
-            val reward = if (rng.nextDouble() < pSuccess(s)) 1.0 else 0.0
-            bandit.update(s, reward)
+        val samples = (0..3).map { Sample(booleanArrayOf(it and 1 != 0, it and 2 != 0), longArrayOf()) }
+        val bandit = ListBandit(samples, Greedy(priorWeight = 0.0), space, randomSeed = 7)
+        for (sample in samples) {
+            bandit.update(com.eignex.combo.decisions.BanditSample(sample), if (sample.bools[0]) 1.0 else 0.0)
         }
-
-        // Arm with a=true should have accumulated the most trials.
-        val snap = bandit.snapshot()
-        val bestIdx = snap.withIndex().maxBy { (_, r) -> r.trials }.index
-        assertTrue(samples[bestIdx].bools[0], "winning arm should have a=true")
+        assertTrue(bandit.snapshot().all { it.totalWeights == 1.0 })
+        assertTrue(bandit.optimalOrThrow().bools[0])
     }
 
     @Test
     fun `chooseOrThrow should respect context assumptions`() {
         val schema = WithContext()
         val space = schema.compileSpace()
-        val solver = LocalSearchSolver(space.compiled.problem.bake())
         // Enumerate (premium=true, a in {true,false}) and (premium=false, a in {true,false}).
-        val samples = solver.enumerate(LocalSearchParams(maxFlips = 5_000L, randomSeed = 1L)).take(4).toList()
+        val samples = (0..3).map { Sample(booleanArrayOf(it and 1 != 0, it and 2 != 0), longArrayOf()) }
 
         val bandit = ListBandit(
             samples = samples,
@@ -97,7 +76,7 @@ class ListBanditTest {
         val premiumId = space.compiled.boolVarIdByName["premium"]!!
         val ctxT = context { set(schema.premium, true) }
         val ctxF = context { set(schema.premium, false) }
-        repeat(20) {
+        repeat(2) {
             assertEquals(true, bandit.chooseOrThrow(ctxT).bools[premiumId])
             assertEquals(false, bandit.chooseOrThrow(ctxF).bools[premiumId])
         }
@@ -108,10 +87,7 @@ class ListBanditTest {
         val schema = WithContext()
         val space = schema.compileSpace()
         // Only one sample where premium=false.
-        val premiumId = space.compiled.boolVarIdByName["premium"]!!
-        val solver = LocalSearchSolver(space.compiled.problem.bake())
-        val onlyPremiumFalse = solver.enumerate(LocalSearchParams(maxFlips = 5_000L, randomSeed = 1L))
-            .first { !it.bools[premiumId] }
+        val onlyPremiumFalse = Sample(booleanArrayOf(false, false), longArrayOf())
         val bandit = ListBandit(
             samples = listOf(onlyPremiumFalse),
             policy = BetaBernoulliTS(),

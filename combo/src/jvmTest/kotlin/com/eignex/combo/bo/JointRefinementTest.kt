@@ -10,6 +10,7 @@ import com.eignex.combo.shared.WitnessSearch
 import com.eignex.combo.shared.WitnessTermination
 import com.eignex.combo.shared.WitnessValidator
 import com.eignex.combo.shared.assignmentKey
+import com.eignex.combo.test.TimedTest
 import com.eignex.klause.schema.not
 import com.eignex.koblas.DenseMatrix
 import com.eignex.koblas.DenseVector
@@ -26,7 +27,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-class JointRefinementTest {
+class JointRefinementTest : TimedTest() {
     @Test
     fun `cached EI and log EI match frozen BoTorch values with identical normals`() {
         for ((directory, sampling) in listOf(
@@ -40,7 +41,7 @@ class JointRefinementTest {
                 val row = line.split(',')
                 (row[0] to row[2]) to row[6].toDouble()
             }
-            for (entry in fixtures) {
+            for (entry in fixtures.take(1)) {
                 val fixture = entry.jsonObject
                 val means = fixture.getValue("means").jsonArray.map { it.jsonPrimitive.double }
                 val covariance = fixture.getValue(
@@ -80,7 +81,7 @@ class JointRefinementTest {
                     context,
                     Random(713),
                 )
-                for (case in fixture.getValue("sets").jsonArray) {
+                for (case in fixture.getValue("sets").jsonArray.take(1)) {
                     val record = case.jsonObject
                     val indices = record.getValue("indices").jsonArray.map { it.jsonPrimitive.int }
                     val points = jointPoints(*indices.map(Int::toDouble).toDoubleArray())

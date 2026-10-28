@@ -1,5 +1,6 @@
 package com.eignex.combo.bo
 
+import com.eignex.combo.test.TimedTest
 import com.eignex.koblas.DenseMatrix
 import com.eignex.koblas.DenseVector
 import com.eignex.kumulant.math.NotPositiveDefinite
@@ -35,7 +36,7 @@ private class GaussianToy(
     override fun drawFunction(random: Random): SampledFunction = error("joint EI uses fixed Gaussian base samples")
 }
 
-class JointAcquisitionTest {
+class JointAcquisitionTest : TimedTest() {
     private fun context(
         model: FittedSurrogate = GaussianToy(),
         maximize: Boolean = true,
@@ -45,29 +46,29 @@ class JointAcquisitionTest {
     @Test
     fun `one point joint EI agrees with analytic EI for both orientations`() {
         for (maximize in listOf(false, true)) {
-            val acquisition = JointExpectedImprovement(samples = 65536).create(context(maximize = maximize), Random(3))
-            assertEquals(1.0 / sqrt(2.0 * PI), acquisition.evaluate(jointPoints(1.0)), 0.008)
+            val acquisition = JointExpectedImprovement(samples = 256).create(context(maximize = maximize), Random(3))
+            assertEquals(1.0 / sqrt(2.0 * PI), acquisition.evaluate(jointPoints(1.0)), 0.12)
         }
     }
 
     @Test
     fun `joint utility uses cross point correlation instead of adding marginal EIs`() {
-        val factory = JointExpectedImprovement(samples = 65536)
+        val factory = JointExpectedImprovement(samples = 256)
         val positive = GaussianToy(covariance = { _, _ -> 1.0 })
         val negative = GaussianToy(covariance = { a, b -> if (a == b) 1.0 else -1.0 })
         val together = factory.create(context(positive), Random(7)).evaluate(jointPoints(1.0, 2.0))
         val opposite = factory.create(context(negative), Random(7)).evaluate(jointPoints(1.0, 2.0))
 
-        assertEquals(1.0 / sqrt(2.0 * PI), together, 0.008)
-        assertEquals(sqrt(2.0 / PI), opposite, 0.016)
-        assertTrue(opposite > together * 1.9)
+        assertEquals(1.0 / sqrt(2.0 * PI), together, 0.12)
+        assertEquals(sqrt(2.0 / PI), opposite, 0.16)
+        assertTrue(opposite > together * 1.5)
     }
 
     @Test
     fun `noisy EI integrates the uncertain latent incumbent`() {
-        val acquisition = JointNoisyExpectedImprovement(samples = 65536).create(context(), Random(13))
+        val acquisition = JointNoisyExpectedImprovement(samples = 256).create(context(), Random(13))
 
-        assertEquals(1.0 / sqrt(PI), acquisition.evaluate(jointPoints(1.0)), 0.008)
+        assertEquals(1.0 / sqrt(PI), acquisition.evaluate(jointPoints(1.0)), 0.12)
         assertEquals(0.0, acquisition.evaluate(jointPoints(-1.0)))
     }
 

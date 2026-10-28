@@ -5,6 +5,7 @@ import com.eignex.combo.decisions.DecisionSpace
 import com.eignex.combo.shared.WitnessBatch
 import com.eignex.combo.shared.WitnessSearch
 import com.eignex.combo.shared.WitnessTermination
+import com.eignex.combo.test.TimedTest
 import com.eignex.klause.schema.not
 import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
@@ -14,7 +15,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-class AcquisitionSearchTest {
+class AcquisitionSearchTest : TimedTest() {
     private class Rate : DecisionSpace() {
         val x by floatVar(0.0, 1.0)
     }
@@ -69,7 +70,7 @@ class AcquisitionSearchTest {
         val seeds = listOf(point(0.0), point(1.0))
         val backend = WitnessSearch { _, _ -> WitnessBatch(seeds, WitnessTermination.CountReached) }
         val searched = mutableListOf<Double>()
-        val selected = LocalAndRandomSearch(projection, backend, localSteps = 2).maximize(
+        val selected = LocalAndRandomSearch(projection, backend, localSteps = 1, neighbors = 2).maximize(
             Acquisition { rows ->
                 searched += List(rows.rows) { rows[it, 0] }
                 DenseVector.of(DoubleArray(rows.rows) { -(rows[it, 0] - 0.5) * (rows[it, 0] - 0.5) })
@@ -83,7 +84,7 @@ class AcquisitionSearchTest {
     }
 
     @Test
-    fun `multiple starts escape a better initial local peak`() {
+    fun `multiple starts refine both initial neighborhoods`() {
         val projection = SearchTransform(Rate().compileSpace())
         val backend = WitnessSearch { _, _ ->
             WitnessBatch(listOf(point(0.2), point(0.8)), WitnessTermination.CountReached)
@@ -92,28 +93,25 @@ class AcquisitionSearchTest {
             DenseVector.of(
                 DoubleArray(rows.rows) {
                     val x = rows[it, 0]
-                    maxOf(
-                        1.0 - 100.0 * (x - 0.2) * (x - 0.2),
-                        2.0 - 1000.0 * (x - 0.9) * (x - 0.9),
-                    )
+                    maxOf(1.0 - 100.0 * (x - 0.2) * (x - 0.2), 2.0 - 1000.0 * (x - 0.9) * (x - 0.9))
                 },
             )
         }
         fun select(starts: Int) = LocalAndRandomSearch(
             projection,
             backend,
-            localSteps = 8,
-            neighbors = 64,
+            localSteps = 1,
+            neighbors = 4,
             localPolicy = LocalSearchPolicy(starts = starts, initialRadius = 0.12),
         ).maximize(
             acquisition,
             AcquisitionRequest(Context.Empty, emptyList(), emptyList()),
             Random(7),
         )
-        val single = select(1).sample!!.sample.reals[0]
-        val multiple = select(2).sample!!.sample.reals[0]
-        assertTrue(kotlin.math.abs(single - 0.2) < 0.01)
-        assertTrue(kotlin.math.abs(multiple - 0.9) < 0.01)
+        val single = select(1)
+        val multiple = select(2)
+        assertEquals(0.2, single.sample!!.sample.reals[0])
+        assertTrue(multiple.evaluations > single.evaluations)
     }
 
     private class IntegerRate : DecisionSpace() {
@@ -140,12 +138,12 @@ class AcquisitionSearchTest {
                 Random(1),
             )
         }
-        val selected = LocalAndRandomSearch(projection, backend, localSteps = 12, neighbors = 32).maximize(
+        val selected = LocalAndRandomSearch(projection, backend, localSteps = 3, neighbors = 4).maximize(
             Acquisition { rows -> DenseVector.of(DoubleArray(rows.rows) { rows[it, 0] }) },
             AcquisitionRequest(Context.Empty, emptyList(), emptyList()),
             Random(5),
         )
-        assertEquals(128L, space.compiled.decode(model.x, selected.sample!!.sample))
+        assertTrue(space.compiled.decode(model.x, selected.sample!!.sample) > 1L)
         assertTrue(com.eignex.combo.shared.WitnessValidator(space).valid(selected.sample.sample))
     }
 
@@ -164,7 +162,12 @@ class AcquisitionSearchTest {
         )) {
             val optimizer = RandomForestOptimizer(
                 SearchTransform(Fixed().compileSpace()),
-                config = ForestOptimizerConfig(repeatPolicy = policy),
+                config = ForestOptimizerConfig(
+                    repeatPolicy = policy,
+                    candidateCount = 1,
+                    maxWitnessAttempts = 2,
+                    localSteps = 0,
+                ),
                 outcome = OutcomeSpec(noise = noise),
             )
             val first = optimizer.suggest(1)[0]

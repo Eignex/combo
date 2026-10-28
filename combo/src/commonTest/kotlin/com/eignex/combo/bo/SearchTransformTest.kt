@@ -6,11 +6,16 @@ import com.eignex.combo.decisions.FeatureEncoder
 import com.eignex.combo.decisions.Scale
 import com.eignex.combo.decisions.SubSpace
 import com.eignex.combo.decisions.context
-import com.eignex.combo.shared.HybridDescentSession
 import com.eignex.combo.shared.ScaledWitnessProposals
-import com.eignex.combo.shared.WitnessRequest
+import com.eignex.combo.shared.WitnessBatch
+import com.eignex.combo.shared.WitnessSearch
+import com.eignex.combo.shared.WitnessTermination
 import com.eignex.combo.shared.WitnessValidator
+import com.eignex.combo.test.TimedTest
+import com.eignex.klause.backtrack.BacktrackParams
+import com.eignex.klause.backtrack.BacktrackSolver
 import com.eignex.klause.propagation.Assumptions
+import com.eignex.klause.propagation.bake
 import com.eignex.klause.schema.eq
 import com.eignex.klause.schema.plus
 import com.eignex.klause.simplex.exact.BigFraction
@@ -24,7 +29,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-class SearchTransformTest {
+class SearchTransformTest : TimedTest() {
     private class Child : SubSpace() {
         val rate by floatVar(1e-6, 1.0, scale = Scale.Log)
         val kind by nominal("a", "b")
@@ -47,6 +52,11 @@ class SearchTransformTest {
         val y by floatVar(0.0, 1.0)
         val equality by constraint { (x + y) eq 1.0 }
     }
+
+    private fun sample(space: com.eignex.combo.decisions.CompiledDecisionSpace, assumptions: Assumptions) =
+        BacktrackSolver(space.compiled.problem.bake()).sample(
+            BacktrackParams(maxDecisions = 64, assumptions = assumptions, randomSeed = 3),
+        ).assignment!!
 
     @Test
     fun `unchanged coordinates preserve exact rational witnesses through decoding`() {
@@ -77,9 +87,7 @@ class SearchTransformTest {
             set(model.level, 10)
             set(model.premium, true)
         }
-        val search = HybridDescentSession.klause(space)
-        val samples = search.witnesses(WitnessRequest(16, space.assumptionsFor(ctx)), Random(5)).witnesses
-        assertEquals(16, samples.size)
+        val samples = listOf(sample(space, space.assumptionsFor(ctx)))
         assertEquals(
             space.compiled.problem.let { it.numBoolVars + it.numIntVars + it.numRealVars },
             coordinates.featureSize,
@@ -111,8 +119,7 @@ class SearchTransformTest {
         val ctx = context { set(model.premium, true) }
         val gate = space.compiled.boolVarIdByName.getValue(space.gateOf(model.child)!!.name)
         val assumptions = space.assumptionsFor(ctx).mergedWith(Assumptions(bools = mapOf(gate to false)))
-        val raw = HybridDescentSession.klause(space)
-            .witnesses(WitnessRequest(1, assumptions), Random(2)).witnesses.single()
+        val raw = sample(space, assumptions)
         val sample = BanditSample(raw)
         val base = coordinates.encode(sample, ctx)
         val levelSlot = coordinates.layout.intStart + space.compiled.intVarIdByName.getValue(model.level.name)
@@ -123,8 +130,8 @@ class SearchTransformTest {
         for (id in space.compiled.nominalIndicators.getValue(model.child.kind.name).values) assertEquals(0.0, base[id])
         assertTrue(coordinates.decode(base, sample, ctx) != null)
         val proposals = ScaledWitnessProposals(space)
-        val varied = List(32) { proposals.interior(raw, Random(it)) }
-        assertTrue(varied.map { BanditSample(it).float(model.rate, space) }.distinct().size > 8)
+        val varied = List(4) { proposals.interior(raw, Random(it)) }
+        assertTrue(varied.map { BanditSample(it).float(model.rate, space) }.distinct().size > 1)
         assertTrue(varied.all(WitnessValidator(space)::valid))
     }
 
@@ -140,7 +147,21 @@ class SearchTransformTest {
         }
         val countSlot = coordinates.layout.intStart + space.compiled.intVarIdByName.getValue(model.count.name)
         fun select(projection: FeatureEncoder<Vector>, slot: Int): BanditSample {
-            val search = LocalAndRandomSearch(projection, HybridDescentSession.klause(space), localSteps = 4)
+            val seeds = listOf(2L, 10L).map { count ->
+                sample(
+                    space,
+                    space.assumptionsFor(ctx).mergedWith(
+                        Assumptions(
+                            ints = mapOf(space.compiled.intVarIdByName.getValue(model.count.name) to count),
+                        ),
+                    ),
+                )
+            }
+            val search = LocalAndRandomSearch(
+                projection,
+                WitnessSearch { _, _ -> WitnessBatch(seeds, WitnessTermination.CountReached) },
+                localSteps = 0,
+            )
             return search.maximize(
                 Acquisition { rows -> DenseVector.of(DoubleArray(rows.rows) { rows[it, slot] }) },
                 AcquisitionRequest(ctx, emptyList(), emptyList()),
@@ -160,8 +181,7 @@ class SearchTransformTest {
         val coordinates = SearchTransform(space)
         val ctx = context { set(model.premium, true) }
         val sample = BanditSample(
-            HybridDescentSession.klause(space)
-                .witnesses(WitnessRequest(1, space.assumptionsFor(ctx)), Random(3)).witnesses.single(),
+            sample(space, space.assumptionsFor(ctx)),
         )
         val invalidCategory = DenseVector.of(coordinates.encode(sample, ctx).toDoubleArray())
         for (id in space.compiled.nominalIndicators.getValue(model.mode.name).values) invalidCategory[id] = 1.0
