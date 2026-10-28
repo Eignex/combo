@@ -69,7 +69,10 @@ class NativeProblemTest {
             space.minimizeNative(space.coordinates.objective("ints.0"), given),
         )
         assertEquals(3000000010L, result.incumbent.sample.intValue(0))
-        assertEquals(third, result.incumbent.sample.exactReals!![0])
+        val sample = result.incumbent.sample
+        val rational = sample.symbolicReals?.get(0)?.rational ?: sample.algebraicReals?.get(0)?.rational
+            ?: sample.exactReals?.get(0)
+        assertEquals(third, rational)
         assertTrue(space.matches(result.incumbent.sample, given))
         val pinned = space.conditionedProblem(given)
         assertTrue(pinned.impliedFactorMask!![0])
