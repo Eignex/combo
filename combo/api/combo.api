@@ -1825,6 +1825,8 @@ public final class com/eignex/combo/decisions/ContextBuilder {
 	public final fun set-SdYqGek (IJ)V
 	public final fun set-SdYqGek (ILjava/math/BigInteger;)V
 	public final fun set-TUNxH2k (ID)V
+	public final fun set-TUNxH2k (ILcom/eignex/klause/arithmetic/polynomial/AlgebraicReal;)V
+	public final fun set-TUNxH2k (ILcom/eignex/klause/arithmetic/real/ExactRealValue;)V
 	public final fun set-TUNxH2k (ILcom/eignex/klause/simplex/exact/BigFraction;)V
 }
 
@@ -2019,6 +2021,8 @@ public final class com/eignex/combo/decisions/MultipleHandle {
 public final class com/eignex/combo/decisions/NativeOptimizationKt {
 	public static final fun minimizeNative (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/klause/solver/objective/LinearObjective;Lcom/eignex/combo/decisions/Context;Lcom/eignex/klause/backtrack/BacktrackParams;)Lcom/eignex/klause/solver/result/QuadraticOptimizationResult;
 	public static synthetic fun minimizeNative$default (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/klause/solver/objective/LinearObjective;Lcom/eignex/combo/decisions/Context;Lcom/eignex/klause/backtrack/BacktrackParams;ILjava/lang/Object;)Lcom/eignex/klause/solver/result/QuadraticOptimizationResult;
+	public static final fun solveNative (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/combo/decisions/Context;Lcom/eignex/klause/backtrack/BacktrackParams;)Lcom/eignex/klause/solver/SolveResult;
+	public static synthetic fun solveNative$default (Lcom/eignex/combo/decisions/CompiledDecisionSpace;Lcom/eignex/combo/decisions/Context;Lcom/eignex/klause/backtrack/BacktrackParams;ILjava/lang/Object;)Lcom/eignex/klause/solver/SolveResult;
 }
 
 public final class com/eignex/combo/decisions/ScalarKind : java/lang/Enum {

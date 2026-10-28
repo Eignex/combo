@@ -12,18 +12,20 @@ class NativeProblemRoutesTest {
         application { resourceApi() }
         val model = client.model("""
             {"problem":{"reals":[{"lower":0,"upper":2},{"lower":2,"upper":2}],
-             "factors":[{"power":{"base":0,"exponent":2,"result":1,"real":true}}]}}
+             "factors":[{"power":{"base":0,"exponent":2,"result":1,"real":true}}]},
+             "objective":{"minimize":"reals.0"}}
         """.trimIndent())
         val base = "/v1/models/${model.id}"
         val recommendation = client.send("$base/recommend", "{}").objectBody()
-        assertEquals("feasible", recommendation.getValue("status").jsonPrimitive.content)
+        assertEquals("optimal", recommendation.getValue("status").jsonPrimitive.content)
         val values = recommendation.getValue("values").jsonObject
         val exact = values.getValue("reals.0").jsonObject.getValue("exact")
+        assertEquals(values["reals.0"], recommendation.getValue("objective").jsonObject["value"])
         assertTrue("root" in exact.jsonObject)
         val checked = client.send("$base/evaluate", """{"values":$values}""").objectBody()
         assertEquals("feasible", checked.getValue("status").jsonPrimitive.content)
         val given = client.send("$base/recommend", """{"given":{"reals.0":{"exact":$exact,"approximation":999}}}""").objectBody()
-        assertEquals("feasible", given.getValue("status").jsonPrimitive.content)
+        assertEquals("optimal", given.getValue("status").jsonPrimitive.content)
         assertEquals(exact, given.getValue("given").jsonObject.getValue("reals.0").jsonObject["exact"])
         val rounded = client.send("$base/evaluate", """{"values":{"reals.0":1.4142135623730951,"reals.1":2}}""").objectBody()
         assertEquals("infeasible", rounded.getValue("status").jsonPrimitive.content)

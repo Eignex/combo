@@ -33,7 +33,8 @@ import kotlin.test.*
 class NativeProblemTest {
     @Test
     fun `exact algebraic and symbolic contexts retain their native witnesses`() {
-        val space = CompiledDecisionSpace.fromProblem(ProblemJson.default.decodeFromString("""{"bools":1,"reals":[{}]}"""))
+        val problem = ProblemJson.default.decodeFromString("""{"bools":1,"reals":[{}]}""")
+        val space = CompiledDecisionSpace.fromProblem(problem)
         for (text in listOf(
             """{"root":{"coefficients":["-2","0","1"],"index":2}}""",
             """{"add":[{"pi":{}},{"exp":"1"}]}""",
@@ -43,7 +44,8 @@ class NativeProblemTest {
             val sample = assertIs<SolveResult.Sat>(space.solveNative(given)).assignment
             assertEquals(0, sample.exactRealValue(0).compareExactly(value))
             assertTrue(space.matches(sample, given))
-            assertTrue(SearchTransform(space).encode(BanditSample(sample), given).all { it.isFinite() })
+            val features = SearchTransform(space).encode(BanditSample(sample), given).toDoubleArray()
+            assertTrue(features.all { it.isFinite() })
             val decoded = Sample(sample.bools, sample.ints, sample.reals,
                 symbolicReals = listOf(ExactRealJson.decodeFromString(ExactRealJson.encodeToString(sample.exactRealValue(0)))))
             assertEquals(sample.assignmentKey(), decoded.assignmentKey())
