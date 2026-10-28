@@ -8,6 +8,7 @@ import com.eignex.klause.schema.FloatHandle
 import com.eignex.klause.schema.IntHandle
 import com.eignex.klause.schema.NominalHandle
 import com.eignex.klause.solver.Sample
+import com.eignex.klause.util.toLongExact
 import com.eignex.klause.solver.objective.LinearObjective
 
 /** Optional schema names over unchanged native problem columns; contains no variable or factor definitions. */
@@ -50,7 +51,7 @@ class DecisionCoordinates private constructor(
 
     /** Decode through the original schema, or read the unchanged native integer column. */
     fun decode(handle: IntHandle, sample: Sample): Long =
-        schema?.decode(handle, sample) ?: sample.intValue(intVarIdByName.getValue(handle.name))
+        schema?.decode(handle, sample) ?: sample.exactIntValue(intVarIdByName.getValue(handle.name)).toLongExact()
 
     /** Decode through the original schema, or read the native real approximation for model features. */
     fun decode(handle: FloatHandle, sample: Sample): Double = schema?.decode(handle, sample)

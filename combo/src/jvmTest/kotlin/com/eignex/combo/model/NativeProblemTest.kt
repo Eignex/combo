@@ -30,7 +30,8 @@ class NativeProblemTest {
             {"bools":2,"ints":[{"lower":3000000000,"upper":3000000010,"values":[[3000000000,3000000002],[3000000009,3000000010]]}],
              "reals":[{}],"factors":[{"clause":{"literals":[0,2]}},
                {"table":{"vars":[0],"tuples":[[3000000000],[3000000010]]}}],
-             "implied":[1],"symmetryBreaking":true}
+             "implied":[1],"symmetryBreaking":true,"settings":{"largeSpanThreshold":123456},
+             "semantics":{"declared":{"format":"SMTLIB"},"effective":{"format":"SMTLIB","pinAbsentOptionalValues":false}}}
         """.trimIndent())
         val definition = ModelDefinition(problem = problem)
         val document = Json.parseToJsonElement(SchemaJson.encodeToString(definition)).jsonObject
@@ -40,6 +41,8 @@ class NativeProblemTest {
             ProblemJson.default.encodeToJsonElement(problem), ProblemJson.default.encodeToJsonElement(restored),
         )
         assertEquals(problem.factors.map { it::class }, restored.factors.map { it::class })
+        assertEquals(123456L, restored.settings.largeSpanThreshold)
+        assertTrue(restored.semantics.hasOverrides)
         val space = CompiledDecisionSpace.fromProblem(restored)
         assertSame(restored, space.problem)
         assertSame(restored, space.conditionedProblem(Context.Empty))
@@ -71,6 +74,8 @@ class NativeProblemTest {
         val pinned = space.conditionedProblem(given)
         assertTrue(pinned.impliedFactorMask!![0])
         assertFalse(pinned.impliedFactorMask!![1])
+        assertSame(problem.settings, pinned.settings)
+        assertSame(problem.semantics, pinned.semantics)
     }
 
     @Test
@@ -117,6 +122,19 @@ class NativeProblemTest {
         val layout = com.eignex.combo.bandit.dt.TreeVectorLayout(listOf(split))
         assertEquals(0.0, layout.encode(rows.encode(lower, Context.Empty))[0])
         assertEquals(1.0, layout.encode(rows.encode(upper, Context.Empty))[0])
+    }
+
+
+    @Test
+    fun `rational contexts do not match a different real with the same Double approximation`() {
+        val problem = ProblemJson.default.decodeFromString("""{"reals":[{}]}""")
+        val space = CompiledDecisionSpace.fromProblem(problem)
+        val third = BigFraction.of(bigIntOf(1), bigIntOf(3))
+        val exact = com.eignex.klause.solver.Sample(
+            booleanArrayOf(), longArrayOf(), doubleArrayOf(third.toDouble()), exactReals = listOf(third),
+        )
+        assertTrue(space.matches(exact, context { set(SourceRealId(0), third) }))
+        assertFalse(space.matches(exact, context { set(SourceRealId(0), third.toDouble()) }))
     }
 
 }

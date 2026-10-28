@@ -14,6 +14,7 @@ import com.eignex.klause.ir.IntDomain
 import com.eignex.klause.ir.randomValue
 import com.eignex.klause.propagation.bake
 import com.eignex.klause.solver.Sample
+import com.eignex.klause.util.bigIntOf
 import com.eignex.klause.solver.SolveResult
 import com.eignex.klause.solver.objective.LinearObjective
 import com.eignex.klause.solver.result.MinimizeResult
@@ -104,7 +105,7 @@ class HybridDescentSession(
         val anchor = pool.minByOrNull { witness ->
             var differences = 0
             assumptions.forEachBool { id, value -> if (witness.boolValue(id) != value) differences++ }
-            assumptions.forEachInt { id, value -> if (witness.intValue(id) != value) differences++ }
+            assumptions.forEachInt { id, value -> if (witness.exactIntValue(id) != bigIntOf(value)) differences++ }
             differences
         }
         proposalCalls++

@@ -80,8 +80,13 @@ internal fun values(compiled: DecisionCoordinates, entries: Map<String, SchemaEn
                 put(name, if (value.fitsLong()) JsonPrimitive(value.toLongExact()) else JsonPrimitive(value.toString()))
             }
             for ((id, handle) in compiled.realHandles) {
-                val exact = sample.symbolicReals?.get(id)?.rational
-                    ?: sample.algebraicReals?.get(id)?.rational ?: sample.exactReals?.get(id)
+                val symbolic = sample.symbolicReals?.get(id)
+                val algebraic = sample.algebraicReals?.get(id)
+                val exact = when {
+                    symbolic != null -> symbolic.rational
+                    algebraic != null -> algebraic.rational
+                    else -> sample.exactReals?.get(id)
+                }
                 val approximation = sample.approximateRealValue(id)
                 put(handle.name, when {
                     exact != null && BigFraction.ofDouble(approximation) == exact -> JsonPrimitive(approximation)

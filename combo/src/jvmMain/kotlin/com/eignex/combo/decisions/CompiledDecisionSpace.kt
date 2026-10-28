@@ -7,6 +7,9 @@ import com.eignex.klause.schema.BoolHandle
 import com.eignex.klause.schema.IntHandle
 import com.eignex.klause.schema.NominalHandle
 import com.eignex.klause.solver.Sample
+import com.eignex.klause.simplex.exact.BigFraction
+import com.eignex.klause.util.bigIntOf
+import com.eignex.klause.util.compareTo
 
 /**
  * Structural snapshot of a compiled [DecisionSpace]: a klause [CompiledSchema] paired
@@ -156,24 +159,25 @@ class CompiledDecisionSpace internal constructor(
             id in 0 until problem.numIntVars && sample.exactIntValue(id) == value
         } && context.exactReals.all { (id, value) ->
             id in 0 until problem.numRealVars && (
-                sample.symbolicReals?.get(id)?.rational ?: sample.algebraicReals?.get(id)?.rational
-                    ?: sample.exactReals?.get(id)
+                sample.rationalReal(id)
                 ) == value
         } && context.nativeReals.all { (id, value) ->
-            id in 0 until problem.numRealVars && sample.approximateRealValue(id) == value
+            id in 0 until problem.numRealVars && sample.rationalReal(id) == BigFraction.ofDouble(value)
         }
 
     /** True iff [sample] satisfies every pin in [assumptions]. */
     fun matches(sample: Sample, assumptions: Assumptions): Boolean {
         for ((id, v) in assumptions.bools) if (sample.boolValue(id) != v) return false
         for ((id, v) in assumptions.ints) {
-            if (sample.exactIntValue(id) != com.eignex.klause.util.bigIntOf(v)) return false
+            if (sample.exactIntValue(id) != bigIntOf(v)) return false
         }
         val deductions = assumptions.deductions
-        deductions.forEachIntMin { id, value -> if (sample.intValue(id) < value) return false }
-        deductions.forEachIntMax { id, value -> if (sample.intValue(id) > value) return false }
-        deductions.forEachIntHole { id, value -> if (sample.intValue(id) == value) return false }
-        deductions.forEachIntSet { id, values -> if (sample.intValue(id) !in values) return false }
+        deductions.forEachIntMin { id, value -> if (sample.exactIntValue(id) < bigIntOf(value)) return false }
+        deductions.forEachIntMax { id, value -> if (sample.exactIntValue(id) > bigIntOf(value)) return false }
+        deductions.forEachIntHole { id, value -> if (sample.exactIntValue(id) == bigIntOf(value)) return false }
+        deductions.forEachIntSet { id, values ->
+            if (values.none { sample.exactIntValue(id) == bigIntOf(it) }) return false
+        }
         return true
     }
 
@@ -249,4 +253,11 @@ private fun evaluateBool(expr: BoolExpr, sample: Sample, compiled: DecisionCoord
     }
 
     else -> error("evaluating active condition: unsupported expression $expr")
+}
+
+
+private fun Sample.rationalReal(id: Int): BigFraction? {
+    symbolicReals?.get(id)?.let { return it.rational }
+    algebraicReals?.get(id)?.let { return it.rational }
+    return exactReals?.get(id) ?: BigFraction.ofDouble(approximateRealValue(id))
 }
