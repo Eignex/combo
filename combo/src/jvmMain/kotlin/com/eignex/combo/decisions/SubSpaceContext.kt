@@ -1,0 +1,208 @@
+package com.eignex.combo.decisions
+
+import com.eignex.klause.model.And
+import com.eignex.klause.model.BoolExpr
+import com.eignex.klause.model.BoolRef
+import com.eignex.klause.model.BoolSpec
+import com.eignex.klause.model.FloatLinearConstraint
+import com.eignex.klause.model.FloatSpec
+import com.eignex.klause.model.Implies
+import com.eignex.klause.model.IntCmpOp
+import com.eignex.klause.model.IntCompare
+import com.eignex.klause.model.IntLit
+import com.eignex.klause.model.IntRef
+import com.eignex.klause.model.IntSpec
+import com.eignex.klause.model.NamedConstraint
+import com.eignex.klause.model.NominalEq
+import com.eignex.klause.model.NominalSpec
+import com.eignex.klause.model.Not
+import com.eignex.klause.model.PresenceSpec
+import com.eignex.klause.model.SchemaEntry
+import com.eignex.klause.schema.BoolHandle
+import com.eignex.klause.schema.FloatHandle
+import com.eignex.klause.schema.IntHandle
+import com.eignex.klause.schema.NominalHandle
+import com.eignex.klause.schema.VariableSchema
+
+/**
+ * Construction-time wiring for [SubSpace]. Threads the current dotted prefix and
+ * activation condition down through nested sub-space factories so each `boolVar()` /
+ * `intVar()` / `constraint { ... }` registers with the *root* klause schema under a
+ * fully-qualified name, tagged with whichever gate(s) make it conditionally present.
+ *
+ * Lives on a thread-local — the root [DecisionSpace] installs one before its subclass
+ * property initializers run, and child sub-spaces swap in a derived context for the
+ * duration of their factory call.
+ */
+internal class SubSpaceContext private constructor(
+    val root: RootKlauseSchema,
+    val prefix: String,
+    val activeCondition: BoolExpr?,
+) {
+    fun qualify(name: String): String = if (prefix.isEmpty()) name else "$prefix.$name"
+
+    /** Always-active child context, used by plain `decisionSpace { ... }`. */
+    fun child(propertyName: String): SubSpaceContext = SubSpaceContext(root, qualify(propertyName), activeCondition)
+
+    /** Child context gated by a freshly-registered bool variable. Combines AND-wise
+     *  with whatever activation condition the parent already had. */
+    fun gatedChild(propertyName: String, gateName: String): SubSpaceContext {
+        val gateExpr: BoolExpr = BoolRef(gateName)
+        val composed = activeCondition?.let { And(listOf(it, gateExpr)) } ?: gateExpr
+        return SubSpaceContext(root, qualify(propertyName), composed)
+    }
+
+    companion object {
+        private val threadLocal = ThreadLocal<SubSpaceContext?>()
+
+        /** Read the current context, installing a fresh root if there isn't one. */
+        fun installOrCurrent(makeRoot: () -> SubSpaceContext): SubSpaceContext {
+            val existing = threadLocal.get()
+            if (existing != null) return existing
+            val fresh = makeRoot()
+            threadLocal.set(fresh)
+            return fresh
+        }
+
+        fun makeRoot(): SubSpaceContext = SubSpaceContext(RootKlauseSchema(), "", activeCondition = null)
+
+        fun <T> withContext(ctx: SubSpaceContext, block: () -> T): T {
+            val prev = threadLocal.get()
+            threadLocal.set(ctx)
+            try {
+                return block()
+            } finally {
+                threadLocal.set(prev)
+            }
+        }
+
+        fun clear() {
+            threadLocal.set(null)
+        }
+    }
+}
+
+/**
+ * Klause [VariableSchema] wrapper that exposes the protected `add` method to
+ * [com.eignex.combo.decisions] and pins optional variables to default values when their gate is
+ * off. Also records each variable's activation condition for later projection lookup
+ * (linear bandits zero inactive feature slots; tree bandits emit `isPresent` columns).
+ */
+internal class RootKlauseSchema : VariableSchema() {
+
+    val scales = linkedMapOf<String, Scale>()
+
+    fun recordScale(name: String, min: Double, max: Double, scale: Scale) {
+        NumericDomain(min, max, scale)
+        if (scale != Scale.Linear) scales[name] = scale
+    }
+
+    private val _activeConditions = mutableMapOf<String, BoolExpr>()
+    val activeConditions: Map<String, BoolExpr> get() = _activeConditions
+
+    private val _gates = mutableMapOf<SubSpace, BoolHandle>()
+    val gates: Map<SubSpace, BoolHandle> get() = _gates
+
+    fun recordGate(sub: SubSpace, handle: BoolHandle) {
+        _gates[sub] = handle
+    }
+
+    /** Multi-select variables, keyed by fully-qualified name. Each value is the ordered
+     *  label list; the constituent bool variables are registered as `<name>.<label>`. */
+    private val _multiples = LinkedHashMap<String, List<String>>()
+    val multiples: Map<String, List<String>> get() = _multiples
+
+    /**
+     * Register a presence Boolean gating the optional value variable [valueName]. Emitted as
+     * a klause [PresenceSpec] so klause's own absent-value pinning fixes [valueName] to its
+     * default when this gate is false — combo no longer synthesises that pin itself. When
+     * this gate is itself nested under an [activeCondition] (an optional sub-space), it's
+     * still pinned false while the parent is absent.
+     */
+    fun registerPresence(name: String, valueName: String, activeCondition: BoolExpr?): BoolHandle {
+        add(name, PresenceSpec(valueName))
+        if (activeCondition != null) {
+            _activeConditions[name] = activeCondition
+            add("__pin_$name", NamedConstraint(Implies(Not(activeCondition), Not(BoolRef(name)))))
+        }
+        return BoolHandle(name)
+    }
+
+    /** [pin] = false records the activation condition (for feature-projection masking) but
+     *  skips the default-pin constraint — used when klause pins the value via [PresenceSpec]. */
+    fun registerBool(name: String, activeCondition: BoolExpr?, pin: Boolean = true): BoolHandle {
+        add(name, BoolSpec)
+        if (activeCondition != null) {
+            _activeConditions[name] = activeCondition
+            // !activeCondition → !var (default = false)
+            if (pin) add("__pin_$name", NamedConstraint(Implies(Not(activeCondition), Not(BoolRef(name)))))
+        }
+        return BoolHandle(name)
+    }
+
+    fun registerInt(name: String, min: Int, max: Int, activeCondition: BoolExpr?, pin: Boolean = true): IntHandle {
+        add(name, IntSpec(min, max))
+        if (activeCondition != null) {
+            _activeConditions[name] = activeCondition
+            // !activeCondition → var == min (default = lower bound)
+            if (pin) {
+                add(
+                    "__pin_$name",
+                    NamedConstraint(
+                        Implies(
+                            Not(activeCondition),
+                            IntCompare(IntRef(name), IntCmpOp.EQ, IntLit(min)),
+                        ),
+                    ),
+                )
+            }
+        }
+        return IntHandle(name, min.toLong(), max.toLong())
+    }
+
+    fun registerFloat(name: String, min: Double, max: Double, buckets: Int?, activeCondition: BoolExpr?): FloatHandle {
+        add(name, FloatSpec(min, max, buckets))
+        if (activeCondition != null) {
+            _activeConditions[name] = activeCondition
+            // Pin the declared float value to its lower bound while the sub-space is absent.
+            add(
+                "__pin_$name",
+                NamedConstraint(
+                    Implies(
+                        Not(activeCondition),
+                        FloatLinearConstraint(doubleArrayOf(1.0), listOf(name), IntCmpOp.EQ, min),
+                    ),
+                ),
+            )
+        }
+        return FloatHandle(name, min, max)
+    }
+
+    fun registerNominal(name: String, labels: List<String>, activeCondition: BoolExpr?): NominalHandle {
+        add(name, NominalSpec(labels))
+        if (activeCondition != null) {
+            _activeConditions[name] = activeCondition
+            // !activeCondition → var == labels[0] (default = first label)
+            add(
+                "__pin_$name",
+                NamedConstraint(Implies(Not(activeCondition), NominalEq(name, labels[0]))),
+            )
+        }
+        return NominalHandle(name, labels)
+    }
+
+    fun registerMultiple(name: String, labels: List<String>, activeCondition: BoolExpr?): MultipleHandle {
+        require(labels.isNotEmpty()) { "Multiple '$name' must have at least one label" }
+        require(labels.distinct().size == labels.size) { "Multiple '$name' has duplicate labels: $labels" }
+        _multiples[name] = labels.toList()
+        val perLabel = LinkedHashMap<String, BoolHandle>()
+        for (label in labels) perLabel[label] = registerBool("$name.$label", activeCondition)
+        return MultipleHandle(name, labels.toList(), perLabel)
+    }
+
+    fun registerConstraint(name: String, expr: BoolExpr) {
+        add(name, NamedConstraint(expr))
+    }
+
+    fun entries(): Map<String, SchemaEntry> = definition().entries
+}

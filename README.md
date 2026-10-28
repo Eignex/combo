@@ -33,11 +33,33 @@ Both families use the same decision-space schema and contextual variables.
 sampling, and shared tree snapshots. Combo owns full-history model fitting and acquisition functions, including
 Gaussian and lognormal expected improvement, and their optimization over feasible configurations.
 
+The [Eignex Server](server/README.md) runs Klause, Kumulant, and Combo through one
+HTTP API with a shared model contract for statistics, decisions, and learning from
+outcomes. Start it with
+`./gradlew :server:run`.
+
 Using it requires three steps:
 
 1. Declare the decision space with its variables, sub-spaces, and constraints.
 2. Pick a streaming learner or history-based optimizer and wire it to the compiled space.
 3. Loop choose → serve the configuration → update with the observed reward.
+
+A complete Klause `Problem` can also be used directly, including native factors,
+sparse or open domains, and exact constants:
+
+```kotlin
+val space = CompiledDecisionSpace.fromProblem(problem)
+val projection = SearchTransform(space)
+val search = HybridDescentSession.klause(space)
+// Use projection and search with the existing BayesianOptimizer.
+val optimum = space.minimizeNative(space.coordinates.objective("ints.0"))
+```
+
+The native problem is retained unchanged. Source-coordinate names (`bools.0`,
+`ints.0`, `reals.0`) and optional schema metadata are kept separately from its
+factor representation. Native search delegates source routing to Klause, retaining
+open-domain and exact-result semantics. The [HTTP API](server/README.md#native-problems)
+embeds the same canonical document under `problem`.
 
 ## Decision space
 
@@ -161,7 +183,7 @@ Use `bandit.choose(context { ... })`, `bandit.update(arm, context, reward)`, and
 hard constraint during candidate generation, branch repair, and solver fallback.
 
 End-to-end examples covering cascade-with-backtrack, Thompson sampling on linear
-models, and context-conditioned arms live under src/jvmTest/kotlin/com/eignex/combo.
+models, and context-conditioned arms live under combo/src/jvmTest/kotlin/com/eignex/combo.
 
 ## Numeric search geometry
 
@@ -691,21 +713,26 @@ evaluations and acquisition plateaus, with separate ablations and validation qua
 
 ## Building
 
+This repository contains two Gradle modules: `:combo` is the published optimization
+library, and `:server` is the Eignex Server Ktor application. The root project
+aggregates their builds. Source code and ABI references for the library live under
+`combo/`; the server depends on the library through `project(":combo")`.
+
 Koblas is a direct public dependency, with platform artifacts pinned independently
 of Klause and Kumulant. Vector dot products, scaling, weighted reductions, and batch
 matrix construction use Koblas APIs rather than parallel numerical helpers.
 
 The build uses Kbuild 1.3.3, Kotlin 2.4.10, Gradle 9.7.0, and a JDK 25 toolchain
 that Gradle provisions automatically. Klause and Kumulant use their latest published
-snapshots from October 23–24, 2026. Exact platform artifact versions are pinned in
-`build.gradle.kts`, alongside a shared Koblas version that resolves their conflicting
+snapshots, including Kumulant’s canonical JSON support merged on October 25, 2026. Exact platform artifact versions are pinned in
+`combo/build.gradle.kts`, alongside a shared Koblas version that resolves their conflicting
 backend pins. The configured targets are JVM and Linux
 x64, matching Klause's available snapshots; Combo's implementation is currently JVM.
 
 Build and validate with the published dependencies:
 
 ```sh
-./gradlew jvmTest
+./gradlew :combo:jvmTest :server:test
 ./gradlew check lintDocs
 ```
 
@@ -713,7 +740,7 @@ For sibling development, `-Pkumulant.local` substitutes `../kumulant`.
 `-Pkoblas.local` substitutes `../koblas`; `-Pkoblas.local=../another-checkout` selects an isolated numerical checkout.
 Use `-Pdependencies.local` to develop against both `../klause` and `../kumulant`.
 The Detekt baseline records existing documentation and style debt surfaced by the
-new Kbuild checks; new findings remain checked. ABI references live under `api/`.
+new Kbuild checks; new findings remain checked. ABI references live under `combo/api/`.
 
 JVM applications using the vector backend should enable
 `--add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED`; the test

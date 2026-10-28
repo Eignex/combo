@@ -1,0 +1,124 @@
+package com.eignex.combo.bandit.dt
+
+import com.eignex.combo.decisions.DecisionSpace
+import com.eignex.klause.localsearch.LocalSearchParams
+import com.eignex.klause.localsearch.LocalSearchSolver
+import com.eignex.klause.propagation.bake
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
+
+private class ToyTree : DecisionSpace() {
+    val premium by boolVar()
+    val budget by intVar(0, 1000)
+    val tier by nominal("free", "pro", "enterprise")
+}
+
+class TreeFeatureProjectionTest {
+
+    @Test
+    fun `encode should yield a row that decodes by handle`() {
+        val model = ToyTree()
+        val space = model.compileSpace()
+        val projection = TreeFeatureProjection(space)
+        val solver = LocalSearchSolver(space.compiled.problem.bake())
+        val sample = solver.sample(LocalSearchParams(randomSeed = 1L)).assignment!!
+
+        val row = projection.encode(com.eignex.combo.decisions.BanditSample(sample))
+
+        // Each handle dispatches to klause's typed decode under the hood.
+        assertEquals(space.compiled.decode(model.premium, sample), row.bool(model.premium))
+        assertEquals(space.compiled.decode(model.budget, sample), row.int(model.budget))
+        assertEquals(space.compiled.decode(model.tier, sample), row.nominal(model.tier))
+    }
+
+    @Test
+    fun `bool split should route by the handle's value`() {
+        val model = ToyTree()
+        val space = model.compileSpace()
+        val projection = TreeFeatureProjection(space)
+        val solver = LocalSearchSolver(space.compiled.problem.bake())
+        val split = BoolSplit(model.premium)
+
+        // Try multiple samples — directions must agree with the underlying bool.
+        repeat(10) { seed ->
+            val s = solver.sample(LocalSearchParams(randomSeed = seed.toLong())).assignment!!
+            val row = projection.encode(com.eignex.combo.decisions.BanditSample(s))
+            assertEquals(row.bool(model.premium), split.direction(row))
+        }
+    }
+
+    @Test
+    fun `int threshold split should route by value le threshold`() {
+        val model = ToyTree()
+        val space = model.compileSpace()
+        val projection = TreeFeatureProjection(space)
+        val solver = LocalSearchSolver(space.compiled.problem.bake())
+        val split = IntThresholdSplit(model.budget, threshold = 500)
+
+        repeat(20) { seed ->
+            val s = solver.sample(LocalSearchParams(randomSeed = seed.toLong())).assignment!!
+            val row = projection.encode(com.eignex.combo.decisions.BanditSample(s))
+            val expected = row.int(model.budget) <= 500
+            assertEquals(expected, split.direction(row))
+        }
+    }
+
+    @Test
+    fun `nominal split should partition labels`() {
+        val model = ToyTree()
+        val space = model.compileSpace()
+        val projection = TreeFeatureProjection(space)
+        val solver = LocalSearchSolver(space.compiled.problem.bake())
+        val split = NominalSplit(model.tier, label = "free")
+
+        repeat(20) { seed ->
+            val s = solver.sample(LocalSearchParams(randomSeed = seed.toLong())).assignment!!
+            val row = projection.encode(com.eignex.combo.decisions.BanditSample(s))
+            assertEquals(row.nominal(model.tier) == "free", split.direction(row))
+        }
+    }
+
+    @Test
+    fun `int split should reject thresholds outside the handle domain`() {
+        val model = ToyTree()
+        model.compileSpace() // realise the handle.min/max
+        assertFailsWith<IllegalArgumentException> {
+            IntThresholdSplit(model.budget, threshold = 1500)
+        }
+    }
+
+    @Test
+    fun `nominal split should reject labels outside the handle's domain`() {
+        val model = ToyTree()
+        model.compileSpace()
+        assertFailsWith<IllegalArgumentException> {
+            NominalSplit(model.tier, label = "unknown")
+        }
+    }
+
+    @Test
+    fun `featureSize counts klause bool plus int vars`() {
+        val space = ToyTree().compileSpace()
+        val projection = TreeFeatureProjection(space)
+        // ToyTree: premium (1 bool) + tier (3 indicator bools) + budget (1 int) = 4 + 1 = 5
+        assertEquals(5, projection.featureSize)
+        assertEquals(4, space.compiled.problem.numBoolVars)
+        assertEquals(1, space.compiled.problem.numIntVars)
+    }
+
+    @Test
+    fun `isPresent should report active state on the row`() {
+        val model = ToyTree()
+        val space = model.compileSpace()
+        val projection = TreeFeatureProjection(space)
+        val solver = LocalSearchSolver(space.compiled.problem.bake())
+        val s = solver.sample(LocalSearchParams(randomSeed = 99L)).assignment!!
+        val row = projection.encode(com.eignex.combo.decisions.BanditSample(s))
+        // No optionals declared in ToyTree → everything is always present.
+        assertTrue(row.isPresent(model.premium))
+        assertTrue(row.isPresent(model.budget))
+        assertTrue(row.isPresent(model.tier))
+    }
+}

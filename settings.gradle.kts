@@ -1,5 +1,7 @@
 rootProject.name = "combo"
 
+include(":combo", ":server")
+
 pluginManagement {
     repositories {
         mavenCentral()
