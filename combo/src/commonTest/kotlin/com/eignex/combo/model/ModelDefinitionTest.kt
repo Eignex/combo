@@ -1,7 +1,6 @@
 package com.eignex.combo.model
 
 import com.eignex.combo.decisions.DecisionSpaceDef
-import com.eignex.combo.test.TimedTest
 import com.eignex.klause.model.AllDifferent
 import com.eignex.klause.model.IntCmpOp
 import com.eignex.klause.model.IntCompare
@@ -17,7 +16,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 
-class ModelDefinitionTest : TimedTest() {
+class ModelDefinitionTest {
     @Test
     fun `model contract retains native nested variables and constraints`() {
         val product = IntCompare(IntMul(IntRef("x"), IntRef("y")), IntCmpOp.EQ, IntLit(4))

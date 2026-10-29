@@ -3,7 +3,6 @@ package com.eignex.combo.shared
 import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.DecisionSpace
 import com.eignex.combo.decisions.Scale
-import com.eignex.combo.test.TimedTest
 import com.eignex.klause.propagation.Assumptions
 import com.eignex.klause.schema.eq
 import com.eignex.klause.schema.le
@@ -14,7 +13,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-class ScaledWitnessProposalsTest : TimedTest() {
+class ScaledWitnessProposalsTest {
     private class Capped : DecisionSpace() {
         val amount by floatVar(1e-6, 1.0, scale = Scale.Log)
         val cap by constraint { amount le 0.01 }

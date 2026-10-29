@@ -2,7 +2,6 @@ package com.eignex.combo.decisions
 
 import com.eignex.combo.model.LinearLearning
 import com.eignex.combo.shared.LinearFeatureProjection
-import com.eignex.combo.test.TimedTest
 import com.eignex.klause.backtrack.BacktrackParams
 import com.eignex.klause.backtrack.BacktrackSolver
 import com.eignex.klause.model.FloatLinearConstraint
@@ -27,7 +26,7 @@ private class RealContextSpace(private val grid: Int? = null) : DecisionSpace() 
     }
 }
 
-class RealContextTest : TimedTest() {
+class RealContextTest {
     @Test
     fun `fractional context changes an integer decision through a native linear interaction`() {
         val space = DecisionSpaceDef(

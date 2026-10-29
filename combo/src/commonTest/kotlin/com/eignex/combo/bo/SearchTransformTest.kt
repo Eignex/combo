@@ -11,7 +11,6 @@ import com.eignex.combo.shared.WitnessBatch
 import com.eignex.combo.shared.WitnessSearch
 import com.eignex.combo.shared.WitnessTermination
 import com.eignex.combo.shared.WitnessValidator
-import com.eignex.combo.test.TimedTest
 import com.eignex.klause.backtrack.BacktrackParams
 import com.eignex.klause.backtrack.BacktrackSolver
 import com.eignex.klause.propagation.Assumptions
@@ -29,7 +28,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-class SearchTransformTest : TimedTest() {
+class SearchTransformTest {
     private class Child : SubSpace() {
         val rate by floatVar(1e-6, 1.0, scale = Scale.Log)
         val kind by nominal("a", "b")

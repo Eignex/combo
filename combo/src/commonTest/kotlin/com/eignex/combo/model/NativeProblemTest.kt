@@ -12,7 +12,6 @@ import com.eignex.combo.shared.HybridDescentSession
 import com.eignex.combo.shared.LinearFeatureProjection
 import com.eignex.combo.shared.WitnessRequest
 import com.eignex.combo.shared.assignmentKey
-import com.eignex.combo.test.TimedTest
 import com.eignex.klause.arithmetic.real.compareExactly
 import com.eignex.klause.arithmetic.real.exactRealValue
 import com.eignex.klause.formats.json.ExactRealJson
@@ -29,7 +28,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlin.random.Random
 import kotlin.test.*
 
-class NativeProblemTest : TimedTest() {
+class NativeProblemTest {
     @Test
     fun `exact algebraic and symbolic contexts preserve matches and assignment keys`() {
         val problem = ProblemJson.default.decodeFromString("""{"bools":1,"reals":[{}]}""")

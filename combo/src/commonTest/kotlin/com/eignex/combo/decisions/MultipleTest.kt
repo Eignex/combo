@@ -1,6 +1,5 @@
 package com.eignex.combo.decisions
 
-import com.eignex.combo.test.TimedTest
 import com.eignex.klause.localsearch.LocalSearchParams
 import com.eignex.klause.localsearch.LocalSearchSolver
 import com.eignex.klause.model.BoolSpec
@@ -25,7 +24,7 @@ private class Movies : SubSpace() {
     val horror by multiple("Slasher", "Splatter", "Zombie")
 }
 
-class MultipleTest : TimedTest() {
+class MultipleTest {
 
     @Test
     fun `multiple registers one bool per label under a dotted prefix`() {

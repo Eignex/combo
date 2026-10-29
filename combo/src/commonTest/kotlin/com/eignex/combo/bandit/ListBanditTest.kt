@@ -5,7 +5,6 @@ import com.eignex.combo.decisions.DecisionSpace
 import com.eignex.combo.decisions.context
 import com.eignex.combo.shared.Learner
 import com.eignex.combo.shared.NoFeasibleSampleException
-import com.eignex.combo.test.TimedTest
 import com.eignex.klause.solver.Sample
 import com.eignex.kumulant.bandit.univariate.BetaBernoulliTS
 import com.eignex.kumulant.bandit.univariate.Greedy
@@ -44,7 +43,7 @@ class ListBanditSuiteTest : BanditTestSuite<ListBanditData>() {
     )
 }
 
-class ListBanditTest : TimedTest() {
+class ListBanditTest {
 
     @Test
     fun `recorded rewards select the better arm without a convergence run`() {

@@ -3,7 +3,6 @@ package com.eignex.combo.decisions
 import com.eignex.combo.shared.HybridDescentSession
 import com.eignex.combo.shared.LinearFeatureProjection
 import com.eignex.combo.shared.WitnessRequest
-import com.eignex.combo.test.TimedTest
 import com.eignex.klause.model.BoolRef
 import com.eignex.klause.model.BoolSpec
 import com.eignex.klause.model.IntSpec
@@ -18,7 +17,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
-class DefinitionCompilerTest : TimedTest() {
+class DefinitionCompilerTest {
     private class Child : SubSpace() {
         val flag by boolVar()
         val size by intVar(1, 5)

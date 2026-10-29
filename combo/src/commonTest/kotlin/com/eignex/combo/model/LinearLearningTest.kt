@@ -6,7 +6,6 @@ import com.eignex.combo.decisions.compileSpace
 import com.eignex.combo.decisions.context
 import com.eignex.combo.shared.HybridDescentSession
 import com.eignex.combo.shared.LinearFeatureProjection
-import com.eignex.combo.test.TimedTest
 import com.eignex.klause.backtrack.BacktrackParams
 import com.eignex.klause.backtrack.BacktrackSolver
 import com.eignex.klause.model.IntSpec
@@ -18,7 +17,7 @@ import com.eignex.skema.SchemaJson
 import kotlinx.serialization.encodeToString
 import kotlin.test.*
 
-class LinearLearningTest : TimedTest() {
+class LinearLearningTest {
     @Test
     fun `native model and posterior retain canonical serialization`() {
         val text = """{"regression":{"bayesianRegression":{"featureSize":2}},"posterior":"multivariateGaussian"}"""

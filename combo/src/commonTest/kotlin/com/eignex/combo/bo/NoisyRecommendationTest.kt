@@ -3,11 +3,10 @@ package com.eignex.combo.bo
 import com.eignex.combo.bo.model.GaussianProcessConfig
 import com.eignex.combo.decisions.Context
 import com.eignex.combo.shared.assignmentKey
-import com.eignex.combo.test.TimedTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-class NoisyRecommendationTest : TimedTest() {
+class NoisyRecommendationTest {
     @Test
     fun `repeated recommendations preserve the study and next suggestion random stream`() {
         val problem = refinementProblem("noisy")

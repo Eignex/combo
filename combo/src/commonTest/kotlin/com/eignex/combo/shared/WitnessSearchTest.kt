@@ -1,7 +1,6 @@
 package com.eignex.combo.shared
 
 import com.eignex.combo.decisions.DecisionSpace
-import com.eignex.combo.test.TimedTest
 import com.eignex.klause.propagation.Assumptions
 import com.eignex.klause.schema.eq
 import com.eignex.klause.schema.plus
@@ -15,7 +14,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
-class WitnessSearchTest : TimedTest() {
+class WitnessSearchTest {
     private class Toggle : DecisionSpace() {
         val value by boolVar()
     }

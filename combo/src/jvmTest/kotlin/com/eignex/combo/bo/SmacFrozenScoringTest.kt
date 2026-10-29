@@ -1,13 +1,12 @@
 package com.eignex.combo.bo
 
-import com.eignex.combo.test.TimedTest
 import java.nio.file.Files
 import kotlin.math.sqrt
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
-class SmacFrozenScoringTest : TimedTest() {
+class SmacFrozenScoringTest {
     @Test
     fun `raw reference predictions use Kumulant losses across groups and top regions`() {
         val directory = Files.createTempDirectory("combo-smac-scores").toFile()

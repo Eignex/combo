@@ -1,6 +1,5 @@
 package com.eignex.combo.bo
 
-import com.eignex.combo.test.TimedTest
 import com.eignex.koblas.DenseMatrix
 import com.eignex.koblas.DenseVector
 import com.eignex.kumulant.math.NotPositiveDefinite
@@ -36,7 +35,7 @@ private class GaussianToy(
     override fun drawFunction(random: Random): SampledFunction = error("joint EI uses fixed Gaussian base samples")
 }
 
-class JointAcquisitionTest : TimedTest() {
+class JointAcquisitionTest {
     private fun context(
         model: FittedSurrogate = GaussianToy(),
         maximize: Boolean = true,

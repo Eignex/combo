@@ -7,7 +7,6 @@ import com.eignex.combo.decisions.DecisionSpace
 import com.eignex.combo.decisions.FeatureEncoder
 import com.eignex.combo.decisions.context
 import com.eignex.combo.shared.LinearFeatureProjection
-import com.eignex.combo.test.TimedTest
 import com.eignex.klause.backtrack.BacktrackParams
 import com.eignex.klause.backtrack.BacktrackSolver
 import com.eignex.klause.propagation.bake
@@ -25,7 +24,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
-class RandomForestOptimizerTest : TimedTest() {
+class RandomForestOptimizerTest {
     private class Toggle : DecisionSpace() {
         val flag by boolVar()
     }

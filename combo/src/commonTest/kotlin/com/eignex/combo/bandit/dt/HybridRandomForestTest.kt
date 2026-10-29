@@ -5,7 +5,6 @@ import com.eignex.combo.decisions.DecisionSpace
 import com.eignex.combo.decisions.context
 import com.eignex.combo.shared.DescentSession
 import com.eignex.combo.shared.HybridDescentSession
-import com.eignex.combo.test.TimedTest
 import com.eignex.klause.backtrack.BacktrackParams
 import com.eignex.klause.backtrack.BacktrackSolver
 import com.eignex.klause.propagation.Assumptions
@@ -22,7 +21,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
-class HybridRandomForestTest : TimedTest() {
+class HybridRandomForestTest {
     private val config = RegressionTreeConfig(
         splitPeriod = 2,
         minSamplesSplit = 6.0,

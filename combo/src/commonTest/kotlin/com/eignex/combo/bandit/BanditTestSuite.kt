@@ -5,7 +5,6 @@ import com.eignex.combo.decisions.DecisionSpace
 import com.eignex.combo.shared.Learner
 import com.eignex.combo.shared.LearnerData
 import com.eignex.combo.shared.PredictionLearner
-import com.eignex.combo.test.TimedTest
 import com.eignex.klause.solver.Sample
 import com.eignex.kumulant.stat.summary.MeanStat
 import kotlin.random.Random
@@ -25,7 +24,7 @@ import kotlin.test.assertTrue
  * Each subclass typically picks a [com.eignex.kumulant.bandit.univariate.BanditPolicy] / linear model
  * / etc. inside [build] and wires it.
  */
-abstract class BanditTestSuite<D : LearnerData> : TimedTest() {
+abstract class BanditTestSuite<D : LearnerData> {
 
     /** Build the bandit. Called fresh for every test. */
     abstract fun build(

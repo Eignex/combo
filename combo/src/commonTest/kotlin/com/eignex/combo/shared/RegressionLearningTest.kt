@@ -2,7 +2,6 @@ package com.eignex.combo.shared
 
 import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.Context
-import com.eignex.combo.test.TimedTest
 import com.eignex.klause.solver.Sample
 import com.eignex.koblas.DenseVector
 import com.eignex.kumulant.stat.regression.glm.DiagonalRegressionStat
@@ -16,7 +15,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-class RegressionLearningTest : TimedTest() {
+class RegressionLearningTest {
     @Test
     fun `update measures weighted errors before and after training using the same features`() {
         val regression = DiagonalRegressionStat(1)

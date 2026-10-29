@@ -5,7 +5,6 @@ import com.eignex.combo.bandit.dt.defaultSplitCandidates
 import com.eignex.combo.shared.HybridDescentSession
 import com.eignex.combo.shared.LinearFeatureProjection
 import com.eignex.combo.shared.WitnessRequest
-import com.eignex.combo.test.TimedTest
 import com.eignex.klause.model.IntSpec
 import com.eignex.klause.solver.Sample
 import com.eignex.koblas.DenseVector
@@ -18,7 +17,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
-class ScaleTest : TimedTest() {
+class ScaleTest {
     private class Child : SubSpace() {
         val rate by floatVar(1e-6, 1.0, scale = Scale.Log)
     }

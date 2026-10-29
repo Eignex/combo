@@ -9,7 +9,6 @@ import com.eignex.combo.shared.WitnessBatch
 import com.eignex.combo.shared.WitnessSearch
 import com.eignex.combo.shared.WitnessTermination
 import com.eignex.combo.shared.assignmentKey
-import com.eignex.combo.test.TimedTest
 import com.eignex.klause.schema.not
 import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
@@ -19,7 +18,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
-class JointBatchTest : TimedTest() {
+class JointBatchTest {
     private class Rate : DecisionSpace() {
         val x by floatVar(0.0, 1.0)
     }

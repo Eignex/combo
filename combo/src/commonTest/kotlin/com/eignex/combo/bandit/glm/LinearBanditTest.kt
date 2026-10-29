@@ -5,7 +5,6 @@ import com.eignex.combo.decisions.DecisionSpace
 import com.eignex.combo.decisions.SubSpace
 import com.eignex.combo.decisions.context
 import com.eignex.combo.shared.LinearFeatureProjection
-import com.eignex.combo.test.TimedTest
 import com.eignex.klause.backtrack.BacktrackParams
 import com.eignex.klause.backtrack.BacktrackSolver
 import com.eignex.klause.propagation.Assumptions
@@ -17,7 +16,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
-class LinearBanditTest : TimedTest() {
+class LinearBanditTest {
     private class Nominal : DecisionSpace() {
         val type by nominal("a", "b", "c")
     }

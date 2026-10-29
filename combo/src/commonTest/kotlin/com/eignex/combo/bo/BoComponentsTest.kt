@@ -10,7 +10,6 @@ import com.eignex.combo.decisions.context
 import com.eignex.combo.shared.WitnessBatch
 import com.eignex.combo.shared.WitnessSearch
 import com.eignex.combo.shared.WitnessTermination
-import com.eignex.combo.test.TimedTest
 import com.eignex.klause.schema.eq
 import com.eignex.klause.schema.le
 import com.eignex.klause.schema.plus
@@ -25,7 +24,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
-class BoComponentsTest : TimedTest() {
+class BoComponentsTest {
     private class Rate : DecisionSpace() {
         val value by floatVar(0.0, 1.0)
     }

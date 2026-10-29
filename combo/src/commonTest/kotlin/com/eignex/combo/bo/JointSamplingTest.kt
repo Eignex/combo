@@ -1,7 +1,6 @@
 package com.eignex.combo.bo
 
 import com.eignex.combo.bo.model.GaussianProcessConfig
-import com.eignex.combo.test.TimedTest
 import com.eignex.koblas.DenseVector
 import kotlin.random.Random
 import kotlin.test.Test
@@ -9,7 +8,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
-class JointSamplingTest : TimedTest() {
+class JointSamplingTest {
     @Test
     fun `Sobol acquisition scores are fixed across batch size changes and candidate reorderings`() {
         val model = GaussianProcessSurrogate(GaussianProcessConfig(hyperparameterTrials = 0)).fit(

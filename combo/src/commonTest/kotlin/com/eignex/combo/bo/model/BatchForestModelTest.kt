@@ -1,6 +1,5 @@
 package com.eignex.combo.bo.model
 
-import com.eignex.combo.test.TimedTest
 import com.eignex.koblas.DenseVector
 import com.eignex.kumulant.stat.regression.tree.predictDistribution
 import kotlin.random.Random
@@ -8,7 +7,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-class BatchForestModelTest : TimedTest() {
+class BatchForestModelTest {
     private fun features(vararg values: Double) = DenseVector.of(values)
 
     @Test

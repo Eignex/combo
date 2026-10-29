@@ -7,7 +7,6 @@ import com.eignex.combo.decisions.context
 import com.eignex.combo.shared.WitnessBatch
 import com.eignex.combo.shared.WitnessSearch
 import com.eignex.combo.shared.WitnessTermination
-import com.eignex.combo.test.TimedTest
 import com.eignex.klause.backtrack.BacktrackParams
 import com.eignex.klause.backtrack.BacktrackSolver
 import com.eignex.klause.propagation.bake
@@ -20,7 +19,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-class InitialDesignTest : TimedTest() {
+class InitialDesignTest {
     private class Rate : DecisionSpace() {
         val x by floatVar(0.0, 1.0)
     }

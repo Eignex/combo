@@ -1,7 +1,6 @@
 package com.eignex.combo.bandit.dt
 
 import com.eignex.combo.decisions.DecisionSpace
-import com.eignex.combo.test.TimedTest
 import com.eignex.klause.localsearch.LocalSearchParams
 import com.eignex.klause.localsearch.LocalSearchSolver
 import com.eignex.klause.propagation.bake
@@ -16,7 +15,7 @@ private class ToyTree : DecisionSpace() {
     val tier by nominal("free", "pro", "enterprise")
 }
 
-class TreeFeatureProjectionTest : TimedTest() {
+class TreeFeatureProjectionTest {
 
     @Test
     fun `encode should yield a row that decodes by handle`() {

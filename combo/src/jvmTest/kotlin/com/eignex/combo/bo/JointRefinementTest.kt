@@ -10,7 +10,6 @@ import com.eignex.combo.shared.WitnessSearch
 import com.eignex.combo.shared.WitnessTermination
 import com.eignex.combo.shared.WitnessValidator
 import com.eignex.combo.shared.assignmentKey
-import com.eignex.combo.test.TimedTest
 import com.eignex.klause.schema.not
 import com.eignex.koblas.DenseMatrix
 import com.eignex.koblas.DenseVector
@@ -19,7 +18,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-class JointRefinementTest : TimedTest() {
+class JointRefinementTest {
     @Test
     fun `log improvement remains ordered far beyond ordinary EI zero plateau`() {
         val model = object : FittedSurrogate {

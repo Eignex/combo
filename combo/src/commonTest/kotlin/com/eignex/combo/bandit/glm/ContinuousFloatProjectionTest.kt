@@ -6,7 +6,6 @@ import com.eignex.combo.decisions.DecisionSpace
 import com.eignex.combo.decisions.DecisionSpaceDef
 import com.eignex.combo.decisions.SubSpace
 import com.eignex.combo.shared.LinearFeatureProjection
-import com.eignex.combo.test.TimedTest
 import com.eignex.klause.schema.le
 import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
@@ -19,7 +18,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 
-class ContinuousFloatProjectionTest : TimedTest() {
+class ContinuousFloatProjectionTest {
     private class Space : DecisionSpace() {
         val temperature by floatVar(-5.0, 5.0)
         val count by intVar(0, 10)

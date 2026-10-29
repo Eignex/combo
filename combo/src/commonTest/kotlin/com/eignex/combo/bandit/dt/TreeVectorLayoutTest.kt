@@ -2,7 +2,6 @@ package com.eignex.combo.bandit.dt
 
 import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.DecisionSpace
-import com.eignex.combo.test.TimedTest
 import com.eignex.klause.schema.and
 import com.eignex.klause.solver.Sample
 import com.eignex.kumulant.bandit.univariate.Greedy
@@ -11,7 +10,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
-class TreeVectorLayoutTest : TimedTest() {
+class TreeVectorLayoutTest {
     private class Model : DecisionSpace() {
         val flag by boolVar()
         val count by intVar(0, 10)

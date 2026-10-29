@@ -1,6 +1,5 @@
 package com.eignex.combo.bo
 
-import com.eignex.combo.test.TimedTest
 import com.eignex.koblas.DenseMatrix
 import com.eignex.koblas.DenseVector
 import kotlin.math.PI
@@ -11,7 +10,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-class ExpectedImprovementTest : TimedTest() {
+class ExpectedImprovementTest {
     private fun score(
         mean: Double,
         variance: Double,

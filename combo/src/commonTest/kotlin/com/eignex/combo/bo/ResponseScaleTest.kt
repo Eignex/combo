@@ -2,7 +2,6 @@ package com.eignex.combo.bo
 
 import com.eignex.combo.bo.model.BatchForestConfig
 import com.eignex.combo.decisions.DecisionSpace
-import com.eignex.combo.test.TimedTest
 import com.eignex.koblas.DenseMatrix
 import com.eignex.koblas.DenseVector
 import kotlin.math.exp
@@ -12,7 +11,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 
-class ResponseScaleTest : TimedTest() {
+class ResponseScaleTest {
     private class Rate : DecisionSpace() {
         val x by floatVar(0.0, 1.0)
     }

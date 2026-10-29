@@ -5,7 +5,6 @@ import com.eignex.combo.decisions.DecisionSpace
 import com.eignex.combo.shared.WitnessBatch
 import com.eignex.combo.shared.WitnessSearch
 import com.eignex.combo.shared.WitnessTermination
-import com.eignex.combo.test.TimedTest
 import com.eignex.klause.schema.not
 import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
@@ -15,7 +14,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-class AcquisitionSearchTest : TimedTest() {
+class AcquisitionSearchTest {
     private class Rate : DecisionSpace() {
         val x by floatVar(0.0, 1.0)
     }

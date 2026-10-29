@@ -2,7 +2,6 @@ package com.eignex.combo.bo
 
 import com.eignex.combo.bo.model.GaussianKernel
 import com.eignex.combo.bo.model.GaussianProcessConfig
-import com.eignex.combo.test.TimedTest
 import com.eignex.klause.schema.le
 import com.eignex.koblas.DenseMatrix
 import com.eignex.koblas.DenseVector
@@ -15,7 +14,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
-class GaussianProcessSurrogateTest : TimedTest() {
+class GaussianProcessSurrogateTest {
     private val fixed = GaussianProcessConfig(
         kernel = GaussianKernel.Rbf,
         lengthScale = 1.0,

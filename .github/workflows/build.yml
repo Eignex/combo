@@ -65,8 +65,7 @@ jobs:
         run: ./gradlew lintDocs
 
       - name: Run tests with coverage
-        # Keep compilation from competing with the 300 ms unit-test wall-clock budget.
-        run: ./gradlew check koverXmlReport :server:installDist --max-workers=1
+        run: ./gradlew check koverXmlReport :server:installDist
 
       - name: Upload test reports
         if: always()

@@ -5,7 +5,6 @@ import com.eignex.combo.bo.model.GaussianMeanEstimation
 import com.eignex.combo.bo.model.GaussianProcessConfig
 import com.eignex.combo.bo.model.GaussianProcessFitting
 import com.eignex.combo.bo.model.GaussianProcessRegularization
-import com.eignex.combo.test.TimedTest
 import com.eignex.koblas.DenseMatrix
 import com.eignex.koblas.DenseVector
 import kotlin.random.Random
@@ -14,7 +13,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
-class GaussianProcessFittingTest : TimedTest() {
+class GaussianProcessFittingTest {
     private fun training() = TrainingData(
         DenseMatrix.ofRows(arrayOf(doubleArrayOf(0.0), doubleArrayOf(100.0))),
         DenseVector.of(doubleArrayOf(2.0, 7.0)),

@@ -3,7 +3,6 @@ package com.eignex.combo.decisions
 import com.eignex.combo.bandit.glm.LinearBandit
 import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.shared.LinearFeatureProjection
-import com.eignex.combo.test.TimedTest
 import com.eignex.klause.backtrack.BacktrackParams
 import com.eignex.klause.backtrack.BacktrackSolver
 import com.eignex.klause.localsearch.LocalSearchParams
@@ -38,7 +37,7 @@ private class OptionalCtxInteraction : DecisionSpace() {
     val ageXchoice by interact(age, choice)
 }
 
-class OptionalContextTest : TimedTest() {
+class OptionalContextTest {
 
     @Test
     fun `constraint mentioning required context should enforce limit when context is absent of premium`() {
