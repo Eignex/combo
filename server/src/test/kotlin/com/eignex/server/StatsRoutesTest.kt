@@ -132,7 +132,7 @@ class StatsRoutesTest {
             """{"multiArmed":{"nbrArms":2,"policy":{"thompsonSampling":{"arm":{"bernoulliArm":{}},"posterior":{"betaPosterior":{}}}}}}""",
             """{"multiArmed":{"nbrArms":2,"policy":{"ucb1":{}}}}""",
             """{"rouletteWheel":{"nbrArms":2}}""",
-            """{"boltzmann":{"nbrArms":2}}""",
+            """{"multiArmed":{"nbrArms":2,"policy":{"boltzmann":{}}}}""",
             """{"exp3":{"nbrArms":2}}""",
             """{"topTwoThompson":{"nbrArms":2,"policy":{"arm":{"bernoulliArm":{}},"posterior":{"betaPosterior":{}}}}}""",
         )
