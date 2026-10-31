@@ -53,16 +53,16 @@ kotlin {
                 exclude(group = "com.eignex", module = "koblas")
                 exclude(group = "com.eignex", module = "skema")
             }
-            api("com.eignex:kumulant:0.3.4-20261031.120807-114") {
-                version { strictly("0.3.4-20261031.120807-114") }
+            api("com.eignex:kumulant:0.3.4-20261031.153009-115") {
+                version { strictly("0.3.4-20261031.153009-115") }
                 exclude(group = "com.eignex", module = "koblas")
                 exclude(group = "com.eignex", module = "skema")
             }
             api("com.eignex:koblas:0.1.1-20261028.120512-276") {
                 version { strictly("0.1.1-20261028.120512-276") }
             }
-            api("com.eignex:skema:0.3.1-20261031.095403-41") {
-                version { strictly("0.3.1-20261031.095403-41") }
+            api("com.eignex:skema:0.3.1-20261031.151831-42") {
+                version { strictly("0.3.1-20261031.151831-42") }
             }
             compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-core:1.12.0")
             api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
@@ -80,10 +80,10 @@ dependencies {
     constraints {
         for ((library, platforms) in mapOf(
             "kumulant" to mapOf(
-                "jvm" to "0.3.4-20261031.120807-114",
-                "linuxx64" to "0.3.4-20261031.120807-114",
-                "linuxarm64" to "0.3.4-20261031.120807-114",
-                "macosarm64" to "0.3.4-20261031.120807-113",
+                "jvm" to "0.3.4-20261031.153009-115",
+                "linuxx64" to "0.3.4-20261031.153009-115",
+                "linuxarm64" to "0.3.4-20261031.153009-115",
+                "macosarm64" to "0.3.4-20261031.153009-114",
             ),
             "koblas" to mapOf(
                 "jvm" to "0.1.1-20261028.120512-279",
@@ -92,10 +92,10 @@ dependencies {
                 "macosarm64" to "0.1.1-20261028.120512-299",
             ),
             "skema" to mapOf(
-                "jvm" to "0.3.1-20261031.095403-41",
-                "linuxx64" to "0.3.1-20261031.095403-41",
-                "linuxarm64" to "0.3.1-20261031.095403-41",
-                "macosarm64" to "0.3.1-20261031.095403-41",
+                "jvm" to "0.3.1-20261031.151831-42",
+                "linuxx64" to "0.3.1-20261031.151831-42",
+                "linuxarm64" to "0.3.1-20261031.151831-42",
+                "macosarm64" to "0.3.1-20261031.151831-42",
             ),
         )) {
             for ((platform, pinned) in platforms) {
