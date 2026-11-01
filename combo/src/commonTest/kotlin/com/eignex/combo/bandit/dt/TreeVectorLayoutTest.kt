@@ -4,7 +4,7 @@ import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.DecisionSpace
 import com.eignex.klause.schema.and
 import com.eignex.klause.solver.Sample
-import com.eignex.kumulant.bandit.univariate.Greedy
+import com.eignex.kumulant.bandit.univariate.EpsilonGreedy
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -69,7 +69,7 @@ class TreeVectorLayoutTest {
         val sample = BanditSample(raw)
         val original = RandomForestBandit.build(
             space,
-            policy = Greedy(priorWeight = 0.0),
+            policy = EpsilonGreedy(epsilon = 0.0, priorWeight = 0.0),
             nbrTrees = 3,
             bagging = false,
             randomSeed = 3,
@@ -79,7 +79,7 @@ class TreeVectorLayoutTest {
         original.train(sample, 100.0)
         val replica = RandomForestBandit.build(
             space,
-            policy = Greedy(priorWeight = 0.0),
+            policy = EpsilonGreedy(epsilon = 0.0, priorWeight = 0.0),
             nbrTrees = 3,
             bagging = false,
             randomSeed = 4,
@@ -95,9 +95,9 @@ class TreeVectorLayoutTest {
     fun `single tree snapshots transfer learned state`() {
         val space = Model().compileSpace()
         val sample = BanditSample(sample(space))
-        val original = DecisionTreeBandit(space, Greedy(priorWeight = 0.0), { _, _ -> sample.sample })
+        val original = DecisionTreeBandit(space, EpsilonGreedy(epsilon = 0.0, priorWeight = 0.0), { _, _ -> sample.sample })
         repeat(2) { original.train(sample, 7.0) }
-        val replica = DecisionTreeBandit(space, Greedy(priorWeight = 0.0), { _, _ -> sample.sample })
+        val replica = DecisionTreeBandit(space, EpsilonGreedy(epsilon = 0.0, priorWeight = 0.0), { _, _ -> sample.sample })
         replica.importData(original.exportData())
         assertEquals(7.0, replica.predict(sample), 1e-12)
     }

@@ -13,7 +13,7 @@ import com.eignex.klause.schema.not
 import com.eignex.klause.solver.Sample
 import com.eignex.klause.solver.result.SampleResult
 import com.eignex.klause.solver.result.TerminationReason
-import com.eignex.kumulant.bandit.univariate.Greedy
+import com.eignex.kumulant.bandit.univariate.EpsilonGreedy
 import com.eignex.kumulant.stat.regression.tree.RegressionTreeConfig
 import kotlin.random.Random
 import kotlin.test.Test
@@ -58,7 +58,7 @@ class HybridRandomForestTest {
         )
         val forest = RandomForestBandit.build(
             space,
-            policy = Greedy(),
+            policy = EpsilonGreedy(epsilon = 0.0),
             proposeSample = { rng, scope -> hybrid.search(rng, scope).assignment },
             descentSession = hybrid,
             nbrTrees = 3,
@@ -90,7 +90,7 @@ class HybridRandomForestTest {
         }
         val forest = RandomForestBandit.build(
             space,
-            policy = Greedy(),
+            policy = EpsilonGreedy(epsilon = 0.0),
             proposeSample = { _, _ -> error("unexpected fallback") },
             descentSession = session,
             nbrTrees = 1,
@@ -107,7 +107,7 @@ class HybridRandomForestTest {
         var fallbackScope: Assumptions? = null
         val forest = RandomForestBandit.build(
             space,
-            policy = Greedy(),
+            policy = EpsilonGreedy(epsilon = 0.0),
             proposeSample = { _, _ -> null },
             nbrTrees = 1,
             optimizeFallback = { objective, scope ->

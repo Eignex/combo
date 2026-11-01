@@ -12,10 +12,11 @@ import com.eignex.klause.localsearch.LocalSearchSolver
 import com.eignex.klause.propagation.bake
 import com.eignex.klause.solver.Sample
 import com.eignex.klause.solver.SolveResult
-import com.eignex.kumulant.bandit.univariate.Greedy
+import com.eignex.kumulant.bandit.univariate.EpsilonGreedy
+import com.eignex.kumulant.schema.ops.maeLoss
+import com.eignex.kumulant.schema.ops.mseLoss
+import com.eignex.kumulant.schema.runtime.materialize
 import com.eignex.kumulant.stat.regression.tree.RegressionTreeConfig
-import com.eignex.kumulant.stat.score.MaeLossStat
-import com.eignex.kumulant.stat.score.MseLossStat
 import com.eignex.kumulant.stat.summary.MeanStat
 import kotlin.math.abs
 import kotlin.test.Test
@@ -47,7 +48,7 @@ class DecisionTreeBanditTest : PredictionBanditTestSuite<DecisionTreeData>() {
         )
         return DecisionTreeBandit(
             space = space,
-            policy = Greedy(),
+            policy = EpsilonGreedy(epsilon = 0.0),
             // LS→BacktrackSolver cascade: definitive UNSAT or a witness LS missed.
             proposeSample = { rng, assumptions ->
                 session.sample(LocalSearchParams(randomSeed = rng.nextLong(), assumptions = assumptions)).assignment
@@ -63,7 +64,7 @@ class DecisionTreeBanditTest : PredictionBanditTestSuite<DecisionTreeData>() {
                         else -> null
                     }
             },
-            tree = Tree(Greedy(), defaultSplitCandidates(space), config),
+            tree = Tree(EpsilonGreedy(epsilon = 0.0), defaultSplitCandidates(space), config),
             retryBudget = 32,
             randomSeed = randomSeed,
             maximize = maximize,
@@ -77,11 +78,11 @@ class DecisionTreeBanditTest : PredictionBanditTestSuite<DecisionTreeData>() {
             val enabled by boolVar()
         }
         val sample = Sample(booleanArrayOf(false), longArrayOf())
-        val before = MseLossStat()
-        val after = MaeLossStat()
+        val before = mseLoss().materialize()
+        val after = maeLoss().materialize()
         val bandit = DecisionTreeBandit(
             model.compileSpace(),
-            Greedy(),
+            EpsilonGreedy(epsilon = 0.0),
             { _, _ -> sample },
             testScore = before,
             trainScore = after,

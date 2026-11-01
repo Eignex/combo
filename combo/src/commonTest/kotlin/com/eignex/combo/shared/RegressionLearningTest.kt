@@ -4,10 +4,11 @@ import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.Context
 import com.eignex.klause.solver.Sample
 import com.eignex.koblas.DenseVector
+import com.eignex.kumulant.schema.ops.logLoss
+import com.eignex.kumulant.schema.ops.maeLoss
+import com.eignex.kumulant.schema.ops.mseLoss
+import com.eignex.kumulant.schema.runtime.materialize
 import com.eignex.kumulant.stat.regression.glm.DiagonalRegressionStat
-import com.eignex.kumulant.stat.score.LogLossStat
-import com.eignex.kumulant.stat.score.MaeLossStat
-import com.eignex.kumulant.stat.score.MseLossStat
 import com.eignex.kumulant.stat.summary.SumStat
 import kotlin.math.abs
 import kotlin.math.ln
@@ -20,8 +21,8 @@ class RegressionLearningTest {
     fun `update measures weighted errors before and after training using the same features`() {
         val regression = DiagonalRegressionStat(1)
         val rewards = SumStat()
-        val before = MseLossStat()
-        val after = MaeLossStat()
+        val before = mseLoss().materialize()
+        val after = maeLoss().materialize()
         var encodings = 0
         val features = DenseVector.of(doubleArrayOf(1.0))
         val learning = RegressionLearning(
@@ -50,7 +51,7 @@ class RegressionLearningTest {
     fun `off policy training leaves reward and error tracking untouched`() {
         val regression = DiagonalRegressionStat(1)
         val rewards = SumStat()
-        val metrics = MaeLossStat()
+        val metrics = maeLoss().materialize()
         val learning = RegressionLearning(
             regression,
             { _, _ -> DenseVector.of(doubleArrayOf(1.0)) },
@@ -69,8 +70,8 @@ class RegressionLearningTest {
     @Test
     fun `feedback passes predictions before outcomes to weighted paired scorers`() {
         var prediction = 0.2
-        val before = LogLossStat()
-        val after = MseLossStat()
+        val before = logLoss().materialize()
+        val after = mseLoss().materialize()
         val feedback = LearningFeedback(
             encode = { _: BanditSample, _: Context -> Unit },
             mean = { _: Unit -> prediction },

@@ -14,7 +14,7 @@ import com.eignex.klause.schema.and
 import com.eignex.klause.schema.not
 import com.eignex.klause.solver.Sample
 import com.eignex.klause.solver.SolveResult
-import com.eignex.kumulant.bandit.univariate.Greedy
+import com.eignex.kumulant.bandit.univariate.EpsilonGreedy
 import com.eignex.kumulant.stat.regression.tree.RegressionTreeConfig
 import com.eignex.kumulant.stat.summary.MeanStat
 import kotlin.random.Random
@@ -41,7 +41,7 @@ class RandomForestBanditTest : PredictionBanditTestSuite<ForestData>() {
         ) { rng -> LocalSearchParams(randomSeed = rng.nextLong()) }
         return RandomForestBandit.build(
             space = space,
-            policy = Greedy(),
+            policy = EpsilonGreedy(epsilon = 0.0),
             descentSession = descentSession,
             // Cascade: LS first (fast common case); on null escalate to BacktrackSolver
             // (complete) so null from proposeSample means *definitive* UNSAT rather than
@@ -70,7 +70,7 @@ class RandomForestBanditTest : PredictionBanditTestSuite<ForestData>() {
     }
 
     /**
-     * With [Greedy] (deterministic) + `mtry = null` (every tree sees every candidate)
+     * With [EpsilonGreedy] at `epsilon = 0` (deterministic scores) + `mtry = null` (every tree sees every candidate)
      * the only diversity source is online bagging. Disable it and the forest collapses
      * to N copies of the same tree; enable it and the per-tree leaf means diverge.
      * This sanity-checks that Poisson(1) reweighting actually does something.
@@ -90,7 +90,7 @@ class RandomForestBanditTest : PredictionBanditTestSuite<ForestData>() {
             val cfg = RegressionTreeConfig(splitPeriod = 5, minSamplesSplit = 10.0, minSamplesLeaf = 2.0)
             return RandomForestBandit.build(
                 space = space,
-                policy = Greedy(),
+                policy = EpsilonGreedy(epsilon = 0.0),
                 proposeSample = sampler,
                 nbrTrees = 8,
                 config = cfg,
@@ -159,7 +159,7 @@ class RandomForestBanditTest : PredictionBanditTestSuite<ForestData>() {
         }
         val bandit = RandomForestBandit.build(
             space = space,
-            policy = Greedy(),
+            policy = EpsilonGreedy(epsilon = 0.0),
             proposeSample = sampler,
             optimizeFallback = { obj, asmps ->
                 session.minimize(

@@ -16,8 +16,9 @@ import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
 import com.eignex.koblas.DenseVector
 import com.eignex.koblas.Vector
-import com.eignex.kumulant.stat.score.MaeLossStat
-import com.eignex.kumulant.stat.score.MseLossStat
+import com.eignex.kumulant.schema.ops.maeLoss
+import com.eignex.kumulant.schema.ops.mseLoss
+import com.eignex.kumulant.schema.runtime.materialize
 import com.eignex.kumulant.stat.summary.SumStat
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -304,8 +305,8 @@ class RandomForestOptimizerTest {
     fun `history learners share weighted reward and pre and post training error tracking`() {
         val space = Toggle().compileSpace()
         val rewards = SumStat()
-        val before = MseLossStat()
-        val after = MaeLossStat()
+        val before = mseLoss().materialize()
+        val after = maeLoss().materialize()
         val optimizer = RandomForestOptimizer(
             LinearFeatureProjection(space),
             rewards = rewards,

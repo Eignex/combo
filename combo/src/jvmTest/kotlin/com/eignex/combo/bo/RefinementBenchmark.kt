@@ -9,7 +9,8 @@ import com.eignex.combo.shared.WitnessBatch
 import com.eignex.combo.shared.WitnessSearch
 import com.eignex.combo.shared.WitnessTermination
 import com.eignex.koblas.DenseVector
-import com.eignex.kumulant.stat.score.MseLossStat
+import com.eignex.kumulant.schema.ops.mseLoss
+import com.eignex.kumulant.schema.runtime.materialize
 import com.eignex.kumulant.stat.summary.MeanStat
 import com.eignex.kumulant.stat.summary.estimateMean
 import java.io.File
@@ -47,10 +48,10 @@ private fun frozen(seed: Int, name: String, size: Int, output: File) {
         )
         val fitted = ForestSurrogate(config, uncertainty).fit(data, Random(seed))
         val moments = fitted.predict(queries)
-        val loss = MseLossStat()
+        val loss = mseLoss().materialize()
         val coverage = MeanStat()
         val width = MeanStat()
-        val topLoss = MseLossStat()
+        val topLoss = mseLoss().materialize()
         val topCoverage = MeanStat()
         val topThreshold = candidates.map(problem.truth).sorted()[candidates.size / 10]
         for (i in candidates.indices) {
