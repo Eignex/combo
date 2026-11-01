@@ -296,7 +296,7 @@ Undefined or non-finite statistical outputs are JSON `null`.
 For example, create a two-arm bandit:
 
 ```json
-{"stat":{"multiArmed":{"nbrArms":2,"policy":{"greedy":{}}}},"seed":42}
+{"stat":{"multiArmed":{"nbrArms":2,"policy":{"epsilonGreedy":{"epsilon":0.0}}}},"seed":42}
 ```
 
 `POST /v1/models/{id}/propose` with `{}` returns
