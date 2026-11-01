@@ -53,8 +53,8 @@ kotlin {
                 exclude(group = "com.eignex", module = "koblas")
                 exclude(group = "com.eignex", module = "skema")
             }
-            api("com.eignex:kumulant:0.3.4-20261031.205003-119") {
-                version { strictly("0.3.4-20261031.205003-119") }
+            api("com.eignex:kumulant:0.3.4-20261031.230856-124") {
+                version { strictly("0.3.4-20261031.230856-124") }
                 exclude(group = "com.eignex", module = "koblas")
                 exclude(group = "com.eignex", module = "skema")
             }
@@ -80,10 +80,10 @@ dependencies {
     constraints {
         for ((library, platforms) in mapOf(
             "kumulant" to mapOf(
-                "jvm" to "0.3.4-20261031.205003-119",
-                "linuxx64" to "0.3.4-20261031.205003-119",
-                "linuxarm64" to "0.3.4-20261031.205003-119",
-                "macosarm64" to "0.3.4-20261031.205003-118",
+                "jvm" to "0.3.4-20261031.230856-124",
+                "linuxx64" to "0.3.4-20261031.230856-124",
+                "linuxarm64" to "0.3.4-20261031.230856-124",
+                "macosarm64" to "0.3.4-20261031.230856-123",
             ),
             "koblas" to mapOf(
                 "jvm" to "0.1.1-20261028.120512-279",
