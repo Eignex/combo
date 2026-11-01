@@ -8,12 +8,6 @@ import com.eignex.kumulant.schema.ops.mseLoss
 import com.eignex.kumulant.schema.runtime.materialize
 import com.eignex.kumulant.stat.summary.MeanStat
 import com.sun.management.ThreadMXBean
-import java.io.File
-import java.lang.management.ManagementFactory
-import java.util.zip.GZIPInputStream
-import kotlin.math.abs
-import kotlin.math.sqrt
-import kotlin.random.Random
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
@@ -25,6 +19,12 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import java.io.File
+import java.lang.management.ManagementFactory
+import java.util.zip.GZIPInputStream
+import kotlin.math.abs
+import kotlin.math.sqrt
+import kotlin.random.Random
 
 /** Optional diagnostics: never use objective truth to fit a model or choose a recommendation. */
 fun main(args: Array<String>) {
