@@ -122,6 +122,7 @@ class HybridDescentSession(
     }
 
     override fun witnesses(request: WitnessRequest, random: Random): WitnessBatch {
+        check(depth == 0) { "batch requests require an empty assumption stack" }
         if (request.context.hasRealValues) {
             val scoped = requireNotNull(conditionedSearch) { "this witness provider cannot condition real contexts" }
             return scoped(request.context).witnesses(
@@ -132,7 +133,6 @@ class HybridDescentSession(
                 random,
             )
         }
-        check(depth == 0) { "batch requests require an empty assumption stack" }
         val found = linkedMapOf<AssignmentKey, Sample>()
         val excluded = request.exclude.map { it.assignmentKey() }.toSet()
         fun capture(sample: Sample) {
