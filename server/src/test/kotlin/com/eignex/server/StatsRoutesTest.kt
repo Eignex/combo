@@ -112,7 +112,7 @@ class StatsRoutesTest {
     @Test
     fun `ordinary bandits choose using retained rewards`() = testApplication {
         application { resourceApi() }
-        val stat = client.stat("""{"multiArmed":{"nbrArms":2,"policy":{"greedy":{}}}}""")
+        val stat = client.stat("""{"multiArmed":{"nbrArms":2,"policy":{"epsilonGreedy":{"epsilon":0.0}}}}""")
         for ((arm, reward) in listOf(0 to 1.0, 1 to 4.0)) {
             val update = client.send("/v1/models/${stat.id}/observe", """{"arm":$arm,"reward":$reward}""")
             assertEquals(HttpStatusCode.OK, update.status, update.bodyAsText())
@@ -175,7 +175,7 @@ class StatsRoutesTest {
     fun `tracked bandits expose their native observation statistics`() = testApplication {
         application { resourceApi() }
         val stat = client.stat("""
-            {"tracked":{"inner":{"multiArmed":{"nbrArms":2,"policy":{"greedy":{}}}},
+            {"tracked":{"inner":{"multiArmed":{"nbrArms":2,"policy":{"epsilonGreedy":{"epsilon":0.0}}}},
             "chooseTemplate":{"count":{}},"updateArmRewardTemplate":{"covariance":{}}}}
         """.trimIndent())
         val choice = client.send("/v1/models/${stat.id}/propose", "{}")
