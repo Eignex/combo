@@ -95,9 +95,17 @@ class TreeVectorLayoutTest {
     fun `single tree snapshots transfer learned state`() {
         val space = Model().compileSpace()
         val sample = BanditSample(sample(space))
-        val original = DecisionTreeBandit(space, EpsilonGreedy(epsilon = 0.0, priorWeight = 0.0), { _, _ -> sample.sample })
+        val original = DecisionTreeBandit(
+            space,
+            EpsilonGreedy(epsilon = 0.0, priorWeight = 0.0),
+            { _, _ -> sample.sample },
+        )
         repeat(2) { original.train(sample, 7.0) }
-        val replica = DecisionTreeBandit(space, EpsilonGreedy(epsilon = 0.0, priorWeight = 0.0), { _, _ -> sample.sample })
+        val replica = DecisionTreeBandit(
+            space,
+            EpsilonGreedy(epsilon = 0.0, priorWeight = 0.0),
+            { _, _ -> sample.sample },
+        )
         replica.importData(original.exportData())
         assertEquals(7.0, replica.predict(sample), 1e-12)
     }
