@@ -1,6 +1,7 @@
 package com.eignex.combo.bo
 
-import com.eignex.kumulant.stat.score.MaeLossStat
+import com.eignex.kumulant.schema.ops.maeLoss
+import com.eignex.kumulant.schema.runtime.materialize
 import com.eignex.kumulant.stat.summary.MeanStat
 import java.io.File
 import kotlin.math.exp
@@ -28,7 +29,7 @@ internal fun scoreGpConvergence(directory: File) {
             if (precise.isEmpty()) continue
             for ((run, estimates) in fixture.groupBy { it.getValue("replicate") to it.getValue("samples") }) {
                 for (kind in listOf("raw", "log")) {
-                    val loss = MaeLossStat()
+                    val loss = maeLoss().materialize()
                     val zero = MeanStat()
                     for (row in estimates) {
                         val estimate = row.getValue(kind).toDouble()

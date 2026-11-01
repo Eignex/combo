@@ -11,7 +11,8 @@ import com.eignex.combo.shared.WitnessTermination
 import com.eignex.combo.shared.WitnessValidator
 import com.eignex.combo.shared.assignmentKey
 import com.eignex.koblas.DenseVector
-import com.eignex.kumulant.stat.score.MseLossStat
+import com.eignex.kumulant.schema.ops.mseLoss
+import com.eignex.kumulant.schema.runtime.materialize
 import com.eignex.kumulant.stat.summary.MeanStat
 import java.io.File
 import kotlin.math.abs
@@ -62,8 +63,8 @@ private fun gpFrozen(name: String, seed: Int, count: Int, output: File) {
         val raw = gpSurrogate(algorithm, projection.featureSize).fit(data, Random(seed))
         val fitted = response.model(raw)
         val moments = fitted.predict(queries)
-        val loss = MseLossStat()
-        val topLoss = MseLossStat()
+        val loss = mseLoss().materialize()
+        val topLoss = mseLoss().materialize()
         val coverage = MeanStat()
         val width = MeanStat()
         for (i in candidates.indices) {

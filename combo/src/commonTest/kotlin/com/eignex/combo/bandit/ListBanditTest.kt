@@ -7,7 +7,7 @@ import com.eignex.combo.shared.Learner
 import com.eignex.combo.shared.NoFeasibleSampleException
 import com.eignex.klause.solver.Sample
 import com.eignex.kumulant.bandit.univariate.BetaBernoulliTS
-import com.eignex.kumulant.bandit.univariate.Greedy
+import com.eignex.kumulant.bandit.univariate.EpsilonGreedy
 import com.eignex.kumulant.stat.summary.BernoulliSumResult
 import com.eignex.kumulant.stat.summary.MeanStat
 import kotlin.test.Test
@@ -49,7 +49,7 @@ class ListBanditTest {
     fun `recorded rewards select the better arm without a convergence run`() {
         val space = TinyBoolSpace().compileSpace()
         val samples = (0..3).map { Sample(booleanArrayOf(it and 1 != 0, it and 2 != 0), longArrayOf()) }
-        val bandit = ListBandit(samples, Greedy(priorWeight = 0.0), space, randomSeed = 7)
+        val bandit = ListBandit(samples, EpsilonGreedy(epsilon = 0.0, priorWeight = 0.0), space, randomSeed = 7)
         for (sample in samples) {
             bandit.update(com.eignex.combo.decisions.BanditSample(sample), if (sample.bools[0]) 1.0 else 0.0)
         }

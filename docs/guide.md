@@ -253,13 +253,13 @@ weights are rejected. Import/export transfers schema-bound history snapshots.
 
 Prediction learners accept `testScore` and `trainScore` as Kumulant `PairedStat`
 scorers. They receive `(prediction, observed reward)` before and after learning,
-respectively, with the observation weight. Use `MaeLossStat()` for mean absolute
-error or `MseLossStat()` for mean squared error; callers can provide other paired
+respectively, with the observation weight. Use `maeLoss().materialize()` for mean absolute
+error or `mseLoss().materialize()` for mean squared error; callers can provide other paired
 scorers appropriate to their model. Off-policy `train` leaves reward and score
 tracking untouched. Configuring these scorers can trigger additional fits during updates.
 
 The former `testAbsError` / `trainAbsError` scalar sinks are replaced by these paired
-scorers. Replace an absolute-error `MeanStat()` sink with `MaeLossStat()` and read its
+scorers. Replace an absolute-error `MeanStat()` sink with `maeLoss().materialize()` and read its
 weighted mean and total weight. For a former `SumStat()` sink, the weighted total
 is `result.mean * result.totalWeights`. Loss calculation and aggregation belong to Kumulant.
 

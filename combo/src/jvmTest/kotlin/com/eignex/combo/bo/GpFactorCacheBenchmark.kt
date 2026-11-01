@@ -6,7 +6,8 @@ import com.eignex.koblas.DenseVector
 import com.eignex.koblas.koblas
 import com.eignex.kumulant.math.factorCholesky
 import com.eignex.kumulant.math.nextNormal
-import com.eignex.kumulant.stat.score.MaeLossStat
+import com.eignex.kumulant.schema.ops.maeLoss
+import com.eignex.kumulant.schema.runtime.materialize
 import com.eignex.kumulant.stat.summary.MeanStat
 import java.io.File
 import kotlin.math.abs
@@ -94,7 +95,7 @@ fun main(args: Array<String>) {
                     cachedNanos = cached()
                     fullNanos = full()
                 }
-                val error = MaeLossStat()
+                val error = maeLoss().materialize()
                 for (i in fullValues.indices) {
                     check(abs(fullValues[i] - cachedValues[i]) < 1e-8)
                     error.update(cachedValues[i], fullValues[i], 0L)

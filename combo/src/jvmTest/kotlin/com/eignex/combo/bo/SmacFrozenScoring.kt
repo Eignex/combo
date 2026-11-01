@@ -1,6 +1,7 @@
 package com.eignex.combo.bo
 
-import com.eignex.kumulant.stat.score.MseLossStat
+import com.eignex.kumulant.schema.ops.mseLoss
+import com.eignex.kumulant.schema.runtime.materialize
 import com.eignex.kumulant.stat.summary.MeanStat
 import java.io.File
 import kotlin.math.abs
@@ -16,8 +17,8 @@ internal fun scoreSmacPredictions(input: File, output: File) {
         val rows = mutableListOf<FrozenPrediction>()
         fun flush() {
             if (rows.isEmpty()) return
-            val loss = MseLossStat()
-            val topLoss = MseLossStat()
+            val loss = mseLoss().materialize()
+            val topLoss = mseLoss().materialize()
             val coverage = MeanStat()
             val topCoverage = MeanStat()
             val width = MeanStat()

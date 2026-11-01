@@ -7,7 +7,8 @@ import com.eignex.combo.shared.WitnessBatch
 import com.eignex.combo.shared.WitnessSearch
 import com.eignex.combo.shared.WitnessTermination
 import com.eignex.combo.shared.assignmentKey
-import com.eignex.kumulant.stat.score.MaeLossStat
+import com.eignex.kumulant.schema.ops.maeLoss
+import com.eignex.kumulant.schema.runtime.materialize
 import com.eignex.kumulant.stat.summary.MeanStat
 import java.io.File
 import kotlin.math.PI
@@ -261,8 +262,8 @@ private fun scoreFrozenReference() {
     for (kind in listOf("qei", "qnei")) {
         for (q in listOf("1", "2")) {
             val selected = rows.filter { it[0].endsWith(kind) && it[1] == q }
-            val fixed = MaeLossStat()
-            val precise = MaeLossStat()
+            val fixed = maeLoss().materialize()
+            val precise = maeLoss().materialize()
             val zeros = MeanStat()
             for (row in selected) {
                 fixed.update(row[3].toDouble(), row[4].toDouble(), 0L)

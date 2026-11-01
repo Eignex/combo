@@ -4,9 +4,16 @@ import com.eignex.combo.bo.model.GaussianProcessConfig
 import com.eignex.combo.decisions.Context
 import com.eignex.koblas.DenseMatrix
 import com.eignex.koblas.DenseVector
-import com.eignex.kumulant.stat.score.MseLossStat
+import com.eignex.kumulant.schema.ops.mseLoss
+import com.eignex.kumulant.schema.runtime.materialize
 import com.eignex.kumulant.stat.summary.MeanStat
 import com.sun.management.ThreadMXBean
+import java.io.File
+import java.lang.management.ManagementFactory
+import java.util.zip.GZIPInputStream
+import kotlin.math.abs
+import kotlin.math.sqrt
+import kotlin.random.Random
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
@@ -18,12 +25,6 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
-import java.io.File
-import java.lang.management.ManagementFactory
-import java.util.zip.GZIPInputStream
-import kotlin.math.abs
-import kotlin.math.sqrt
-import kotlin.random.Random
 
 /** Optional diagnostics: never use objective truth to fit a model or choose a recommendation. */
 fun main(args: Array<String>) {
@@ -99,8 +100,8 @@ private fun auditRecommendations() {
             val modelObserved = observed.indices.minBy { means[4096 + it] }
             val bestTruth = observed.minOf(problem.truth)
             val topThreshold = heldout.map(problem.truth).sorted()[409]
-            val mse = MseLossStat()
-            val top = MseLossStat()
+            val mse = mseLoss().materialize()
+            val top = mseLoss().materialize()
             val coverage = MeanStat()
             val topCoverage = MeanStat()
             for (i in heldout.indices) {

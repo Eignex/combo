@@ -7,7 +7,8 @@ import com.eignex.combo.shared.assignmentKey
 import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
 import com.eignex.kumulant.core.PairedStat
-import com.eignex.kumulant.stat.score.MaeLossStat
+import com.eignex.kumulant.schema.ops.maeLoss
+import com.eignex.kumulant.schema.runtime.materialize
 import com.eignex.kumulant.stat.summary.WeightedMeanResult
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -164,7 +165,7 @@ class RacingOptimizerTest {
 
     @Test
     fun `metric failures after observation commit still close workers exactly once`() {
-        val sink = object : PairedStat<WeightedMeanResult> by MaeLossStat() {
+        val sink = object : PairedStat<WeightedMeanResult> by maeLoss().materialize() {
             override fun update(x: Double, y: Double, timestampNanos: Long, weight: Double) = error(
                 "metric unavailable",
             )

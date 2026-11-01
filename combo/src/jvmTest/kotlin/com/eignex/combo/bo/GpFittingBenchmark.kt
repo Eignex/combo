@@ -6,7 +6,8 @@ import com.eignex.combo.bo.model.GaussianProcessConfig
 import com.eignex.combo.bo.model.GaussianProcessFitting
 import com.eignex.combo.bo.model.GaussianProcessRegularization
 import com.eignex.combo.decisions.Context
-import com.eignex.kumulant.stat.score.MseLossStat
+import com.eignex.kumulant.schema.ops.mseLoss
+import com.eignex.kumulant.schema.runtime.materialize
 import com.eignex.kumulant.stat.summary.MeanStat
 import java.io.File
 import java.util.zip.GZIPInputStream
@@ -143,8 +144,8 @@ private fun auditFitting(output: File, sensitivity: Boolean = false) {
                 )
                 val points = heldout + observed + recommendation
                 val prediction = model.predict(featureRows(points.map { projection.encode(it) }, d))
-                val mse = MseLossStat()
-                val top = MseLossStat()
+                val mse = mseLoss().materialize()
+                val top = mseLoss().materialize()
                 val coverage = MeanStat()
                 val topCoverage = MeanStat()
                 for (i in heldout.indices) {

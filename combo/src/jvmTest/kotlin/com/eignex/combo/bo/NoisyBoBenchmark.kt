@@ -4,7 +4,8 @@ import com.eignex.combo.bo.model.BatchForestConfig
 import com.eignex.combo.bo.model.BatchSplitStrategy
 import com.eignex.combo.decisions.BanditSample
 import com.eignex.kumulant.math.nextNormal
-import com.eignex.kumulant.stat.score.MseLossStat
+import com.eignex.kumulant.schema.ops.mseLoss
+import com.eignex.kumulant.schema.runtime.materialize
 import com.eignex.kumulant.stat.summary.MeanStat
 import java.io.File
 import kotlin.math.abs
@@ -68,10 +69,10 @@ internal fun diagnoseNoisy(
         optimizer.store.snapshot().observations.map { it.sample } + listOf(small, large)
     val moments = model.predict(featureRows(points.map { optimizer.projection.encode(it) }, 2))
     val best = moments.means.toDoubleArray().indices.minBy { moments.means[it] }
-    val mse = MseLossStat()
+    val mse = mseLoss().materialize()
     val latent = MeanStat()
     val observed = MeanStat()
-    val topMse = MseLossStat()
+    val topMse = mseLoss().materialize()
     val topCoverage = MeanStat()
     val threshold = points.take(4096).map(problem.truth).sorted()[409]
     for (i in 0 until 4096) {
