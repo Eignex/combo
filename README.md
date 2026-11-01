@@ -10,39 +10,106 @@
 
 # COMBO
 
-Combo optimizes typed Klause configurations under constraints. The library separates
-algorithms by how they consume observations:
+Combo is a general-purpose toolkit for constrained decisions, statistics, and
+learning from outcomes. It combines a Kotlin Multiplatform library with an HTTP
+server, so applications can solve a known objective, adapt decisions as feedback
+arrives, or search for a configuration whose quality must be measured.
 
-| Package | Data model | Algorithms |
-| --- | --- | --- |
-| `com.eignex.combo.bandit` | Streaming updates to model state | Online random forest, linear bandit, univariate bandits |
-| `com.eignex.combo.bo` | Retained evaluation history and batch refitting | SMAC-style expected improvement, bootstrap forest Thompson sampling, GP/EI |
-| `com.eignex.combo.shared` | Common learner interfaces, feature encoding, feedback, and feasible search | Used by both families |
+Use it for resource allocation, service configuration, experiment design,
+hyperparameter tuning, personalization, or other decisions with typed variables
+and hard constraints. The same decision space can support direct optimization,
+online learning, and Bayesian optimization.
 
-All public packages use the `com.eignex.combo` prefix. Common learner contracts and
-numeric feature encoders live in `com.eignex.combo.shared`.
+## What you can do
 
-Streaming learners keep sufficient statistics and incremental tree state. History-based
-optimizers keep the evaluations themselves and can reconsider every observation when
-rebuilding a model. This data-flow distinction applies whether an application targets
-cumulative reward or the best final configuration.
+| Task | Approach |
+| --- | --- |
+| Find a feasible decision or optimize a known objective | Model variables and constraints, then solve through Klause |
+| Track measurements as they arrive | Maintain Kumulant statistics, including means, moving averages, and composed summaries |
+| Adapt repeated decisions to feedback | Use contextual bandits with online random forest, linear, or univariate learners |
+| Tune an expensive or noisy black-box objective | Use history-based Bayesian optimization with random forest or Gaussian-process surrogates |
+| Run evaluations concurrently | Request trial batches, retain pending evaluations, and report outcomes as they finish |
+| Make decisions using current measurements | Bind named statistics into a decision model as statistical inputs |
 
-Both families use the same decision-space schema and contextual variables.
-[Klause](https://github.com/Eignex/klause) owns constraints and feasible witnesses;
-[Kumulant](https://github.com/Eignex/kumulant) supplies streaming models, statistical summaries, posterior
-sampling, and shared tree snapshots. Combo owns full-history model fitting and acquisition functions, including
-Gaussian and lognormal expected improvement, and their optimization over feasible configurations.
+Choose the [Kotlin library](#library-architecture) for embedded learners and optimizer composition,
+or the [Eignex Server](server/README.md) for a shared HTTP API covering statistics,
+decisions, and observed outcomes. The library targets JVM, Linux x64, Linux ARM64,
+and macOS ARM64; HTTP clients can use any language.
 
-The [Eignex Server](server/README.md) runs Klause, Kumulant, and Combo through one
-HTTP API with a shared model contract for statistics, decisions, and learning from
-outcomes. Start it with
-`./gradlew :server:run`.
+## Quick start: a constrained decision over HTTP
 
-Using it requires three steps:
+Start the server:
 
-1. Declare the decision space with its variables, sub-spaces, and constraints.
-2. Pick a streaming learner or history-based optimizer and wire it to the compiled space.
-3. Loop choose → serve the configuration → update with the observed reward.
+```sh
+./gradlew :server:run
+```
+
+Create a model that allocates enough workers for the current load while minimizing
+the number of workers:
+
+```sh
+curl -sS http://127.0.0.1:8080/v1/models \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "space": {
+      "variables": {"workers": {"int": [1, 8]}},
+      "context": {"load": {"int": [1, 8]}},
+      "constraints": {
+        "capacity": {"ge": [{"ref": "workers"}, {"ref": "load"}]}
+      }
+    },
+    "objective": {"minimize": "workers"}
+  }'
+```
+
+Use the returned `id` in a recommendation request:
+
+```sh
+curl -sS 'http://127.0.0.1:8080/v1/models/<id>/recommend' \
+  -H 'Content-Type: application/json' \
+  -d '{"given": {"load": 3}}'
+```
+
+The response reports `status: "optimal"` and `values: {"workers": 3}`. No training
+data is needed for a known objective. When quality must be measured instead, declare
+an observed outcome and use the propose → evaluate → observe loop. See the
+[server guide](server/README.md) for statistics, learned objectives, and the full
+model lifecycle.
+
+## Decision space
+
+The decision space describes what can vary, which values the caller supplies as
+context, and which combinations are allowed. Variables can be Boolean, integer,
+continuous, nominal (pick one), or multi-select (pick a subset), with nested and
+optional sub-spaces. Context stays fixed during each decision.
+
+For example, this server model tunes a service's worker count, batch size, and
+cache setting to minimize measured latency while respecting the current worker
+limit:
+
+```json
+{
+  "space": {
+    "variables": {
+      "workers": {"int": [1, 32]},
+      "batchSize": {"int": [1, 256]},
+      "cache": "bool"
+    },
+    "context": {
+      "workerLimit": {"int": [1, 32]}
+    },
+    "constraints": {
+      "capacity": {"le": [{"ref": "workers"}, {"ref": "workerLimit"}]}
+    }
+  },
+  "objective": {"minimize": "latency"},
+  "outcome": "latency"
+}
+```
+
+Constraints use structured expressions in JSON or the typed Kotlin DSL. Proposed
+decisions are checked against the original constraints. Bounded search may return
+no proposal or an `unknown` result when its budget runs out.
 
 A complete Klause `Problem` can also be used directly, including native factors,
 sparse or open domains, and exact constants:
@@ -61,50 +128,31 @@ factor representation. Native search delegates source routing to Klause, retaini
 open-domain and exact-result semantics. The [HTTP API](server/README.md#native-problems)
 embeds the same canonical document under `problem`.
 
-## Decision space
+## Library architecture
 
-The decision space describes what the optimizer can vary. In the example below the
-bandit picks an LLM agent setup (model, temperature, prompt style, and tools) per
-request, conditioned on the task type and user tier, and learns from whether the run
-succeeded.
+[Klause](https://github.com/Eignex/klause) owns constraints and feasible witnesses;
+[Kumulant](https://github.com/Eignex/kumulant) supplies streaming models, statistical
+summaries, posterior sampling, and shared tree snapshots. Combo composes these with
+decision models, full-history model fitting, and acquisition functions, including
+Gaussian and lognormal expected improvement and their optimization over feasible
+configurations.
 
-```json
-{
-  "decisionSpace": {
-    "name": "AgentPolicy",
+The learning algorithms differ in how they consume observations:
 
-    "context": {
-      "taskType": { "type": "nominal", "labels": ["coding", "writing", "research", "casual"] },
-      "userTier": { "type": "nominal", "labels": ["free", "pro", "enterprise"] }
-    },
+| Package | Data model | Algorithms |
+| --- | --- | --- |
+| `com.eignex.combo.bandit` | Streaming updates to model state | Online random forest, linear bandit, univariate bandits |
+| `com.eignex.combo.bo` | Retained evaluation history and batch refitting | SMAC-style expected improvement, bootstrap forest Thompson sampling, GP/EI |
+| `com.eignex.combo.shared` | Common learner interfaces, feature encoding, feedback, and feasible search | Used by both families |
 
-    "variables": {
-      "model":       { "type": "nominal", "labels": ["haiku", "sonnet", "opus"] },
-      "temperature": { "type": "float",   "min": 0.0, "max": 1.0 },
-      "maxTokens":   { "type": "int",     "min": 256, "max": 8192 },
-      "promptStyle": { "type": "nominal", "labels": ["terse", "detailed", "chainOfThought"] },
-      "tools": {
-        "type": "multiple",
-        "labels": ["web_search", "code_exec", "file_read", "bash"]
-      }
-    },
-
-    "constraints": {
-      "freeTierCantUseOpus":  "userTier == \"free\" implies model != \"opus\"",
-      "codeExecNeedsBash":    "tools.contains(\"code_exec\") implies tools.contains(\"bash\")",
-      "codingTasksNeedTools": "taskType == \"coding\" implies (tools.contains(\"code_exec\") or tools.contains(\"file_read\"))",
-      "casualKeepsItCheap":   "taskType == \"casual\" implies (maxTokens <= 1024 and model != \"opus\")"
-    }
-  }
-}
-```
-
-Every choose call returns a feasible configuration. Variables are typed: bool, int,
-float, nominal (pick one), or multiple (pick any subset).
+All public packages use the `com.eignex.combo` prefix. Streaming learners keep
+sufficient statistics and incremental tree state. History-based optimizers retain
+the evaluations and can reconsider every observation when rebuilding a model.
+Both families use the same decision-space schema and contextual variables.
 
 ## Bandit
 
-The flagship is the random forest bandit: an online, constraint-aware contextual
+The random forest bandit is an online, constraint-aware contextual
 bandit built on Hoeffding-bound decision trees, each carrying a Bayesian posterior at
 every leaf. At decision time it combines candidate sampling with the original
 cross-tree decision algorithm, reusing feasible witnesses and asking Klause to repair
@@ -181,9 +229,6 @@ an independent Klause feasibility check before use.
 Use `bandit.choose(context { ... })`, `bandit.update(arm, context, reward)`, and
 `bandit.optimal(context)` for contextual optimization. The same context remains a
 hard constraint during candidate generation, branch repair, and solver fallback.
-
-End-to-end examples covering cascade-with-backtrack, Thompson sampling on linear
-models, and context-conditioned arms live under combo/src/jvmTest/kotlin/com/eignex/combo.
 
 ## Numeric search geometry
 
@@ -701,10 +746,7 @@ exported, so replaying an entire run requires the same initial state and search 
 
 `OptimizationBenchmark.run` records best evaluated values, cumulative evaluation cost,
 and simple regret when a known optimum is supplied. Synthetic noisy objectives can
-provide a separate noiseless reference value. The unit tests check cost and regret on
-fixed evaluations, verify replay from a fresh study, and check small acquisition-search
-examples. Keep unit-test workloads small; convergence studies belong in a separate
-benchmark suite.
+provide a separate noiseless reference value.
 The [multi-seed benchmark](benchmarks/README.md) additionally compares guided forest/EI,
 normalized pool-only forest/EI, a legacy-style pool-only baseline, and random search
 on five objectives. It records full regret-versus-cost traces and a checked-in summary.
@@ -712,87 +754,26 @@ These synthetic results do not establish universal algorithm superiority.
 The [forest/EI investigation](benchmarks/forest-ei-investigation.md) traces repeated
 evaluations and acquisition plateaus, with separate ablations and validation quadratics.
 
-## Building
+## Running the server
 
-This repository contains two Gradle modules: `:combo` is the published optimization
-library, and `:server` is the Eignex Server Ktor application. The root project
-aggregates their builds. Source code and ABI references for the library live under
-`combo/`; the server depends on the library through `project(":combo")`.
+Run the HTTP server with `./gradlew :server:run`. It listens on `127.0.0.1:8080`
+by default. Set `EIGNEX_SERVER_HOST` and `EIGNEX_SERVER_PORT` to change the address.
+Gradle provisions JDK 25 automatically.
 
-The library implementation lives in `combo/src/commonMain`, with portable tests in
-`combo/src/commonTest`. JVM-only benchmark and fixture-file harnesses remain in
-`combo/src/jvmTest`. Small JVM/Native adapters supply thread-local construction
-contexts and monotonic timestamps.
-
-The build uses the `com.eignex.kmp` conventions from Kbuild 1.3.5, Kotlin 2.4.21,
-Gradle 9.7.1, and an automatically provisioned JDK 25 toolchain. The target set is
-JVM, Linux x64, Linux ARM64, and macOS ARM64, matching Klause and Kumulant. Like
-Klause, normal builds configure JVM and Linux x64; `-Ptargets.full` adds both ARM64
-targets for release builds. Native tests run on compatible hosts.
-
-Klause follows `0.0.1-SNAPSHOT`; Gradle checks changing dependencies on every build.
-Kumulant, Koblas, and Skema use pinned KMP dependencies and exported platform
-constraints in `combo/build.gradle.kts`. Koblas is a direct public dependency for
-vector operations, scaling, weighted reductions, and matrix construction.
-
-Build and validate with the published dependencies:
+For a standalone launcher:
 
 ```sh
-./gradlew :combo:jvmTest :combo:linuxX64Test :server:test
-./gradlew check lintDocs :server:installDist
-./gradlew koverXmlReport
+./gradlew :server:installDist
+./server/build/install/eignex-server/bin/eignex-server
 ```
 
-For sibling development, `-Pklause.local` substitutes `../klause`,
-`-Pkumulant.local` substitutes `../kumulant`, and `-Pkoblas.local` substitutes
-`../koblas`. Each also accepts a path, such as `-Pkoblas.local=../another-checkout`.
-Use `-Pdependencies.local` to develop against both Klause and Kumulant.
+The launcher requires JDK 25. See the [server guide](server/README.md) for the
+HTTP API and model lifecycle.
 
-Klause's current published snapshots contain only JVM and Linux x64. Until Klause
-publishes its full target set, validate the additional native compilation with its
-sibling checkout matching the snapshot API:
+JVM applications using the library's vector backend should enable
+`--add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED`.
 
-```sh
-./gradlew :combo:compileKotlinLinuxArm64 -Ptargets.full -Pklause.local=/path/to/klause
-# Run on macOS ARM64 for its native compilation and tests:
-./gradlew :combo:macosArm64Test -Ptargets.full -Pklause.local=/path/to/klause
-```
-
-The Detekt baseline records existing documentation and style debt; new findings
-remain checked. JVM and native ABI references live under `combo/api/` for normal
-builds and `combo/api-full/` for `-Ptargets.full`. Update the matching references
-with `./gradlew :combo:updateKotlinAbi`, adding `-Ptargets.full` for the full set.
-
-The build workflow runs documentation lint, tests, server distribution assembly,
-and Kover coverage, uploads test reports, and sends main-branch coverage to
-Codecov. A successful main push triggers the release workflow, which publishes the
-next patch snapshot for the default targets to Sonatype. A `vX.Y.Z` tag validates the same revision, builds
-with `-Ptargets.full`, publishes to Maven Central, and creates a GitHub release.
-Manual releases support `dryRun` to build and test without publishing. Full-target
-publication requires matching Klause artifacts for both ARM64 targets.
-
-Publishing uses the same repository secrets as Kumulant: `CENTRAL_PORTAL_USER`,
-`CENTRAL_PORTAL_PASSWORD`, `SIGNING_KEY`, and `SIGNING_PASSWORD`. The optional
-`GRADLE_ENCRYPTION_KEY` and `CODECOV_TOKEN` enable encrypted configuration caching
-and coverage uploads.
-
-JVM applications using the vector backend should enable
-`--add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED`; the test
-tasks already supply these flags.
-
-## Roadmap
-
-- **PGBM**: Probabilistic Gradient Boosting Machines
-  ([Sprangers et al., 2021](https://arxiv.org/abs/2106.01682)): boosted trees with
-  predictive distributions, slotting in next to the random forest as a stronger
-  Thompson-sampling surrogate.
-- **Additional history-based surrogates**: extend the shared store/refit lifecycle
-  to batch linear models and additional acquisition functions.
-- **Scalable joint batching and richer kernels**: baseline pruning, additional sampling
-  strategies, and mixed-type GP covariance, followed by instance features,
-  censored observations, and multi-fidelity scheduling.
-
-### Noisy recommendations
+## Noisy recommendations
 
 `recommendOrThrow()` reads a frozen history without advancing suggestion randomness or
 reserving trials. Repeated calls on unchanged history use the same recommendation seed.

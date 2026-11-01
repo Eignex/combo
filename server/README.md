@@ -7,7 +7,7 @@ and use its capabilities; they do not select a library or an engine.
 The `:server` application and `:combo` library are separate Gradle modules in the
 same repository. Start the server with `./gradlew :server:run`.
 The default address is `127.0.0.1:8080`; configure it with `EIGNEX_SERVER_HOST` and
-`EIGNEX_SERVER_PORT`. Gradle provisions JDK 25 for development.
+`EIGNEX_SERVER_PORT`. Gradle provisions JDK 25 automatically.
 `./gradlew :server:installDist` creates `server/build/install/eignex-server`;
 its launcher also needs JDK 25.
 
@@ -112,11 +112,6 @@ constraints. Unsupported symbolic optimization or factor encodings retain
 Learned numerical features and predictions use Double approximations. Native
 candidate generation and retained proposal contexts preserve exact solver witnesses.
 Exact matching and proposal identity never use the feature approximation.
-
-This development branch depends on [Klause PR #3788](https://github.com/Eignex/klause/pull/3788).
-CI uses its pinned source commit; local development can select that checkout with
-`-Pklause.local=/path/to/klause`. Replace the temporary CI source dependency with
-immutable published artifact pins after the upstream change is released.
 
 ## A moving average
 
