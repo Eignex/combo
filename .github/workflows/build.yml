@@ -65,7 +65,7 @@ jobs:
         run: ./gradlew lintDocs
 
       - name: Run tests with coverage
-        run: ./gradlew check koverXmlReport :server:installDist
+        run: ./gradlew check koverXmlReport :server:installDist :combo-bench:installDist
 
       - name: Upload test reports
         if: always()
@@ -78,6 +78,8 @@ jobs:
             combo/build/kotlin/abi/
             server/build/reports/tests/
             server/build/test-results/
+            combo-bench/build/reports/tests/
+            combo-bench/build/test-results/
           if-no-files-found: ignore
 
       - name: Upload results to Codecov (main only)

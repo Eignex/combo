@@ -10,7 +10,7 @@ subprojects {
     }
 }
 
-tasks.check { dependsOn(":combo:check", ":server:check") }
+tasks.check { dependsOn(":combo:check", ":combo-bench:check", ":server:check") }
 tasks.assemble { dependsOn(":combo:assemble", ":server:assemble") }
 
 tasks.register("lintDocs") {
