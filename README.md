@@ -63,7 +63,7 @@ report their outcomes to learn better decisions over time.
 
 - [HTTP API guide](server/README.md) — statistics, decisions, and observed outcomes.
 - [Kotlin library guide](docs/guide.md) — decision spaces, bandits, and Bayesian optimization.
-- [Benchmark results](benchmarks/README.md) — comparisons and limitations.
+- [Benchmarks](combo-bench/README.md) — Kotlin workloads and eignex-lab integration.
 
 Built on [Klause](https://github.com/Eignex/klause) for constraints and
 [Kumulant](https://github.com/Eignex/kumulant) for streaming statistics and models.

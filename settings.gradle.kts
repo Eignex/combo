@@ -1,6 +1,6 @@
 rootProject.name = "combo"
 
-include(":combo", ":server")
+include(":combo", ":combo-bench", ":server")
 
 pluginManagement {
     repositories {

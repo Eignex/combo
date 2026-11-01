@@ -371,8 +371,7 @@ coordinates, with constants omitted. The score is exposed separately as `logFitS
 Normalize inputs and standardize responses when using the default regularizer centers.
 Multistart search divides the same total candidate budget among seeded starts, including restart
 points: fitting evaluates one initial covariance plus `hyperparameterTrials` candidates.
-Smaller per-start budgets can weaken refinement. These policies remain opt-in; the
-[fitting refinement report](../benchmarks/gp-fitting/report.md) records gains and regressions.
+Smaller per-start budgets can weaken refinement. These policies remain opt-in.
 
 Predictions expose latent function uncertainty conditional on fitted parameters, excluding
 observation noise and uncertainty about the fitted parameters themselves. Numerical jitter
@@ -389,9 +388,8 @@ queries. First visits to unseen coordinates determine seeded random assignment o
 a draw retains those points and its conditioning cost grows with them. Fantasies remain
 outside recorded history. Joint acquisition uses joint moments directly rather than growing a function draw.
 
-See the [GP comparison report](../benchmarks/gp-comparison/report.md) for frozen-history
-model diagnostics, acquisition-search checks, and equal-budget GP/EI, forest/EI, and
-random-search experiments. These comparisons use continuous synthetic spaces.
+The [benchmark suite](../combo-bench/README.md) compares GP/EI, forest/EI, and feasible
+random search with equal external evaluation budgets on synthetic spaces.
 
 ## Joint batch acquisition
 
@@ -463,8 +461,7 @@ val acquisition = JointLogNoisyExpectedImprovement(
 
 The same sampling option is available on all four joint improvement factories. Sobol requires
 power-of-two draw counts and supports at most 1,024 latent baseline-plus-candidate coordinates.
-The [sampling study](../benchmarks/gp-qmc/report.md) finds modest ranking gains at larger budgets
-and mixed whole-loop results, so sampler and draw-count defaults remain unchanged.
+Sampler and draw-count choices are explicit; evaluate them for the target workload.
 
 Each bound acquisition caches its baseline posterior work, Cholesky factor, latent draws,
 and improvement thresholds. Candidate sets use triangular solves and a conditional covariance
@@ -482,9 +479,6 @@ The Sobol sequence is a general integration primitive that Kumulant exposes inde
 
 q-NEI is an improvement criterion, not an information-gain policy for repeated measurements.
 All joint policies remain opt-in; sequential batching and model defaults are unchanged.
-See the [original joint-batch experiment](../benchmarks/joint-batch/report.md) and the
-[GP refinement cycle](../benchmarks/gp-refinement/report.md) for paired results, numerical
-reference checks, factor-cache measurements, and limitations.
 
 ## SMAC-inspired profile and paired racing
 
@@ -576,15 +570,10 @@ supply learned instance features. Uneven instance coverage can therefore affect 
 pooled surrogate. All keys use one fixed fidelity; budget promotions, censored costs,
 and automatic multi-fidelity scheduling are future work.
 
-The [refinement study](../benchmarks/refinement/report.md) separates frozen-model diagnostics,
-acquisition search budgets, initial measurement allocation, guarded racing, and fresh-key
-confirmation. Optional leaf-mean variance can overlap tree disagreement and overcover;
-response dispersion is not interchangeable with uncertainty about the function.
-
-The [pinned SMAC comparison](../benchmarks/smac-comparison.md) runs the actual SMAC 2.4.1
-HPO facade alongside this profile and feasible random search. This profile is inspired
-by SMAC, with different forest statistics, initialization, search, and race scheduling;
-it is not an implementation-equivalent port.
+Optional leaf-mean variance can overlap tree disagreement and overcover; response
+dispersion is not interchangeable with uncertainty about the function. This profile
+is inspired by SMAC, with different forest statistics, initialization, search, and race
+scheduling; it is not an implementation-equivalent port.
 
 ## Composing a Bayesian optimizer
 
@@ -671,12 +660,7 @@ exported, so replaying an entire run requires the same initial state and search 
 `OptimizationBenchmark.run` records best evaluated values, cumulative evaluation cost,
 and simple regret when a known optimum is supplied. Synthetic noisy objectives can
 provide a separate noiseless reference value.
-The [multi-seed benchmark](../benchmarks/README.md) additionally compares guided forest/EI,
-normalized pool-only forest/EI, a legacy-style pool-only baseline, and random search
-on five objectives. It records full regret-versus-cost traces and a checked-in summary.
-These synthetic results do not establish universal algorithm superiority.
-The [forest/EI investigation](../benchmarks/forest-ei-investigation.md) traces repeated
-evaluations and acquisition plateaus, with separate ablations and validation quadratics.
+Run synthetic comparisons through the [lab benchmark suite](../combo-bench/README.md).
 
 ## Running the server
 
@@ -714,14 +698,7 @@ Fresh confirmation can use explicitly selected evaluated configuration IDs. For 
 rank `race.configurations` by the optimizer's posterior mean, select a frozen shortlist,
 and call `race.beginConfirmation(freshKeys, configurationIds)`. Every selected ID must
 have a successful measurement; keys must be fresh and enough worker budget must remain.
-The winner uses only confirmation measurements. This is opt-in: our
-[noisy refinement study](../benchmarks/noisy-bo/report.md) finds substantial opportunity
-cost at small budgets, and additional recommendation search does not consistently
-improve true regret. GP, forest, racing, and search defaults remain unchanged.
-
-The [GP follow-up diagnostics](../benchmarks/gp-followups/report.md) separate fixed-history
-recommendation search from model error and compare joint acquisition sampling at 256,
-1,024, and 4,096 draws. Larger searches help the noiseless quadratic but do not consistently
-fix noisy recommendations. Joint q=4 rankings remain sensitive to the sampling budget;
-increasing `samples` trades computation for a more stable finite-sample estimate, without
-a convergence guarantee. Acquisition, model-fitting, and recommendation budgets remain independent.
+The winner uses only confirmation measurements. Confirmation spends external evaluation
+budget and remains opt-in. Acquisition, model-fitting, and recommendation budgets
+remain independent. Increasing joint acquisition `samples` trades computation for a
+more stable finite-sample estimate, without a convergence guarantee.
