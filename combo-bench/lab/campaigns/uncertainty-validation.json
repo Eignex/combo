@@ -1,0 +1,23 @@
+{
+  "name": "combo-uncertainty-validation",
+  "repository": "Eignex/combo",
+  "base": {
+    "ref": "REPLACE_WITH_FULL_TESTED_COMMIT_SHA"
+  },
+  "vcpus": 8,
+  "bench": {
+    "manifest": "combo-bench/lab/bench.json",
+    "request": {
+      "parameters": {
+        "study": "uncertainty",
+        "phase": "loop",
+        "seeds": "2601,2602,2603,2604,2605,2606,2607,2608,2609,2610,2611,2612",
+        "batch": "1,4",
+        "noise-sd": "0.0,0.03",
+        "pending": "false,true",
+        "grid-nodes": "3",
+        "budget": "32"
+      }
+    }
+  }
+}

@@ -26,7 +26,10 @@ import com.eignex.lab.bench.MetricDirection
 import java.nio.file.Files
 import kotlin.random.Random
 
-fun main(args: Array<String>) = BenchCli.execute(ComboLabSuite, args)
+fun main(args: Array<String>) {
+    if (args.firstOrNull() == "analyze") com.eignex.combo.bench.diagnostics.AnalyzeDiagnostics.execute(args.drop(1).toTypedArray())
+    else BenchCli.execute(ComboLabSuite, args)
+}
 
 internal object ComboLabSuite : BenchSuite {
     private val workloads = setOf("quadratic", "multimodal", "logarithmic", "noisy", "conditional")
@@ -36,6 +39,7 @@ internal object ComboLabSuite : BenchSuite {
     override fun describe() = BenchDescriptor("combo-bench", "Paired synthetic Bayesian optimization with evaluation traces")
 
     override fun plan(request: BenchRequest): List<BenchCase> {
+        if ("study" in request.parameters) return com.eignex.combo.bench.diagnostics.DiagnosticSuite.plan(request)
         val p = request.parameters
         require(p.keys.all { it in options }) { "Unknown Combo bench parameters: ${p.keys - options}" }
         val smoke = p["smoke"]?.toBooleanStrict() ?: false
@@ -69,6 +73,7 @@ internal object ComboLabSuite : BenchSuite {
             ?: throw IllegalArgumentException("$key must be a positive integer")
 
     override fun run(case: BenchCase, context: BenchContext): BenchResult {
+        if ("study" in case.parameters) return com.eignex.combo.bench.diagnostics.DiagnosticSuite.run(case, context)
         val p = case.parameters
         require(p.keys == setOf("workload", "seed", "repetition", "algorithms", "budget")) { "Invalid frozen parameters" }
         val expected = plan(BenchRequest(mapOf(

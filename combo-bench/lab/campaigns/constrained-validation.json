@@ -1,0 +1,22 @@
+{
+  "name": "combo-constrained-validation",
+  "repository": "Eignex/combo",
+  "base": {
+    "ref": "REPLACE_WITH_FULL_TESTED_COMMIT_SHA"
+  },
+  "vcpus": 8,
+  "bench": {
+    "manifest": "combo-bench/lab/bench.json",
+    "request": {
+      "parameters": {
+        "study": "constrained",
+        "phase": "loop",
+        "seeds": "2701,2702,2703,2704,2705,2706,2707,2708,2709,2710,2711,2712",
+        "batch": "1,4",
+        "context": "0.25,0.75",
+        "pending": "false,true",
+        "budget": "32"
+      }
+    }
+  }
+}

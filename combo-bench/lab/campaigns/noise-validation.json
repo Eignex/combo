@@ -1,0 +1,24 @@
+{
+  "name": "combo-noise-validation",
+  "repository": "Eignex/combo",
+  "base": {
+    "ref": "REPLACE_WITH_FULL_TESTED_COMMIT_SHA"
+  },
+  "vcpus": 8,
+  "bench": {
+    "manifest": "combo-bench/lab/bench.json",
+    "request": {
+      "parameters": {
+        "study": "noise",
+        "phase": "loop",
+        "workloads": "quadratic2,branin2",
+        "seeds": "2401,2402,2403,2404,2405,2406",
+        "batch": "1,4",
+        "noise-sd": "0.0001,0.03,0.15",
+        "replicates": "1,3",
+        "pending": "false,true",
+        "budget": "32"
+      }
+    }
+  }
+}
