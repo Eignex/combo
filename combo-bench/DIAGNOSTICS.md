@@ -44,7 +44,7 @@ Historical seeds are 1901–1906; fresh campaign recipes use disjoint seeds.
 
 Plans generate content-addressed CSV inputs under the ignored build directory and
 include their SHA-256 in `BenchInput`. Workers verify these inputs after relocation.
-The case also freezes every selection parameter and a digest of the installed JVM
+The manifest keys planner reuse on the installed jars and pinned history archive, so changing snapshot bytes cannot silently reuse a stale plan. The case also freezes every selection parameter and a digest of the installed JVM
 classpath jars. Runtime captures retain individual jar hashes, JVM identity and
 Koblas kernel identity. The lab's accepted preparation and execution receipts
 supply source/build and physical-worker identities. A mutable Maven snapshot name
@@ -86,10 +86,10 @@ transform. Known variances scale by the square of that response scale.
 
 ## Captures and interpretation
 
-Each case retains exact source problem JSON, runtime identity, per-arm original
+Each case retains original and context-conditioned exact source problem JSON, runtime identity, per-arm original
 coordinate/exact witness traces, parameter/jitter/likelihood/penalized-score
 snapshots and held-out predictions. Metrics include best-evaluated and recommendation
-regret separately, external cost, model/covariance-candidate counts, fitting/search
+regret separately, external cost (zero new external calls for frozen/historical refits), retained history size, model/covariance-candidate counts, fitting/search
 wall time, RMSE, 95% latent and future-observation coverage, and predictive NLL.
 The recommendation-pool mean gap diagnoses search error on the same posterior;
 probe truth is used only for scoring, never recommendation selection or labels.
@@ -100,7 +100,7 @@ the disclosed oracle noise), component by component. This interval Monte Carlo
 resolution is explicit; probes within a row are not independent replications.
 NLL evaluates component Gaussian densities, with variance floored at 1e-15 and
 mixture density floored at 1e-300 to retain finite diagnostics. Kumulant supplies
-MSE and summary accumulators. Compare per-seed outcomes and paired differences;
+MSE, summary accumulators and PIT histograms/KS distances. PIT CDFs are estimated from the same common marginal draws; KS distances are descriptive, not independent-probe significance tests. Compare per-seed outcomes and paired differences;
 do not select a policy from pooled medians alone.
 
 Constrained workloads are `equality` (x+y=1), `context-log` (logarithmic x and a
@@ -186,3 +186,7 @@ Fit-stream perturbations, repeated rows and within-row predictive probes do not
 increase the count of independent seeds. Keep the raw coordinator snapshot and
 its hash beside the analysis, and retain preparation/failed-attempt costs from the
 lab separately from these accepted quality comparisons.
+
+Pass a third analysis argument such as `grid-map` to isolate covariance integration
+from the integrated-mean prior in uncertainty comparisons. The default uncertainty
+baseline is the existing point-estimate `coordinate` arm.
