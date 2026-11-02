@@ -16,7 +16,7 @@ internal object AnalyzeDiagnostics {
     private data class PairRow(val case: String, val seed: String, val group: String, val arm: String,
         val metric: String, val baseline: Double, val candidate: Double)
     fun execute(args: Array<String>) {
-        require(args.size == 2) { "analyze LAB_CASES.jsonl OUTPUT_DIRECTORY" }
+        require(args.size in 2..3) { "analyze LAB_CASES.jsonl OUTPUT_DIRECTORY [BASELINE_ARM]" }
         val input = Path.of(args[0])
         val output = Path.of(args[1]).createDirectories()
         require(!output.resolve("paired.csv").exists()) { "Analysis output already exists" }
@@ -36,9 +36,10 @@ internal object AnalyzeDiagnostics {
             accepted++
             val parts = id.split('/')
             require(parts.size >= 12)
-            val preferred = when (parts[0]) { "fitting" -> "baseline24"; "noise" -> "known"; "constrained" -> "random"; else -> "coordinate" }
+            val preferred = args.getOrNull(2) ?: when (parts[0]) { "fitting" -> "baseline24"; "noise" -> "known"; "constrained" -> "random"; else -> "coordinate" }
             val metrics = result.metrics.associate { it.name to it.value }
             val available = result.metrics.map { it.name.substringBefore('.') }.distinct()
+            require(args.size < 3 || preferred in available) { "Requested baseline $preferred is absent" }
             val base = preferred.takeIf { it in available } ?: available.first()
             val arms = result.metrics.map { it.name.substringBefore('.') }.distinct().filter { it != base }
             val group = (parts.take(3) + parts.subList(4, 11)).joinToString("/")

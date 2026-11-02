@@ -2,11 +2,14 @@ package com.eignex.combo.bench.diagnostics
 
 import com.eignex.combo.bo.*
 import com.eignex.combo.decisions.BanditSample
+import com.eignex.combo.decisions.conditionedProblem
 import com.eignex.combo.shared.*
 import com.eignex.koblas.koblas
 import com.eignex.kumulant.math.nextNormal
 import com.eignex.kumulant.schema.ops.mseLoss
 import com.eignex.kumulant.schema.runtime.materialize
+import com.eignex.kumulant.stat.score.pitHistogram
+import com.eignex.kumulant.stat.score.pitKsDistance
 import com.eignex.kumulant.stat.summary.MeanStat
 import com.eignex.lab.bench.*
 import java.nio.file.Files
@@ -167,6 +170,7 @@ internal object DiagnosticSuite {
         report.resolve("runtime.txt").writeText("java=${System.getProperty("java.runtime.version")}\nvm=${System.getProperty("java.vm.name")}\n" +
             "os=${System.getProperty("os.name")}/${System.getProperty("os.arch")}\nbackend=${backendIdentity()}\nparameters=$p\n" + runtimeInventory())
         report.resolve("problem.json").writeText(com.eignex.klause.formats.json.ProblemJson.default.encodeToString(problem.space.problem))
+        report.resolve("conditioned-problem.json").writeText(com.eignex.klause.formats.json.ProblemJson.default.encodeToString(problem.space.conditionedProblem(problem.context)))
         val arms = p.getValue("arms").split(',')
         val offset = (p.getValue("repetition").toInt() - 1) % arms.size
         val metrics = mutableListOf<BenchMetric>()
@@ -276,6 +280,8 @@ internal object DiagnosticSuite {
         metric("best-regret", best)
         metric("recommendation-regret", recommendationRegret)
         metric("evaluations", evaluated.toDouble(), "evaluations", MetricDirection.NONE)
+        metric("external-evaluations", if (p["phase"] == "loop") evaluated.toDouble() else 0.0, "evaluations", MetricDirection.NONE)
+        metric("history-observations", optimizer.store.snapshot().observations.size.toDouble(), "observations", MetricDirection.NONE)
         metric("model-fits", optimizer.fitCount.toDouble(), "fits", MetricDirection.NONE)
         metric("fit-candidates", fitter.candidates.toDouble(), "candidates", MetricDirection.NONE)
         metric("fit-seconds", fitter.fitNanos / 1e9, "seconds")
@@ -301,7 +307,7 @@ internal object DiagnosticSuite {
             val predictions = components.map { it.first.predict(features) }
             val componentNoise = components.map { (model, _) ->
                 val base = (model as? AffinePosterior)?.base
-                if (unknown && base is IntegratedMeanGp) base.noise * (model as AffinePosterior).scale.pow(2)
+                if (unknown && base is IntegratedMeanGp) base.noise * model.scale.pow(2)
                 else if (unknown) fitter.selectedNoise else sd * sd
             }
             val mse = mseLoss().materialize()
@@ -309,12 +315,14 @@ internal object DiagnosticSuite {
             val observationCoverage = MeanStat()
             val latentNll = MeanStat()
             val observationNll = MeanStat()
+            val latentPit = pitHistogram(10)
+            val observationPit = pitHistogram(10)
             val total = model.predict(features)
             val stream = Random(seed xor 0x63616c69)
             val uniforms = DoubleArray(2048) { stream.nextDouble() }
             val normals = DoubleArray(2048) { stream.nextNormal() }
             report.resolve("$arm-predictions.csv").bufferedWriter().use { writer ->
-                writer.appendLine("truth,observation,mean,latent_variance,latent_lo,latent_hi,observation_lo,observation_hi")
+                writer.appendLine("truth,observation,mean,latent_variance,latent_lo,latent_hi,observation_lo,observation_hi,latent_pit,observation_pit")
                 for (i in probes.indices) {
                     val latent = DoubleArray(normals.size)
                     val observed = DoubleArray(normals.size)
@@ -333,6 +341,10 @@ internal object DiagnosticSuite {
                         observed[draw] = predictions[j].means[i] + sqrt(maxOf(0.0, predictions[j].variances[i] + componentNoise[j])) * normals[draw]
                     }
                     latent.sort(); observed.sort()
+                    val pit = latent.count { it <= probes[i].truth }.toDouble() / latent.size
+                    val opit = observed.count { it <= probes[i].observed }.toDouble() / observed.size
+                    latentPit.update(pit)
+                    observationPit.update(opit)
                     val lo = latent[51]; val hi = latent[1996]
                     val olo = observed[51]; val ohi = observed[1996]
                     coverage.update(if (probes[i].truth in lo..hi) 1.0 else 0.0)
@@ -340,12 +352,16 @@ internal object DiagnosticSuite {
                     latentNll.update(-ln(maxOf(1e-300, density)))
                     observationNll.update(-ln(maxOf(1e-300, observedDensity)))
                     mse.update(total.means[i], probes[i].truth)
-                    writer.appendLine("${probes[i].truth},${probes[i].observed},${total.means[i]},${total.variances[i]},$lo,$hi,$olo,$ohi")
+                    writer.appendLine("${probes[i].truth},${probes[i].observed},${total.means[i]},${total.variances[i]},$lo,$hi,$olo,$ohi,$pit,$opit")
                 }
             }
             metric("rmse", sqrt(mse.read().mean))
             metric("latent-coverage95", coverage.read().mean, "fraction", MetricDirection.NONE)
             metric("observation-coverage95", observationCoverage.read().mean, "fraction", MetricDirection.NONE)
+            metric("latent-coverage95-error", abs(coverage.read().mean - 0.95), "fraction")
+            metric("observation-coverage95-error", abs(observationCoverage.read().mean - 0.95), "fraction")
+            metric("latent-pit-ks", latentPit.read().pitKsDistance(10), "distance")
+            metric("observation-pit-ks", observationPit.read().pitKsDistance(10), "distance")
             metric("latent-nll", latentNll.read().mean, "nats")
             metric("observation-nll", observationNll.read().mean, "nats")
             metric("recommendation-pool-mean-gap", maxOf(0.0, optimizer.predict(recommendation, problem.context) - total.means.toDoubleArray().min()))

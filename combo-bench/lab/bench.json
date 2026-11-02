@@ -1,7 +1,22 @@
 {
   "main": "com.eignex.combo.bench.LabAdapterKt",
-  "classpath": ["combo-bench/build/install/combo-bench/lib/*"],
-  "buildTasks": [":combo-bench:installDist", ":combo-bench:prepareDiagnosticFixtures"],
-  "jvmArgs": ["-Xmx1g", "--enable-native-access=ALL-UNNAMED", "--add-modules=jdk.incubator.vector"],
-  "runtime": {"java": 25}
+  "classpath": [
+    "combo-bench/build/install/combo-bench/lib/*"
+  ],
+  "buildTasks": [
+    ":combo-bench:installDist",
+    ":combo-bench:prepareDiagnosticFixtures"
+  ],
+  "jvmArgs": [
+    "-Xmx1g",
+    "--enable-native-access=ALL-UNNAMED",
+    "--add-modules=jdk.incubator.vector"
+  ],
+  "runtime": {
+    "java": 25
+  },
+  "planInputs": [
+    "combo-bench/build/install/combo-bench/lib",
+    "combo-bench/build/fixtures/gp-fitting-validation.csv.gz"
+  ]
 }

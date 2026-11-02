@@ -17,10 +17,8 @@ class AnalyzeDiagnosticsTest {
                 return "{\"status\":\"DONE\",\"record\":" + BenchProtocol.json.encodeToString(BenchResult.serializer(), result) + "}"
             }
             val input = directory.resolve("cases.jsonl")
-            input.writeText(listOf(row(7,1,1.0),row(7,2,3.0),row(8,1,1.0)).joinToString("\n"))
             val out = directory.resolve("analysis")
             // The real lab emits one JSON object per line; remove pretty-print newlines from this test fixture.
-            input.writeText(input.readText().replace("\n", ""))
             val compact = kotlinx.serialization.json.Json { prettyPrint = false }
             input.writeText(listOf(row(7,1,1.0),row(7,2,3.0),row(8,1,1.0)).joinToString("\n") {
                 compact.encodeToString(kotlinx.serialization.json.JsonElement.serializer(), BenchProtocol.json.parseToJsonElement(it))

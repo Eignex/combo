@@ -16,7 +16,7 @@ class DiagnosticSuiteTest {
         assertEquals(8, cases.size)
         assertEquals(cases, DiagnosticSuite.plan(request))
         assertTrue(cases.all { it.parameters["arms"] == "known,unknown,partial" && it.inputs.single().sha256 != null && it.resources.requiredTags.isEmpty() })
-        for (extra in listOf("batch" to "0", "noise-sd" to "NaN", "seeds" to "1,01", "grid-nodes" to "4", "arms" to "mixture", "typo" to "1")) {
+        for (extra in listOf("batch" to "0", "noise-sd" to "NaN", "seeds" to "1,01", "grid-nodes" to "4", "arms" to "mixture", "memory-mib" to "1024", "timeout-seconds" to "0", "typo" to "1")) {
             assertFailsWith<IllegalArgumentException> { DiagnosticSuite.plan(request("noise", extra)) }
         }
     }
@@ -35,7 +35,7 @@ class DiagnosticSuiteTest {
                 for (metric in first.metrics.filterNot { it.name.endsWith("-seconds") }) {
                     assertEquals(metric.value, replay.getValue(metric.name).value, 1e-12, metric.name)
                 }
-                assertEquals(11, first.artifacts.size)
+                assertEquals(12, first.artifacts.size)
             }
         } finally { directory.toFile().deleteRecursively() }
     }
