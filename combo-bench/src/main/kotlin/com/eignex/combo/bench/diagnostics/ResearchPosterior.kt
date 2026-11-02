@@ -25,7 +25,7 @@ internal class IntegratedMeanGp(
     val signal: Double,
     val noise: Double,
     val meanVariance: Double = 1.0,
-) : ConditionableSurrogate {
+) : ConditionableSurrogate, JointPosteriorSurrogate {
     val scales = scales.toList()
     private val data = training(DenseMatrix.wrap(input.features.rows, input.features.cols, input.features.values.copyOf()),
         input.responses.toDoubleArray(), input.noiseVariances?.toDoubleArray() ?: DoubleArray(input.responses.size) { Double.NaN })
@@ -58,7 +58,8 @@ internal class IntegratedMeanGp(
             factor.logDeterminant() + data.responses.size * ln(2.0 * PI))
         check(logLikelihood.isFinite())
     }
-    override fun predictJoint(features: DenseMatrix): JointPredictiveMoments {
+    override fun predictJoint(features: DenseMatrix): JointPredictiveMoments = jointFeatures(features).first
+    private fun jointFeatures(features: DenseMatrix): Pair<JointPredictiveMoments, DenseMatrix> {
         require(features.cols == scales.size && features.values.all { it.isFinite() })
         val cross = kernel(data.features, features)
         val mean = koblas.gemv(cross, alpha, transpose = true)
@@ -66,7 +67,20 @@ internal class IntegratedMeanGp(
         val covariance = kernel(features, features)
         koblas.gemm(-1.0, solved, true, solved, false, 1.0, covariance)
         for (i in 0 until covariance.rows) covariance[i, i] = maxOf(0.0, covariance[i, i])
-        return JointPredictiveMoments(DenseVector.of(mean), covariance)
+        return JointPredictiveMoments(DenseVector.of(mean), covariance) to solved
+    }
+    override fun jointPosterior(baseline: DenseMatrix): JointPosterior {
+        val fixed = DenseMatrix.wrap(baseline.rows, baseline.cols, baseline.values.copyOf())
+        val (moments, baselineSolved) = jointFeatures(fixed)
+        return object : JointPosterior {
+            override val baseline = moments
+            override fun predict(features: DenseMatrix): JointPosteriorPrediction {
+                val (candidate, solved) = jointFeatures(features)
+                val cross = kernel(fixed, features)
+                koblas.gemm(-1.0, baselineSolved, true, solved, false, 1.0, cross)
+                return JointPosteriorPrediction(candidate, cross)
+            }
+        }
     }
     override fun predict(features: DenseMatrix): PredictiveMoments {
         require(features.cols == scales.size && features.values.all { it.isFinite() })
@@ -187,7 +201,7 @@ internal fun parameterGrid(data: TrainingData, nodes: Int, selectMap: Boolean = 
     return ParameterMixture(components, weights)
 }
 
-internal class AffinePosterior(val base: FittedSurrogate, val center: Double, val scale: Double) : ConditionableSurrogate {
+internal class AffinePosterior(val base: FittedSurrogate, val center: Double, val scale: Double) : ConditionableSurrogate, JointPosteriorSurrogate {
     override val uncertaintyKind get() = base.uncertaintyKind
     override fun predict(features: DenseMatrix): PredictiveMoments = base.predict(features).let { p ->
         PredictiveMoments(DenseVector.of(DoubleArray(p.means.size) { center + scale * p.means[it] }),
@@ -196,6 +210,20 @@ internal class AffinePosterior(val base: FittedSurrogate, val center: Double, va
     override fun predictJoint(features: DenseMatrix): JointPredictiveMoments? = base.predictJoint(features)?.let { p ->
         JointPredictiveMoments(DenseVector.of(DoubleArray(p.means.size) { center + scale * p.means[it] }),
             DenseMatrix.wrap(p.means.size, p.means.size, DoubleArray(p.covariance.values.size) { scale * scale * p.covariance.values[it] }))
+    }
+    override fun jointPosterior(baseline: DenseMatrix): JointPosterior? {
+        val posterior = base.jointPosterior(baseline) ?: return null
+        fun decoded(p: JointPredictiveMoments) = JointPredictiveMoments(
+            DenseVector.of(DoubleArray(p.means.size) { center + scale * p.means[it] }),
+            DenseMatrix.wrap(p.means.size, p.means.size, DoubleArray(p.covariance.values.size) { scale * scale * p.covariance.values[it] }))
+        return object : JointPosterior {
+            override val baseline = decoded(posterior.baseline)
+            override fun predict(features: DenseMatrix): JointPosteriorPrediction {
+                val p = posterior.predict(features)
+                return JointPosteriorPrediction(decoded(p.candidates), DenseMatrix.wrap(p.crossCovariance.rows, p.crossCovariance.cols,
+                    DoubleArray(p.crossCovariance.values.size) { scale * scale * p.crossCovariance.values[it] }))
+            }
+        }
     }
     override fun condition(temporary: TrainingData): AffinePosterior {
         require(temporary.weights.toDoubleArray().all { it == 1.0 })
