@@ -1,7 +1,9 @@
 package com.eignex.combo.bo
 
 import com.eignex.combo.bo.model.GaussianProcessConfig
+import com.eignex.koblas.DenseMatrix
 import com.eignex.koblas.DenseVector
+import com.eignex.kumulant.math.NotPositiveDefinite
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -9,6 +11,71 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class JointSamplingTest {
+    @Test
+    fun `response decorators preserve covariance reference units for raw and log Gaussian sampling`() {
+        val fitted = GaussianProcessSurrogate(
+            GaussianProcessConfig(signalVariance = 2.0, hyperparameterTrials = 0),
+        ).fit(
+            TrainingData(jointPoints(0.0), DenseVector.of(doubleArrayOf(1.0)), DenseVector.of(doubleArrayOf(1.0))),
+            Random(1),
+        )
+        for (scale in listOf(1e-3, 3.0, 1e3)) {
+            val raw = ResponseTransform(
+                2.0,
+                scale,
+            ).model(fitted).jointPosterior(jointPoints(0.1)) as JointPosteriorNumerics
+            val log = (ResponseTransform(2.0, scale, logarithmic = true).model(fitted) as LogResponseSurrogate)
+                .logJointPosterior(jointPoints(0.1)) as JointPosteriorNumerics
+            assertEquals(2.0 * scale * scale, raw.covarianceScale)
+            assertEquals(raw.covarianceScale, log.covarianceScale)
+        }
+    }
+
+    @Test
+    fun `conditional cancellation uses prior scale and still rejects material indefiniteness`() {
+        fun posterior(scale: Double, cross: Double) = object : JointPosteriorNumerics {
+            override val covarianceScale = scale
+            override val baseline = JointPredictiveMoments(
+                DenseVector.zero(1),
+                DenseMatrix.wrap(1, 1, doubleArrayOf(1e-10)),
+            )
+            override fun predict(features: DenseMatrix) = JointPosteriorPrediction(
+                JointPredictiveMoments(DenseVector.zero(1), DenseMatrix.wrap(1, 1, doubleArrayOf(1e-10))),
+                DenseMatrix.wrap(1, 1, doubleArrayOf(cross)),
+            )
+        }
+        // A nearly certain GP subtracts O(1) kernel terms to obtain O(1e-10) moments.
+        // These rounded moments have a -2e-16 conditional residual, not negative uncertainty.
+        val sampler = JointGaussianSampler(posterior(1.0, 1.000001e-10), 64, 7L)
+        val draws = sampler.draw(jointPoints(0.3))
+        assertTrue(draws.values.all { it.isFinite() })
+        assertEquals(draws.values.toList(), sampler.draw(jointPoints(0.3)).values.toList())
+        assertFailsWith<NotPositiveDefinite> {
+            JointGaussianSampler(posterior(0.0, 1.000001e-10), 64, 7L).draw(jointPoints(0.3))
+        }
+        assertFailsWith<NotPositiveDefinite> {
+            JointGaussianSampler(posterior(1.0, 1e-4), 64, 7L).draw(jointPoints(0.3))
+        }
+        assertFailsWith<IllegalArgumentException> { JointGaussianSampler(posterior(Double.NaN, 0.0), 64, 7L) }
+    }
+
+    @Test
+    fun `tiny conditional factorization is stabilized relative to its kernel scale`() {
+        val posterior = object : JointPosteriorNumerics {
+            override val covarianceScale = 1.0
+            override val baseline = JointPredictiveMoments(DenseVector.zero(0), DenseMatrix.zero(0))
+            override fun predict(features: DenseMatrix) = JointPosteriorPrediction(
+                JointPredictiveMoments(
+                    DenseVector.zero(2),
+                    DenseMatrix.wrap(2, 2, doubleArrayOf(1e-20, 1e-17, 1e-17, 1e-20)),
+                ),
+                DenseMatrix.zero(0, 2),
+            )
+        }
+        val draws = JointGaussianSampler(posterior, 64, 11L).draw(jointPoints(0.2, 0.3))
+        assertTrue(draws.values.all { it.isFinite() && kotlin.math.abs(it) < 1e-4 })
+    }
+
     @Test
     fun `Sobol acquisition scores are fixed across batch size changes and candidate reorderings`() {
         val model = GaussianProcessSurrogate(GaussianProcessConfig(hyperparameterTrials = 0)).fit(

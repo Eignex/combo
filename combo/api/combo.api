@@ -981,6 +981,10 @@ public final class com/eignex/combo/bo/JointPosteriorKt {
 	public static final fun logJointPosterior (Lcom/eignex/combo/bo/LogResponseSurrogate;Lcom/eignex/koblas/DenseMatrix;)Lcom/eignex/combo/bo/JointPosterior;
 }
 
+public abstract interface class com/eignex/combo/bo/JointPosteriorNumerics : com/eignex/combo/bo/JointPosterior {
+	public abstract fun getCovarianceScale ()D
+}
+
 public final class com/eignex/combo/bo/JointPosteriorPrediction {
 	public fun <init> (Lcom/eignex/combo/bo/JointPredictiveMoments;Lcom/eignex/koblas/DenseMatrix;)V
 	public final fun getCandidates ()Lcom/eignex/combo/bo/JointPredictiveMoments;

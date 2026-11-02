@@ -1,6 +1,7 @@
 package com.eignex.combo.bo.model
 
 import com.eignex.combo.bo.JointPosterior
+import com.eignex.combo.bo.JointPosteriorNumerics
 import com.eignex.combo.bo.JointPosteriorPrediction
 import com.eignex.combo.bo.JointPredictiveMoments
 import com.eignex.combo.bo.PredictiveMoments
@@ -131,8 +132,9 @@ internal class GaussianProcessModel private constructor(
     fun jointPosterior(baseline: DenseMatrix): JointPosterior {
         val fixed = DenseMatrix.wrap(baseline.rows, baseline.cols, baseline.values.copyOf())
         val (moments, baselineSolved) = jointFeatures(fixed)
-        return object : JointPosterior {
+        return object : JointPosteriorNumerics {
             override val baseline = moments
+            override val covarianceScale = parameters.signalVariance
             override fun predict(features: DenseMatrix): JointPosteriorPrediction {
                 val (candidates, solved) = jointFeatures(features)
                 val cross = covariance(fixed, features, config.kernel, parameters)

@@ -128,6 +128,15 @@ fixed-parameter conditioning remain unchanged. Its target is conditional on the
 empirically standardized responses and frozen transform, not a fully Bayesian
 model of the raw response scaling.
 
+Joint GP caches advertise their prior covariance scale through the optional
+`JointPosteriorNumerics` capability. Conditional sampling uses that scale to bound
+roundoff and fallback jitter when subtracting nearly equal covariance terms.
+Response transforms preserve its squared-unit scaling. Numerical stabilization
+remains separate from observation noise; exactly zero variances stay deterministic
+and materially indefinite covariance still fails. The sampler uses the unchanged
+relative limits (1e-10 negative-diagonal tolerance and at most 1e-8 fallback jitter),
+now measured against the pre-cancellation scale when supplied.
+
 For each covariance parameter theta, let g have a zero-mean Matérn-5/2 prior,
 let b ~ N(0,B) independently with B=1 in standardized response units, and set
 f(x)=b+g(x). Integrating b gives covariance k_theta(x,x')+B for **every pair**,

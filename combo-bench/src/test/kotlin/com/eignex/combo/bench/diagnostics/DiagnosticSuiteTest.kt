@@ -10,6 +10,21 @@ class DiagnosticSuiteTest {
     private fun request(study: String, vararg extra: Pair<String, String>) = BenchRequest(mapOf(
         "study" to study, "smoke" to "true", "noise-sd" to "0.03", "fit-trials" to "4", "workloads" to "quadratic2") + extra)
     @Test
+    fun `nearly deterministic pending regressions finish their complete external budget`() {
+        val directory = Files.createTempDirectory("combo-pending-regressions")
+        try {
+            val requests = listOf(
+                request("noise", "seeds" to "2402,2406", "batch" to "1", "noise-sd" to "0.0001", "fit-trials" to "96", "budget" to "32", "pending" to "true", "draws" to "256", "arms" to "known"),
+                request("constrained", "workloads" to "equality", "seeds" to "2702,2704", "batch" to "4", "noise-sd" to "0.0", "fit-trials" to "96", "budget" to "32", "pending" to "true", "draws" to "256", "arms" to "coordinate"),
+            )
+            for ((index, case) in requests.flatMap(DiagnosticSuite::plan).withIndex()) {
+                val result = DiagnosticSuite.run(case, BenchContext(directory.resolve("case-$index")))
+                assertEquals(BenchStatus.SUCCESS, result.status, "${case.id}: ${result.message}")
+                assertEquals(32.0, result.metrics.single { it.name.endsWith(".external-evaluations") }.value)
+            }
+        } finally { directory.toFile().deleteRecursively() }
+    }
+    @Test
     fun `plans freeze complete paired rows and reject invalid settings`() {
         val request = request("noise", "seeds" to "7,8", "batch" to "1,4", "pending" to "false,true")
         val cases = DiagnosticSuite.plan(request)
