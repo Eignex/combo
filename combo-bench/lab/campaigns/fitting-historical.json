@@ -1,0 +1,22 @@
+{
+  "name": "combo-fitting-historical",
+  "repository": "Eignex/combo",
+  "base": {
+    "ref": "REPLACE_WITH_FULL_TESTED_COMMIT_SHA"
+  },
+  "vcpus": 8,
+  "bench": {
+    "manifest": "combo-bench/lab/bench.json",
+    "request": {
+      "parameters": {
+        "study": "fitting",
+        "phase": "historical",
+        "workloads": "branin2,quadratic2",
+        "history-policy": "baseline24,combined96",
+        "batch": "1,4",
+        "noise-sd": "0.0,0.03",
+        "budget": "32"
+      }
+    }
+  }
+}

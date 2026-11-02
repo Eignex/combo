@@ -1,0 +1,23 @@
+{
+  "name": "combo-fitting-validation",
+  "repository": "Eignex/combo",
+  "base": {
+    "ref": "REPLACE_WITH_FULL_TESTED_COMMIT_SHA"
+  },
+  "vcpus": 8,
+  "bench": {
+    "manifest": "combo-bench/lab/bench.json",
+    "request": {
+      "parameters": {
+        "study": "fitting",
+        "phase": "loop",
+        "workloads": "branin2,quadratic2",
+        "arms": "baseline24,coordinate,combined",
+        "seeds": "2201,2202,2203,2204,2205,2206,2207,2208,2209,2210,2211,2212",
+        "batch": "1,4",
+        "noise-sd": "0.0,0.03",
+        "budget": "32"
+      }
+    }
+  }
+}

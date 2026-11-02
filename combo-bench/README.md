@@ -118,3 +118,9 @@ finite complete traces, and replay, without asserting stochastic superiority.
 
 Keep generated output under `combo-bench/build/` for local checks; use lab artifacts
 for experiments and comparisons. Do not copy evidence or results into source folders.
+
+## Diagnostic studies
+
+See [BO diagnostic campaigns](DIAGNOSTICS.md) for frozen-history fitting ablations,
+inferred-noise calibration, constrained exact witnesses and the benchmark-only
+parameter-uncertainty prototype. They use this same adapter and lab manifest.
