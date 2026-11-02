@@ -52,6 +52,8 @@ enum class JointNormalSampling {
  * Log-response models are sampled in Gaussian log coordinates and scored in original units.
  * Reuses fixed normal samples (antithetic by default), canonicalizes row order, and deduplicates coordinates.
  * Near-singular covariance can receive relative numerical jitter up to 1e-8; this is not observation noise.
+ * [JointPosteriorNumerics] supplies the pre-cancellation covariance scale for nearly certain GP predictions;
+ * other models use their returned covariance diagonal. Exactly zero variance remains deterministic.
  * Each bound objective retains common normal samples and a baseline factor, and is single-threaded.
  *
  * @property samples Even number of Monte Carlo draws per evaluated set.

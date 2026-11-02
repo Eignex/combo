@@ -92,8 +92,11 @@ internal class ResponseTransform(val center: Double, val scale: Double, val loga
                     moments.covariance.values.copyOf(),
                 ).also { DenseVector.wrap(it.values).scale(scale * scale) },
             )
-            return object : JointPosterior {
+            return object : JointPosteriorNumerics {
                 override val baseline = decoded(posterior.baseline)
+                override val covarianceScale = (posterior as? JointPosteriorNumerics)?.covarianceScale?.let {
+                    it * scale * scale
+                } ?: 0.0
                 override fun predict(features: DenseMatrix): JointPosteriorPrediction {
                     val result = posterior.predict(features)
                     return JointPosteriorPrediction(

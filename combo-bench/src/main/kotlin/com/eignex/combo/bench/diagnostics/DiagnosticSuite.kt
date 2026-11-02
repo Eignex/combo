@@ -199,7 +199,7 @@ internal object DiagnosticSuite {
             }
         } catch (failure: Exception) {
             val reason = failure.message ?: failure.javaClass.name
-            report.resolve("failure.txt").writeText("status=failed\nreason=$reason\n")
+            report.resolve("failure.txt").writeText("status=failed\nreason=$reason\n${failure.stackTraceToString()}")
             return BenchResult(case.id, BenchStatus.FAILED, metrics, context.artifacts(), message = reason)
         }
         return BenchResult(case.id, metrics = metrics, artifacts = context.artifacts())

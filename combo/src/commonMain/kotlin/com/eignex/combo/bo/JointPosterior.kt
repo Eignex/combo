@@ -28,6 +28,17 @@ interface JointPosterior {
     fun predict(features: DenseMatrix): JointPosteriorPrediction
 }
 
+/**
+ * Optional covariance reference scale for cancellation-aware joint sampling. Exact GP posteriors
+ * subtract training covariance from prior covariance; roundoff follows the prior scale even when
+ * the resulting latent variance is nearly zero. This is numerical metadata, not observation noise.
+ * Response decorators must scale it by the square of their response scale.
+ */
+interface JointPosteriorNumerics : JointPosterior {
+    /** Finite nonnegative covariance scale in the returned moments' response units. */
+    val covarianceScale: Double
+}
+
 /** Optional optimized fixed-baseline prediction capability. Decorators must opt in explicitly. */
 interface JointPosteriorSurrogate : FittedSurrogate {
     /** Capture a baseline and cache reusable model-specific joint prediction work. */

@@ -72,8 +72,9 @@ internal class IntegratedMeanGp(
     override fun jointPosterior(baseline: DenseMatrix): JointPosterior {
         val fixed = DenseMatrix.wrap(baseline.rows, baseline.cols, baseline.values.copyOf())
         val (moments, baselineSolved) = jointFeatures(fixed)
-        return object : JointPosterior {
+        return object : JointPosteriorNumerics {
             override val baseline = moments
+            override val covarianceScale = signal + meanVariance
             override fun predict(features: DenseMatrix): JointPosteriorPrediction {
                 val (candidate, solved) = jointFeatures(features)
                 val cross = kernel(fixed, features)
@@ -216,8 +217,9 @@ internal class AffinePosterior(val base: FittedSurrogate, val center: Double, va
         fun decoded(p: JointPredictiveMoments) = JointPredictiveMoments(
             DenseVector.of(DoubleArray(p.means.size) { center + scale * p.means[it] }),
             DenseMatrix.wrap(p.means.size, p.means.size, DoubleArray(p.covariance.values.size) { scale * scale * p.covariance.values[it] }))
-        return object : JointPosterior {
+        return object : JointPosteriorNumerics {
             override val baseline = decoded(posterior.baseline)
+            override val covarianceScale = (posterior as? JointPosteriorNumerics)?.covarianceScale?.let { it * scale * scale } ?: 0.0
             override fun predict(features: DenseMatrix): JointPosteriorPrediction {
                 val p = posterior.predict(features)
                 return JointPosteriorPrediction(decoded(p.candidates), DenseMatrix.wrap(p.crossCovariance.rows, p.crossCovariance.cols,

@@ -385,6 +385,11 @@ abstract interface com.eignex.combo.bo/JointPosterior { // com.eignex.combo.bo/J
     abstract fun predict(com.eignex.koblas/DenseMatrix): com.eignex.combo.bo/JointPosteriorPrediction // com.eignex.combo.bo/JointPosterior.predict|predict(com.eignex.koblas.DenseMatrix){}[0]
 }
 
+abstract interface com.eignex.combo.bo/JointPosteriorNumerics : com.eignex.combo.bo/JointPosterior { // com.eignex.combo.bo/JointPosteriorNumerics|null[0]
+    abstract val covarianceScale // com.eignex.combo.bo/JointPosteriorNumerics.covarianceScale|{}covarianceScale[0]
+        abstract fun <get-covarianceScale>(): kotlin/Double // com.eignex.combo.bo/JointPosteriorNumerics.covarianceScale.<get-covarianceScale>|<get-covarianceScale>(){}[0]
+}
+
 abstract interface com.eignex.combo.bo/JointPosteriorSurrogate : com.eignex.combo.bo/FittedSurrogate { // com.eignex.combo.bo/JointPosteriorSurrogate|null[0]
     abstract fun jointPosterior(com.eignex.koblas/DenseMatrix): com.eignex.combo.bo/JointPosterior? // com.eignex.combo.bo/JointPosteriorSurrogate.jointPosterior|jointPosterior(com.eignex.koblas.DenseMatrix){}[0]
 }

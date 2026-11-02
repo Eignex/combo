@@ -36,6 +36,9 @@ internal class JointGaussianSampler(
     private val sampling: JointNormalSampling = JointNormalSampling.Antithetic,
 ) {
     private val baseline = posterior.baseline
+    private val referenceScale = ((posterior as? JointPosteriorNumerics)?.covarianceScale ?: 0.0).also {
+        require(it.isFinite() && it >= 0.0) { "invalid joint covariance reference scale" }
+    }
     private val active = baseline.means.toDoubleArray().indices.filter { baseline.covariance[it, it] > 0.0 }
     private val factor: CholeskyFactor?
     private val generator = Random(seed)
@@ -51,7 +54,11 @@ internal class JointGaussianSampler(
         validate(baseline)
         val covariance = DenseMatrix.zero(active.size)
         for (i in active.indices) for (j in active.indices) covariance[i, j] = baseline.covariance[active[i], active[j]]
-        factor = if (active.isEmpty()) null else jointFactor(covariance).also { baselineFactorizations++ }
+        factor = if (active.isEmpty()) {
+            null
+        } else {
+            jointFactor(covariance, referenceScale).also { baselineFactorizations++ }
+        }
         baselineNormals = normalRows(0, active.size)
         baselineDraws = DenseMatrix.zero(baseline.means.size, samples)
         val deviations = factor?.let { koblas.gemm(it.lowerFactor(), baselineNormals) }
@@ -108,7 +115,12 @@ internal class JointGaussianSampler(
         val solved = factor?.solveLower(cross) ?: cross
         val conditional = DenseMatrix.wrap(features.rows, features.rows, moments.covariance.values.copyOf())
         koblas.gemm(-1.0, solved, true, solved, false, 1.0, conditional)
-        val scale = moments.means.toDoubleArray().indices.maxOfOrNull { moments.covariance[it, it] } ?: 0.0
+        // A Schur complement can be much smaller than the covariance terms that formed it.
+        // Preserve the model's cancellation scale rather than scaling jitter by the tiny residual.
+        val scale = maxOf(
+            referenceScale,
+            moments.means.toDoubleArray().indices.maxOfOrNull { moments.covariance[it, it] } ?: 0.0,
+        )
         for (i in 0 until conditional.rows) {
             if (conditional[i, i] < -scale * 1e-10) {
                 throw NotPositiveDefinite(i, conditional[i, i], "negative conditional GP variance")
@@ -127,7 +139,7 @@ internal class JointGaussianSampler(
             null
         } else {
             candidateFactorizations++
-            koblas.gemm(jointFactor(covariance).lowerFactor(), normalRows(active.size, stochastic.size))
+            koblas.gemm(jointFactor(covariance, scale).lowerFactor(), normalRows(active.size, stochastic.size))
         }
         val shared = DenseMatrix.zero(features.rows, samples)
         koblas.gemm(1.0, solved, true, baselineNormals, false, 0.0, shared)
@@ -148,13 +160,13 @@ private fun validate(moments: JointPredictiveMoments) {
     require((0 until moments.means.size).all { moments.covariance[it, it] >= 0.0 })
 }
 
-private fun jointFactor(covariance: DenseMatrix): CholeskyFactor {
+private fun jointFactor(covariance: DenseMatrix, referenceScale: Double): CholeskyFactor {
     try {
         return covariance.factorCholesky()
     } catch (_: NotPositiveDefinite) {
         // A joint latent posterior may be singular even after duplicate feature rows are removed.
     }
-    val scale = (0 until covariance.rows).maxOf { covariance[it, it] }
+    val scale = maxOf(referenceScale, (0 until covariance.rows).maxOf { covariance[it, it] })
     var jitter = scale * 1e-12
     var failure: NotPositiveDefinite? = null
     repeat(5) {
