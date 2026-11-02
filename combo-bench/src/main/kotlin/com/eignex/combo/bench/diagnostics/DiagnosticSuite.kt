@@ -16,6 +16,9 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.security.MessageDigest
 import java.util.zip.GZIPInputStream
+import java.util.zip.GZIPOutputStream
+import java.util.Base64
+import java.io.ByteArrayOutputStream
 import kotlin.io.path.*
 import kotlin.math.*
 import kotlin.random.Random
@@ -43,6 +46,20 @@ internal fun backendIdentity(): String {
     return "vector=${koblas.vectorKernels.name};vendor=${property("getVendor")};version=${property("getVersion")};library=$library;sha256=$hash;threads=${property("getThreadEvidence")}"
 }
 
+private fun packedFixture(text: String): String {
+    val bytes = ByteArrayOutputStream()
+    GZIPOutputStream(bytes).use { it.write(text.toByteArray(Charsets.UTF_8)) }
+    return Base64.getEncoder().encodeToString(bytes.toByteArray())
+}
+private fun unpackedFixture(value: String): String {
+    require(value.length <= 2_000_000) { "Fixture payload exceeds its limit" }
+    return GZIPInputStream(Base64.getDecoder().decode(value).inputStream()).use { input ->
+        val bytes = input.readNBytes(1_000_001)
+        require(bytes.size <= 1_000_000) { "Expanded fixture exceeds its limit" }
+        bytes.toString(Charsets.UTF_8)
+    }
+}
+
 private data class FixtureRow(val kind: String, val point: BanditSample, val observed: Double, val truth: Double)
 
 internal object DiagnosticSuite {
@@ -64,8 +81,8 @@ internal object DiagnosticSuite {
             .map { it.toInt() }
         require(seeds.distinct().size == seeds.size)
         fun integer(name: String, default: Int, minimum: Int = 1) = (p[name]?.toInt() ?: default).also { require(it >= minimum) { "$name below $minimum" } }
-        val budget = integer("budget", if (smoke) 8 else 32, 4)
-        val probes = integer("probes", if (smoke) 8 else 256, 4)
+        val budget = integer("budget", if (smoke) 8 else 32, 4).also { require(it <= 1024) }
+        val probes = integer("probes", if (smoke) 8 else 256, 4).also { require(it <= 4096) }
         val draws = integer("draws", if (smoke) 8 else 256, 2).also { require(it % 2 == 0) }
         val nodes = integer("grid-nodes", 3).also { require(it in listOf(3, 5)) }
         val trials = integer("fit-trials", 96, 0)
@@ -99,10 +116,8 @@ internal object DiagnosticSuite {
             require(budget >= q * r) { "budget must cover one complete batch and replicate group" }
             require(phase != "historical" || (seed in 1901..1906 && sd in listOf(0.0, 0.03) && budget <= 32 && r == 1))
             val fixture = fixture(name, seed, sd, r, probes, budget, context)
-            val path = "combo-bench/build/diagnostic-inputs/${digest(fixture.toByteArray())}.csv"
-            Path.of(path).parent.createDirectories()
-            Path.of(path).writeText(fixture)
-            val inputs = mutableListOf(BenchInput(path, role = "frozen-history-and-probes", sha256 = digest(fixture.toByteArray())))
+            val fixtureDigest = digest(fixture.toByteArray())
+            val inputs = mutableListOf<BenchInput>()
             if (phase == "historical") {
                 require(Path.of(HISTORY_PATH).isRegularFile() && fileDigest(Path.of(HISTORY_PATH)) == HISTORY_SHA) { "Prepare the pinned historical fixture before planning" }
                 inputs += BenchInput(HISTORY_PATH, role = "historical-fitting-traces", sha256 = HISTORY_SHA)
@@ -115,7 +130,7 @@ internal object DiagnosticSuite {
                 val id = "$study/$phase/$name/$seed/q$q/sd$sd/r$r/p$pending/$historyPolicy/ctx$context/fit$fitSeed/$repetition"
                 result += BenchCase(id, parameters, resources, inputs = inputs,
                     attributes = mapOf("suite-version" to "diagnostics-v1", "runtime-sha256" to inventory,
-                        "parameters-sha256" to digest(parameters.toSortedMap().toString().toByteArray())))
+                        "fixture-sha256" to fixtureDigest, "fixture-gzip-base64" to packedFixture(fixture), "parameters-sha256" to digest(parameters.toSortedMap().toString().toByteArray())))
             }
         }
         return result
@@ -147,10 +162,10 @@ internal object DiagnosticSuite {
         require(case.attributes["parameters-sha256"] == digest(case.parameters.toSortedMap().toString().toByteArray())) { "Frozen parameters changed" }
         require(case.attributes["runtime-sha256"] == digest(runtimeInventory().toByteArray())) { "Resolved runtime artifacts changed" }
         require(case.resources.cpus == 1 && case.resources.memoryMiB >= 2048 && case.resources.timeoutSeconds > 0)
-        require(case.inputs.size == if (case.parameters["phase"] == "historical") 2 else 1)
+        require(case.inputs.size == if (case.parameters["phase"] == "historical") 1 else 0)
         val root = (context.worktree ?: Path.of("")).toAbsolutePath().normalize()
         return case.inputs.map { input ->
-            require(input.root == BenchInputRoot.SOURCE && input.sha256 != null)
+            require(input.root == BenchInputRoot.SOURCE && input.sha256 == HISTORY_SHA && input.path == HISTORY_PATH && input.role == "historical-fitting-traces")
             val path = root.resolve(input.path).normalize()
             require(path.startsWith(root) && path.toRealPath().startsWith(root.toRealPath()) && fileDigest(path) == input.sha256) { "Prepared input changed or escaped its source root" }
             path
@@ -160,13 +175,16 @@ internal object DiagnosticSuite {
         val inputs = validate(case, context)
         val p = case.parameters
         val problem = DiagnosticProblem(p.getValue("workload"), p.getValue("context").toDouble())
-        val rows = inputs.first().readLines().drop(1).map { line ->
+        val fixture = unpackedFixture(case.attributes.getValue("fixture-gzip-base64"))
+        require(digest(fixture.toByteArray()) == case.attributes["fixture-sha256"]) { "Frozen fixture bytes changed" }
+        val rows = fixture.lineSequence().filter(String::isNotBlank).drop(1).map { line ->
             val values = line.split(',')
             FixtureRow(values[0], problem.point(doubleArrayOf(values[1].toDouble(), values[2].toDouble())), values[3].toDouble(), values[4].toDouble())
-        }
-        val frozen = if (p["phase"] == "historical") historical(inputs[1], problem, p) else rows.filter { it.kind == "train" }
+        }.toList()
+        val frozen = if (p["phase"] == "historical") historical(inputs.single(), problem, p) else rows.filter { it.kind == "train" }
         val probes = rows.filter { it.kind == "probe" }
         val report = Files.createDirectory(context.reportPath())
+        report.resolve("prepared-fixture.csv").writeText(fixture)
         report.resolve("runtime.txt").writeText("java=${System.getProperty("java.runtime.version")}\nvm=${System.getProperty("java.vm.name")}\n" +
             "os=${System.getProperty("os.name")}/${System.getProperty("os.arch")}\nbackend=${backendIdentity()}\nparameters=$p\n" + runtimeInventory())
         report.resolve("problem.json").writeText(com.eignex.klause.formats.json.ProblemJson.default.encodeToString(problem.space.problem))

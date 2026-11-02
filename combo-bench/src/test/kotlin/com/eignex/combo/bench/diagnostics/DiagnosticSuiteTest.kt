@@ -15,7 +15,7 @@ class DiagnosticSuiteTest {
         val cases = DiagnosticSuite.plan(request)
         assertEquals(8, cases.size)
         assertEquals(cases, DiagnosticSuite.plan(request))
-        assertTrue(cases.all { it.parameters["arms"] == "known,unknown,partial" && it.inputs.single().sha256 != null && it.resources.requiredTags.isEmpty() })
+        assertTrue(cases.all { it.parameters["arms"] == "known,unknown,partial" && it.attributes["fixture-sha256"] != null && it.inputs.isEmpty() && it.resources.requiredTags.isEmpty() })
         for (extra in listOf("batch" to "0", "noise-sd" to "NaN", "seeds" to "1,01", "grid-nodes" to "4", "arms" to "mixture", "memory-mib" to "1024", "timeout-seconds" to "0", "typo" to "1")) {
             assertFailsWith<IllegalArgumentException> { DiagnosticSuite.plan(request("noise", extra)) }
         }
@@ -35,7 +35,7 @@ class DiagnosticSuiteTest {
                 for (metric in first.metrics.filterNot { it.name.endsWith("-seconds") }) {
                     assertEquals(metric.value, replay.getValue(metric.name).value, 1e-12, metric.name)
                 }
-                assertEquals(12, first.artifacts.size)
+                assertEquals(13, first.artifacts.size)
             }
         } finally { directory.toFile().deleteRecursively() }
     }
@@ -68,15 +68,16 @@ class DiagnosticSuiteTest {
         val directory = Files.createTempDirectory("combo-relocated")
         try {
             val root = directory.resolve("source")
-            val input = case.inputs.single()
-            val relocated = root.resolve(input.path)
-            relocated.parent.createDirectories()
-            Path.of(input.path).copyTo(relocated)
+            root.createDirectories()
             val result = DiagnosticSuite.run(case, BenchContext(directory.resolve("out"), worktree = root))
             assertEquals(BenchStatus.SUCCESS, result.status)
             assertFailsWith<IllegalArgumentException> { DiagnosticSuite.run(case.copy(id = "tampered"), BenchContext(directory.resolve("bad-id"), worktree = root)) }
-            relocated.appendText("bad bytes")
-            assertFailsWith<IllegalArgumentException> { DiagnosticSuite.run(case, BenchContext(directory.resolve("bad-input"), worktree = root)) }
+            assertFailsWith<IllegalArgumentException> {
+                DiagnosticSuite.run(case.copy(attributes = case.attributes + ("fixture-sha256" to "0".repeat(64))),
+                    BenchContext(directory.resolve("bad-input"), worktree = root))
+            }
+            val retained = directory.resolve("out/report/prepared-fixture.csv")
+            assertEquals(case.attributes["fixture-sha256"], fileDigest(retained))
         } finally { directory.toFile().deleteRecursively() }
     }
 }
