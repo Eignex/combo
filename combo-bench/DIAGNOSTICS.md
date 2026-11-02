@@ -42,8 +42,15 @@ No old runner is restored. Select `history-policy=baseline24,combined96` to sepa
 fitting changes on a fixed history from histories produced by different policies.
 Historical seeds are 1901–1906; fresh campaign recipes use disjoint seeds.
 
-Plans generate content-addressed CSV inputs under the ignored build directory and
-include their SHA-256 in `BenchInput`. Workers verify these inputs after relocation.
+Plans freeze the synthetic fixture recipe, exact compressed CSV bytes and their
+SHA-256 in each case. Execution decodes those prepared bytes, verifies the frozen
+hash after relocation, and retains `prepared-fixture.csv` in its output. Carrying
+the bytes in the case also avoids platform-dependent regeneration of noise or
+transcendental objective values. Planning
+never adds mutable files to the prepared source archive: accepted build/archive
+reuse must not depend on which study happened to plan first. The historical gzip
+is created by the build task and declared as a SHA-pinned `BenchInput`; workers
+verify that existing prepared input after relocation.
 The manifest keys planner reuse on the installed jars and pinned history archive, so changing snapshot bytes cannot silently reuse a stale plan. The case also freezes every selection parameter and a digest of the installed JVM
 classpath jars. Runtime captures retain individual jar hashes, JVM identity and
 Koblas kernel identity. The lab's accepted preparation and execution receipts
@@ -66,12 +73,12 @@ Diagnostic requests reject unknown options.
 | `noise-sd` | Comma-separated nonnegative Gaussian observation-noise deviations |
 | `replicates` | Independent evaluations per selected point, 1–4; each costs one external evaluation |
 | `pending` | `false,true` schedules; `true` fills two batches before completing the older batch in reverse order |
-| `budget` | External evaluations per arm, default 32; incomplete budgets fail |
+| `budget` | External evaluations per arm, default 32, maximum 1024; incomplete budgets fail |
 | `fit-trials` | Additional covariance candidates, default 96; baseline24 always uses 24 |
 | `fit-seed` | Comma-separated fit-stream perturbations; 0 preserves the optimizer stream; use 0–7 for restart sensitivity |
 | `grid-nodes` | 3 or 5 nodes per log-parameter axis for uncertainty; point-estimate candidate budget matches the grid size |
 | `draws` | Positive even joint acquisition sample count, default 256 |
-| `probes` | Held-out predictive probes per row, default 256 |
+| `probes` | Held-out predictive probes per row, default 256, maximum 4096 |
 | `history-policy` | Historical source policy: `baseline24`, `baseline96`, `combined96`, or a comma-separated selection |
 | `context` | Context-log capacity values in [0.1,1]; other workloads use the first selected value |
 | `repetitions` | Repeated whole paired rows, default 1 |
