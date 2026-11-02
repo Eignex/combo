@@ -61,6 +61,8 @@ alone is not sufficient evidence: preserve the actual prepared bytes and hashes.
 
 The original lightweight suite remains available when `study` is omitted.
 Diagnostic requests reject unknown options.
+Numerically equivalent axis aliases (such as `1,01` or `0,-0.0`) are rejected
+when they would duplicate a paired case.
 
 | Parameter | Meaning |
 | --- | --- |
@@ -100,6 +102,9 @@ regret separately, external cost (zero new external calls for frozen/historical 
 wall time, acquisition call counts, RMSE, 95% latent and future-observation coverage, and predictive NLL.
 The recommendation-pool mean gap diagnoses search error on the same posterior;
 probe truth is used only for scoring, never recommendation selection or labels.
+For mixture arms the likelihood/fit-score snapshots report posterior-weighted
+component log-likelihoods. Held-out NLL uses the full mixture predictive density;
+marginal model-evidence comparisons are outside this study.
 
 Acquisition counts describe optimizer objective calls. A mixture call evaluates
 every component utility: multiply by the fixed component count (27/81 for the

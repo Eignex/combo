@@ -31,8 +31,13 @@ class DiagnosticSuiteTest {
         assertEquals(8, cases.size)
         assertEquals(cases, DiagnosticSuite.plan(request))
         assertTrue(cases.all { it.parameters["arms"] == "known,unknown,partial" && it.attributes["fixture-sha256"] != null && it.inputs.isEmpty() && it.resources.requiredTags.isEmpty() })
-        for (extra in listOf("batch" to "0", "noise-sd" to "NaN", "seeds" to "1,01", "grid-nodes" to "4", "arms" to "mixture", "memory-mib" to "1024", "timeout-seconds" to "0", "typo" to "1")) {
+        for (extra in listOf("batch" to "0", "noise-sd" to "NaN", "noise-sd" to "1e200", "seeds" to "1,01", "grid-nodes" to "4", "arms" to "mixture", "memory-mib" to "1024", "timeout-seconds" to "0", "typo" to "1")) {
             assertFailsWith<IllegalArgumentException> { DiagnosticSuite.plan(request("noise", extra)) }
+        }
+        for (extra in listOf("batch" to "1,01", "noise-sd" to "0,-0.0", "replicates" to "1,01", "fit-seed" to "0,00", "context" to "0.25,.250")) {
+            assertFailsWith<IllegalArgumentException> {
+                DiagnosticSuite.plan(BenchRequest(mapOf("study" to "constrained", "workloads" to "context-log", "smoke" to "true") + extra))
+            }
         }
     }
     @Test
