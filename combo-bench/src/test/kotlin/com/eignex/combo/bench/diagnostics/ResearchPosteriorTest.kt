@@ -40,6 +40,24 @@ class ResearchPosteriorTest {
         }
     }
     @Test
+    fun `affine joint caches preserve fixed baseline and cross covariance`() {
+        val data = data(doubleArrayOf(0.0, 0.7), doubleArrayOf(-1.0, 1.0), doubleArrayOf(0.1, 0.2))
+        val model = AffinePosterior(IntegratedMeanGp(data, listOf(0.5), 2.0, 0.1), 2.0, 3.0)
+        val baseline = rows(0.1, 0.3)
+        val cache = assertNotNull(model.jointPosterior(baseline))
+        baseline[0,0] = 100.0
+        val expected = assertNotNull(model.predictJoint(rows(0.1, 0.3, 0.8, 0.9)))
+        val actual = cache.predict(rows(0.8, 0.9))
+        for (i in 0..1) {
+            assertEquals(expected.means[i], cache.baseline.means[i], 1e-12)
+            assertEquals(expected.means[i+2], actual.candidates.means[i], 1e-12)
+            for (j in 0..1) {
+                assertEquals(expected.covariance[i,j+2], actual.crossCovariance[i,j], 1e-12)
+                assertEquals(expected.covariance[i+2,j+2], actual.candidates.covariance[i,j], 1e-12)
+            }
+        }
+    }
+    @Test
     fun `mixture conditioning updates posterior weights by predictive evidence without changing the original`() {
         val training = data(doubleArrayOf(0.0), doubleArrayOf(1.0), doubleArrayOf(0.1))
         val a = IntegratedMeanGp(training, listOf(0.1), 0.5, 0.1)
