@@ -96,10 +96,19 @@ transform. Known variances scale by the square of that response scale.
 Each case retains original and context-conditioned exact source problem JSON, runtime identity, per-arm original
 coordinate/exact witness traces, parameter/jitter/likelihood/penalized-score
 snapshots and held-out predictions. Metrics include best-evaluated and recommendation
-regret separately, external cost (zero new external calls for frozen/historical refits), retained history size, model/covariance-candidate counts, fitting/search
-wall time, RMSE, 95% latent and future-observation coverage, and predictive NLL.
+regret separately, external cost (zero new external calls for frozen/historical refits), retained history size, model/covariance-candidate counts, fitting and inclusive loop
+wall time, acquisition call counts, RMSE, 95% latent and future-observation coverage, and predictive NLL.
 The recommendation-pool mean gap diagnoses search error on the same posterior;
 probe truth is used only for scoring, never recommendation selection or labels.
+
+Acquisition counts describe optimizer objective calls. A mixture call evaluates
+every component utility: multiply by the fixed component count (27/81 for the
+three-node deterministic/unknown-noise grids, 125/625 for five nodes). MAP and point
+arms use one component. Inclusive loop time also contains fitting, feasible search,
+source checks, recommendation and trace writing. Arm order rotates only when
+repetitions are requested; a single-repetition study has a fixed order and cold
+JVM/JIT effects. These timings do not establish steady-state throughput or an
+isolated acquisition latency.
 
 Calibration uses 2,048 fixed, common marginal mixture draws per probe and central
 empirical intervals. Future-observation draws add the model's noise estimate (or
