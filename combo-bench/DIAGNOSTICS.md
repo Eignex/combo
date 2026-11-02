@@ -106,6 +106,15 @@ For mixture arms the likelihood/fit-score snapshots report posterior-weighted
 component log-likelihoods. Held-out NLL uses the full mixture predictive density;
 marginal model-evidence comparisons are outside this study.
 
+Fitted parameter and training-jitter snapshots use empirically standardized response
+coordinates; length scales use SearchTransform feature coordinates. Reported noise
+variance, predictions, intervals, RMSE and regrets use the workload's response
+units. The retained observation trace reconstructs centering and population-variance
+scaling. Supplied row variances remain explicit training inputs; the parameter
+snapshot's unknown-row noise value is unused when every row variance is supplied.
+Use held-out predictive NLL for policy comparisons across different histories and
+response transforms.
+
 Acquisition counts describe optimizer objective calls. A mixture call evaluates
 every component utility: multiply by the fixed component count (27/81 for the
 three-node deterministic/unknown-noise grids, 125/625 for five nodes). MAP and point
@@ -190,6 +199,27 @@ References: [GPML, chapter 2, explicit basis functions](https://gaussianprocess.
 and [Snoek et al., Bayesian optimization with parameter integration](https://proceedings.neurips.cc/paper/2012/file/05311655a15b75fab86956663e1819cd-Paper.pdf).
 The experiment can validly conclude that this prototype's gain does not justify
 shipping it. Keep defaults unless independent fresh seeds support a change.
+
+## Study decisions
+
+The completed studies retain their numerical results, per-seed regressions,
+prepared inputs and actual runtime identities in the lab and linked issue receipts:
+
+- [Fitting policies (#41)](https://github.com/Eignex/combo/issues/41#issuecomment-6574900431):
+  retain empirical-mean, unregularized coordinate defaults. Frozen histories expose
+  initialization and history sensitivity; fresh recommendation differences do not
+  establish a reliable gain from the combined policy or a larger fitting budget.
+- [Inferred noise (#51)](https://github.com/Eignex/combo/issues/51#issuecomment-6575271803):
+  retain opt-in scalar inference and preserve supplied row variances. The tested
+  finite search budget limits recovery at both ends of the noise range, and
+  calibration/recommendation results do not justify enabling inference by default.
+- [Parameter uncertainty (#43)](https://github.com/Eignex/combo/issues/43#issuecomment-6575273127):
+  keep this finite-grid prototype benchmark-only. Integration improves some
+  calibration measures, especially relative to its integrated-mean MAP control,
+  but does not establish a recommendation gain that justifies the additional
+  component acquisition work and sensitivity to grid resolution. This decision
+  concerns the tested approximation; existing fixed-parameter production contracts
+  remain in place.
 
 ## Running
 
