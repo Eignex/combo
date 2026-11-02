@@ -100,7 +100,7 @@ internal object DiagnosticSuite {
         } })
         val batches = selected(p["batch"] ?: if (smoke) "1" else "1,4").map { it.toInt().also { q -> require(q in listOf(1, 4)) } }
         val deviations = selected(p["noise-sd"] ?: if (study == "noise") "0.0001,0.03,0.15" else if (study == "constrained") "0.0" else "0.0,0.03")
-            .map { it.toDouble().also { x -> require(x.isFinite() && x >= 0.0) } }
+            .map { it.toDouble().also { x -> require(x.isFinite() && x >= 0.0 && (x * x).isFinite()) }.let { x -> if (x == 0.0) 0.0 else x } }
         val replicates = selected(p["replicates"] ?: "1").map { it.toInt().also { r -> require(r in 1..4) } }
         val pendings = selected(p["pending"] ?: "false").map { it.toBooleanStrict() }
         val contexts = selected(p["context"] ?: "0.75").map { it.toDouble().also { x -> require(x.isFinite() && x in 0.1..1.0) } }
@@ -133,6 +133,7 @@ internal object DiagnosticSuite {
                         "fixture-sha256" to fixtureDigest, "fixture-gzip-base64" to packedFixture(fixture), "parameters-sha256" to digest(parameters.toSortedMap().toString().toByteArray())))
             }
         }
+        require(result.map { it.id }.toSet().size == result.size) { "Diagnostic axes produce duplicate case ids" }
         return result
     }
     private fun fixture(name: String, seed: Int, sd: Double, replicates: Int, probes: Int, budget: Int, context: Double): String {
