@@ -18,5 +18,6 @@
         "budget": "32"
       }
     }
-  }
+  },
+  "description": "Compare GP and feasible random search on exact constrained witnesses, context pins and pending reservations with original-source checks for issue 52."
 }

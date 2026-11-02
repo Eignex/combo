@@ -19,5 +19,6 @@
         "budget": "32"
       }
     }
-  }
+  },
+  "description": "Compare disclosed, unknown and partially known scalar observation noise to measure recovery, predictive calibration and recommendation regret for issue 51."
 }

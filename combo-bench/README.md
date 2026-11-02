@@ -42,6 +42,7 @@ client's `lab run REQUEST.json` command:
 ```json
 {
   "name": "combo-optimization",
+  "description": "Compare GP, forest and feasible random search under equal external evaluation budgets.",
   "repository": "Eignex/combo",
   "base": {"ref": "COMMIT_SHA"},
   "bench": {

@@ -18,5 +18,6 @@
         "budget": "32"
       }
     }
-  }
+  },
+  "description": "Compare point estimates, an integrated-mean grid MAP and posterior-weighted covariance mixtures under explicit fitting budgets for issue 43."
 }

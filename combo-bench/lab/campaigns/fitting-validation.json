@@ -19,5 +19,6 @@
         "budget": "32"
       }
     }
-  }
+  },
+  "description": "Compare GP fitting policies on identical histories and equal-budget BO runs to diagnose noisy Branin regressions and initialization sensitivity for issue 41."
 }
