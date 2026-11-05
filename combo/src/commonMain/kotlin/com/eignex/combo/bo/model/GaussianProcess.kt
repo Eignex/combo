@@ -9,7 +9,6 @@ import com.eignex.combo.bo.SampledFunction
 import com.eignex.combo.bo.TrainingData
 import com.eignex.koblas.DenseMatrix
 import com.eignex.koblas.DenseVector
-import com.eignex.koblas.dense.gemv
 import com.eignex.koblas.koblas
 import com.eignex.kumulant.math.CholeskyFactor
 import com.eignex.kumulant.math.NotPositiveDefinite
@@ -107,7 +106,7 @@ internal class GaussianProcessModel private constructor(
         validate(features)
         val covariance = cross(features)
         val means = DoubleArray(features.rows)
-        koblas.gemv(1.0, covariance, alpha, 0.0, means, transpose = true)
+        koblas.gemv(1.0, covariance, alpha, 0, 1, 0.0, means, 0, 1, transpose = true)
         for (i in means.indices) means[i] += parameters.mean
         val solved = factor.solveLower(covariance)
         val variances = DoubleArray(features.rows) { column ->
@@ -123,7 +122,7 @@ internal class GaussianProcessModel private constructor(
         validate(features)
         val cross = cross(features)
         val means = DoubleArray(features.rows)
-        koblas.gemv(1.0, cross, alpha, 0.0, means, transpose = true)
+        koblas.gemv(1.0, cross, alpha, 0, 1, 0.0, means, 0, 1, transpose = true)
         for (i in means.indices) means[i] += parameters.mean
         val solved = factor.solveLower(cross)
         val result = covariance(features, features, config.kernel, parameters)
@@ -193,7 +192,7 @@ internal class GaussianProcessModel private constructor(
                 val (sampling, _) = stabilized(joint.covariance, config, parameters.signalVariance)
                 val normals = DoubleArray(missing.size) { generator.nextNormal() }
                 val deviations = DoubleArray(missing.size)
-                koblas.gemv(1.0, sampling.lowerFactor(), normals, 0.0, deviations)
+                koblas.gemv(1.0, sampling.lowerFactor(), normals, 0, 1, 0.0, deviations, 0, 1)
                 val values = DoubleArray(missing.size) { joint.means[it] + deviations[it] }
                 missing.forEachIndexed { index, key -> cache[key] = values[index] }
                 conditioned = conditioned.condition(
