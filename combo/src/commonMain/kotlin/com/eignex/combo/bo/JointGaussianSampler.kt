@@ -61,7 +61,11 @@ internal class JointGaussianSampler(
         }
         baselineNormals = normalRows(0, active.size)
         baselineDraws = DenseMatrix.zero(baseline.means.size, samples)
-        val deviations = factor?.let { koblas.gemm(it.lowerFactor(), baselineNormals) }
+        val deviations = factor?.let {
+            val result = DenseMatrix.zero(active.size, samples)
+            koblas.gemm(1.0, it.lowerFactor(), false, baselineNormals, false, 0.0, result)
+            result
+        }
         val positions = active.withIndex().associate { it.value to it.index }
         for (i in 0 until baselineDraws.rows) {
             for (draw in 0 until samples) {
@@ -139,7 +143,11 @@ internal class JointGaussianSampler(
             null
         } else {
             candidateFactorizations++
-            koblas.gemm(jointFactor(covariance, scale).lowerFactor(), normalRows(active.size, stochastic.size))
+            val lower = jointFactor(covariance, scale).lowerFactor()
+            val normals = normalRows(active.size, stochastic.size)
+            val result = DenseMatrix.zero(stochastic.size, samples)
+            koblas.gemm(1.0, lower, false, normals, false, 0.0, result)
+            result
         }
         val shared = DenseMatrix.zero(features.rows, samples)
         koblas.gemm(1.0, solved, true, baselineNormals, false, 0.0, shared)

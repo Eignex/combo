@@ -51,13 +51,13 @@ kotlin {
                 exclude(group = "com.eignex", module = "koblas")
                 exclude(group = "com.eignex", module = "skema")
             }
-            api("com.eignex:kumulant:0.3.4-20261101.114432-127") {
-                version { strictly("0.3.4-20261101.114432-127") }
+            api("com.eignex:kumulant:0.3.4-20261104.121321-128") {
+                version { strictly("0.3.4-20261104.121321-128") }
                 exclude(group = "com.eignex", module = "koblas")
                 exclude(group = "com.eignex", module = "skema")
             }
-            api("com.eignex:koblas:0.1.1-20261028.120512-276") {
-                version { strictly("0.1.1-20261028.120512-276") }
+            api("com.eignex:koblas:0.1.1-20261104.113808-308") {
+                version { strictly("0.1.1-20261104.113808-308") }
             }
             api("com.eignex:skema:0.4.0")
             compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-core:1.12.0")
@@ -76,16 +76,16 @@ dependencies {
     constraints {
         for ((library, platforms) in mapOf(
             "kumulant" to mapOf(
-                "jvm" to "0.3.4-20261101.114432-127",
-                "linuxx64" to "0.3.4-20261101.114432-127",
-                "linuxarm64" to "0.3.4-20261101.114432-127",
-                "macosarm64" to "0.3.4-20261101.114432-126",
+                "jvm" to "0.3.4-20261104.121321-128",
+                "linuxx64" to "0.3.4-20261104.121321-128",
+                "linuxarm64" to "0.3.4-20261104.121321-128",
+                "macosarm64" to "0.3.4-20261104.121321-127",
             ),
             "koblas" to mapOf(
-                "jvm" to "0.1.1-20261028.120512-279",
-                "linuxx64" to "0.1.1-20261028.120512-275",
-                "linuxarm64" to "0.1.1-20261028.120512-276",
-                "macosarm64" to "0.1.1-20261028.120512-299",
+                "jvm" to "0.1.1-20261104.113808-311",
+                "linuxx64" to "0.1.1-20261104.113808-306",
+                "linuxarm64" to "0.1.1-20261104.113808-308",
+                "macosarm64" to "0.1.1-20261104.113808-330",
             ),
         )) {
             for ((platform, pinned) in platforms) {

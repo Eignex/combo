@@ -9,6 +9,7 @@ import com.eignex.combo.bo.SampledFunction
 import com.eignex.combo.bo.TrainingData
 import com.eignex.koblas.DenseMatrix
 import com.eignex.koblas.DenseVector
+import com.eignex.koblas.dense.gemv
 import com.eignex.koblas.koblas
 import com.eignex.kumulant.math.CholeskyFactor
 import com.eignex.kumulant.math.NotPositiveDefinite
@@ -105,11 +106,12 @@ internal class GaussianProcessModel private constructor(
     fun predict(features: DenseMatrix): PredictiveMoments {
         validate(features)
         val covariance = cross(features)
-        val means = koblas.gemv(covariance, alpha, transpose = true)
+        val means = DoubleArray(features.rows)
+        koblas.gemv(1.0, covariance, alpha, 0.0, means, transpose = true)
         for (i in means.indices) means[i] += parameters.mean
         val solved = factor.solveLower(covariance)
         val variances = DoubleArray(features.rows) { column ->
-            val square = koblas.vectorKernels.dot(solved.values, column * size, solved.values, column * size, size)
+            val square = koblas.dot(solved.values, column * size, solved.values, column * size, size)
             maxOf(0.0, parameters.signalVariance - square)
         }
         return PredictiveMoments(DenseVector.of(means), DenseVector.of(variances))
@@ -120,7 +122,8 @@ internal class GaussianProcessModel private constructor(
     private fun jointFeatures(features: DenseMatrix): Pair<JointPredictiveMoments, DenseMatrix> {
         validate(features)
         val cross = cross(features)
-        val means = koblas.gemv(cross, alpha, transpose = true)
+        val means = DoubleArray(features.rows)
+        koblas.gemv(1.0, cross, alpha, 0.0, means, transpose = true)
         for (i in means.indices) means[i] += parameters.mean
         val solved = factor.solveLower(cross)
         val result = covariance(features, features, config.kernel, parameters)
@@ -188,10 +191,9 @@ internal class GaussianProcessModel private constructor(
                 for (i in missing.indices) for (j in 0 until dimensions) queries[i, j] = missing[i][j]
                 val joint = conditioned.predictJoint(queries)
                 val (sampling, _) = stabilized(joint.covariance, config, parameters.signalVariance)
-                val deviations = koblas.gemv(
-                    sampling.lowerFactor(),
-                    DoubleArray(missing.size) { generator.nextNormal() },
-                )
+                val normals = DoubleArray(missing.size) { generator.nextNormal() }
+                val deviations = DoubleArray(missing.size)
+                koblas.gemv(1.0, sampling.lowerFactor(), normals, 0.0, deviations)
                 val values = DoubleArray(missing.size) { joint.means[it] + deviations[it] }
                 missing.forEachIndexed { index, key -> cache[key] = values[index] }
                 conditioned = conditioned.condition(
@@ -334,7 +336,7 @@ internal class GaussianProcessModel private constructor(
             }
             val centered = DoubleArray(data.responses.size) { data.responses[it] - fittedParameters.mean }
             val alpha = factor.solve(centered)
-            val quadratic = koblas.vectorKernels.dot(centered, 0, alpha, 0, alpha.size)
+            val quadratic = koblas.dot(centered, 0, alpha, 0, alpha.size)
             val likelihood = if (alpha.isEmpty()) {
                 0.0
             } else {
