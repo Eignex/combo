@@ -4,6 +4,7 @@ import com.eignex.combo.bo.*
 import com.eignex.combo.bo.model.*
 import com.eignex.koblas.DenseMatrix
 import com.eignex.koblas.DenseVector
+import com.eignex.koblas.dense.gemv
 import com.eignex.koblas.koblas
 import com.eignex.kumulant.math.factorCholesky
 import com.eignex.kumulant.math.nextNormal
@@ -62,7 +63,8 @@ internal class IntegratedMeanGp(
     private fun jointFeatures(features: DenseMatrix): Pair<JointPredictiveMoments, DenseMatrix> {
         require(features.cols == scales.size && features.values.all { it.isFinite() })
         val cross = kernel(data.features, features)
-        val mean = koblas.gemv(cross, alpha, transpose = true)
+        val mean = DoubleArray(features.rows)
+        koblas.gemv(1.0, cross, alpha, 0.0, mean, transpose = true)
         val solved = factor.solveLower(cross)
         val covariance = kernel(features, features)
         koblas.gemm(-1.0, solved, true, solved, false, 1.0, covariance)
@@ -87,7 +89,8 @@ internal class IntegratedMeanGp(
         require(features.cols == scales.size && features.values.all { it.isFinite() })
         // Marginals avoid an O(probes^2) joint covariance in calibration captures.
         val cross = kernel(data.features, features)
-        val mean = koblas.gemv(cross, alpha, transpose = true)
+        val mean = DoubleArray(features.rows)
+        koblas.gemv(1.0, cross, alpha, 0.0, mean, transpose = true)
         val solved = factor.solveLower(cross)
         return PredictiveMoments(DenseVector.of(mean), DenseVector.of(DoubleArray(features.rows) { j ->
             maxOf(0.0, signal + meanVariance - (0 until solved.rows).sumOf { solved[it, j] * solved[it, j] })
@@ -115,7 +118,10 @@ internal class IntegratedMeanGp(
                 val moments = current.predictJoint(x)
                 val covariance = DenseMatrix.wrap(x.rows, x.rows, moments.covariance.values.copyOf())
                 for (i in 0 until x.rows) covariance[i, i] += 1e-10 * (signal + meanVariance)
-                val draw = koblas.gemv(covariance.factorCholesky().lowerFactor(), DoubleArray(x.rows) { stream.nextNormal() })
+                val lower = covariance.factorCholesky().lowerFactor()
+                val normals = DoubleArray(x.rows) { stream.nextNormal() }
+                val draw = DoubleArray(x.rows)
+                koblas.gemv(1.0, lower, normals, 0.0, draw)
                 val y = DoubleArray(x.rows) { moments.means[it] + draw[it] }
                 missing.forEachIndexed { i, key -> cache[key] = y[i] }
                 current = current.condition(training(x, y, DoubleArray(y.size)))

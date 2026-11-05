@@ -37,13 +37,12 @@ internal fun runtimeInventory(): String = System.getProperty("java.class.path").
     .joinToString("\n") { "${it.fileName} ${fileDigest(it)}" }
 
 internal fun backendIdentity(): String {
-    val getter = koblas.javaClass.methods.firstOrNull { it.name == "getVendor" && it.parameterCount == 0 }
-    val vendor = getter?.invoke(koblas) ?: return "vector=${koblas.vectorKernels.name};vendor=none"
-    fun property(name: String): String = getter.returnType.methods.firstOrNull { it.name == name && it.parameterCount == 0 }
-        ?.invoke(vendor)?.toString() ?: "unreported"
-    val library = property("getLibraryPath")
-    val hash = runCatching { Path.of(library).takeIf { it.isRegularFile() }?.let(::fileDigest) }.getOrNull() ?: "unavailable"
-    return "vector=${koblas.vectorKernels.name};vendor=${property("getVendor")};version=${property("getVersion")};library=$library;sha256=$hash;threads=${property("getThreadEvidence")}"
+    val providers = koblas.providers.joinToString("|") { provider ->
+        val library = provider.libraryPath
+        val hash = runCatching { Path.of(library).takeIf { it.isRegularFile() }?.let(::fileDigest) }.getOrNull() ?: "unavailable"
+        "id=${provider.id};name=${provider.name};vendor=${provider.vendor ?: "none"};version=${provider.version};library=$library;sha256=$hash;threads=${provider.threadEvidence}"
+    }
+    return "engine=${koblas.name};providers=[$providers]"
 }
 
 private fun packedFixture(text: String): String {
