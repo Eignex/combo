@@ -4,7 +4,6 @@ import com.eignex.combo.bo.*
 import com.eignex.combo.bo.model.*
 import com.eignex.koblas.DenseMatrix
 import com.eignex.koblas.DenseVector
-import com.eignex.koblas.dense.gemv
 import com.eignex.koblas.koblas
 import com.eignex.kumulant.math.factorCholesky
 import com.eignex.kumulant.math.nextNormal
@@ -64,7 +63,7 @@ internal class IntegratedMeanGp(
         require(features.cols == scales.size && features.values.all { it.isFinite() })
         val cross = kernel(data.features, features)
         val mean = DoubleArray(features.rows)
-        koblas.gemv(1.0, cross, alpha, 0.0, mean, transpose = true)
+        koblas.gemv(1.0, cross, alpha, 0, 1, 0.0, mean, 0, 1, transpose = true)
         val solved = factor.solveLower(cross)
         val covariance = kernel(features, features)
         koblas.gemm(-1.0, solved, true, solved, false, 1.0, covariance)
@@ -90,7 +89,7 @@ internal class IntegratedMeanGp(
         // Marginals avoid an O(probes^2) joint covariance in calibration captures.
         val cross = kernel(data.features, features)
         val mean = DoubleArray(features.rows)
-        koblas.gemv(1.0, cross, alpha, 0.0, mean, transpose = true)
+        koblas.gemv(1.0, cross, alpha, 0, 1, 0.0, mean, 0, 1, transpose = true)
         val solved = factor.solveLower(cross)
         return PredictiveMoments(DenseVector.of(mean), DenseVector.of(DoubleArray(features.rows) { j ->
             maxOf(0.0, signal + meanVariance - (0 until solved.rows).sumOf { solved[it, j] * solved[it, j] })
@@ -121,7 +120,7 @@ internal class IntegratedMeanGp(
                 val lower = covariance.factorCholesky().lowerFactor()
                 val normals = DoubleArray(x.rows) { stream.nextNormal() }
                 val draw = DoubleArray(x.rows)
-                koblas.gemv(1.0, lower, normals, 0.0, draw)
+                koblas.gemv(1.0, lower, normals, 0, 1, 0.0, draw, 0, 1)
                 val y = DoubleArray(x.rows) { moments.means[it] + draw[it] }
                 missing.forEachIndexed { i, key -> cache[key] = y[i] }
                 current = current.condition(training(x, y, DoubleArray(y.size)))
