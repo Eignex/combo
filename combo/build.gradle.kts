@@ -46,18 +46,19 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            api("com.eignex:klause:0.0.1-SNAPSHOT") {
+            api("com.eignex:klause:0.0.1-20261105.183337-1210") {
+                version { strictly("0.0.1-20261105.183337-1210") }
                 exclude(group = "com.eignex", module = "kumulant")
                 exclude(group = "com.eignex", module = "koblas")
                 exclude(group = "com.eignex", module = "skema")
             }
-            api("com.eignex:kumulant:0.3.4-20261104.121321-128") {
-                version { strictly("0.3.4-20261104.121321-128") }
+            api("com.eignex:kumulant:0.3.4-20261105.142345-130") {
+                version { strictly("0.3.4-20261105.142345-130") }
                 exclude(group = "com.eignex", module = "koblas")
                 exclude(group = "com.eignex", module = "skema")
             }
-            api("com.eignex:koblas:0.1.1-20261104.113808-308") {
-                version { strictly("0.1.1-20261104.113808-308") }
+            api("com.eignex:koblas:0.1.1-20261105.140327-312") {
+                version { strictly("0.1.1-20261105.140327-312") }
             }
             api("com.eignex:skema:0.4.0")
             compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-core:1.12.0")
@@ -75,17 +76,21 @@ kotlin {
 dependencies {
     constraints {
         for ((library, platforms) in mapOf(
+            "klause" to mapOf(
+                "jvm" to "0.0.1-20261105.183337-1202",
+                "linuxx64" to "0.0.1-20261105.183337-1201",
+            ),
             "kumulant" to mapOf(
-                "jvm" to "0.3.4-20261104.121321-128",
-                "linuxx64" to "0.3.4-20261104.121321-128",
-                "linuxarm64" to "0.3.4-20261104.121321-128",
-                "macosarm64" to "0.3.4-20261104.121321-127",
+                "jvm" to "0.3.4-20261105.142345-130",
+                "linuxx64" to "0.3.4-20261105.142345-130",
+                "linuxarm64" to "0.3.4-20261105.142345-130",
+                "macosarm64" to "0.3.4-20261105.142345-129",
             ),
             "koblas" to mapOf(
-                "jvm" to "0.1.1-20261104.113808-311",
-                "linuxx64" to "0.1.1-20261104.113808-306",
-                "linuxarm64" to "0.1.1-20261104.113808-308",
-                "macosarm64" to "0.1.1-20261104.113808-330",
+                "jvm" to "0.1.1-20261105.140327-315",
+                "linuxx64" to "0.1.1-20261105.140327-310",
+                "linuxarm64" to "0.1.1-20261105.140327-312",
+                "macosarm64" to "0.1.1-20261105.140327-334",
             ),
         )) {
             for ((platform, pinned) in platforms) {
