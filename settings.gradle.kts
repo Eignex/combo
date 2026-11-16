@@ -3,9 +3,21 @@ rootProject.name = "combo"
 include(":combo", ":combo-bench", ":server")
 
 pluginManagement {
+    val kbuildVersion = "1.3.8"
     repositories {
+        ivy {
+            url = uri("https://github.com/Eignex/kbuild/releases/download")
+            patternLayout { artifact("v[revision]/[artifact]-[revision](-[classifier]).[ext]") }
+            metadataSources { gradleMetadata() }
+            content { includeModule("com.eignex", "kbuild") }
+        }
         mavenCentral()
         gradlePluginPortal()
+    }
+    resolutionStrategy.eachPlugin {
+        if (requested.id.id == "com.eignex.kmp") {
+            useModule("com.eignex:kbuild:$kbuildVersion")
+        }
     }
 }
 

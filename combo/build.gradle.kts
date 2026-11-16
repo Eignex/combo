@@ -3,6 +3,8 @@ plugins {
     kotlin("plugin.serialization")
 }
 
+eignexBuild { jvmToolchain.set(25) }
+
 eignexPublish {
     description.set("Streaming bandits and history-based Bayesian optimization over constrained decision spaces.")
     githubRepo.set("Eignex/combo")
