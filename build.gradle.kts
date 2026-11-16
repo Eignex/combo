@@ -1,7 +1,18 @@
 plugins {
     base
-    id("com.eignex.kmp") version "1.3.5" apply false
+    id("com.eignex.kmp") apply false
     kotlin("plugin.serialization") version "2.4.21" apply false
+}
+
+allprojects {
+    repositories {
+        ivy {
+            url = uri("https://github.com/Eignex/kbuild/releases/download")
+            patternLayout { artifact("v[revision]/[artifact]-[revision](-[classifier]).[ext]") }
+            metadataSources { gradleMetadata() }
+            content { includeModule("com.eignex", "kbuild-platform") }
+        }
+    }
 }
 
 subprojects {
