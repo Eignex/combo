@@ -1831,7 +1831,7 @@ public final class com/eignex/combo/decisions/ContextBuilder {
 	public final fun set-TUNxH2k (ID)V
 	public final fun set-TUNxH2k (ILcom/eignex/klause/arithmetic/polynomial/AlgebraicReal;)V
 	public final fun set-TUNxH2k (ILcom/eignex/klause/arithmetic/real/ExactRealValue;)V
-	public final fun set-TUNxH2k (ILcom/eignex/klause/simplex/exact/BigFraction;)V
+	public final fun set-TUNxH2k (ILcom/eignex/util/numbers/BigFraction;)V
 }
 
 public final class com/eignex/combo/decisions/ContextKt {

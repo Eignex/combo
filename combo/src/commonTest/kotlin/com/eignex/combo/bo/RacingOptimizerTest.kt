@@ -4,12 +4,12 @@ import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.DecisionSpace
 import com.eignex.combo.shared.WitnessTermination
 import com.eignex.combo.shared.assignmentKey
-import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
 import com.eignex.kumulant.core.PairedStat
 import com.eignex.kumulant.schema.ops.maeLoss
 import com.eignex.kumulant.schema.runtime.materialize
 import com.eignex.kumulant.stat.summary.WeightedMeanResult
+import com.eignex.util.numbers.BigFraction
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

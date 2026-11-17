@@ -11,7 +11,7 @@ import com.eignex.klause.solver.evidence.SourceEvidenceVerifier
 import com.eignex.klause.solver.evidence.SourceRevision
 import com.eignex.klause.solver.evidence.SourceScope
 import com.eignex.klause.solver.evidence.sourceProofContext
-import com.eignex.klause.util.Cancellation
+import com.eignex.klause.util.ExecutionControl
 
 internal class WitnessValidator(private val space: CompiledDecisionSpace) {
     private val scope = SourceScope(SourceRevision("combo/witness", "klause-ir-exact-v1"))
@@ -37,8 +37,8 @@ internal class WitnessValidator(private val space: CompiledDecisionSpace) {
         return valid
     }
 
-    private fun budget(): Cancellation {
+    private fun budget(): ExecutionControl {
         var polls = 0
-        return Cancellation { ++polls > 100_000 }
+        return ExecutionControl { ++polls > 100_000 }
     }
 }

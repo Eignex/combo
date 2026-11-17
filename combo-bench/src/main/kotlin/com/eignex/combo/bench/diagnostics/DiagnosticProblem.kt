@@ -3,17 +3,17 @@ package com.eignex.combo.bench.diagnostics
 import com.eignex.combo.bo.SearchTransform
 import com.eignex.combo.decisions.*
 import com.eignex.combo.shared.*
-import com.eignex.klause.arithmetic.real.exactRealValue
+import com.eignex.klause.arithmetic.json.ExactRealJson
 import com.eignex.klause.arithmetic.real.toExactRealValue
-import com.eignex.klause.formats.json.ExactRealJson
 import com.eignex.klause.formats.json.ProblemJson
 import com.eignex.klause.ir.SourceRealId
 import com.eignex.klause.schema.eq
 import com.eignex.klause.schema.plus
-import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
 import com.eignex.klause.solver.checkExactRealSample
-import com.eignex.klause.util.Cancellation
+import com.eignex.klause.solver.exactRealValue
+import com.eignex.klause.util.ExecutionControl
+import com.eignex.util.numbers.BigFraction
 import kotlin.math.*
 import kotlin.random.Random
 
@@ -102,7 +102,9 @@ internal class DiagnosticProblem(val name: String, val contextLevel: Double = 0.
         (0 until sample.numRealVars).joinToString { ExactRealJson.encodeToString(sample.exactRealValue(it)) } + "]}"
     fun check(sample: Sample, cancelled: Boolean = false): Boolean? {
         var polls = 0
-        return space.problem.checkExactRealSample(sample, Cancellation { cancelled || ++polls > 100_000 || Thread.currentThread().isInterrupted })
+        return space.problem.checkExactRealSample(sample, ExecutionControl {
+            cancelled || ++polls > 100_000 || Thread.currentThread().isInterrupted
+        })
     }
 
     /** Existing Klause repair path, seeded with independently source-checked original-coordinate proposals. */

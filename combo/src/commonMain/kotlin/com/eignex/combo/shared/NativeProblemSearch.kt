@@ -30,7 +30,7 @@ internal fun Problem.pinned(assumptions: Assumptions): Problem {
     assumptions.deductions.forEachIntHole { id, value -> integer(id, value, LinearOp.NE) }
     assumptions.deductions.forEachIntSet { id, values -> rows += Table(intArrayOf(id), values) }
     if (rows.isEmpty()) return this
-    return withFactors(factors + rows, impliedFactorMask?.copyOf(factors.size + rows.size))
+    return withFactors(factors.toList() + rows, impliedFactorMask?.copyOf(factors.size + rows.size))
 }
 
 internal fun Problem.sourceMinimize(objective: LinearObjective, params: BacktrackParams): QuadraticOptimizationResult =

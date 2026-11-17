@@ -17,10 +17,10 @@ import com.eignex.klause.schema.IntHandle
 import com.eignex.klause.schema.NominalHandle
 import com.eignex.klause.solver.Sample
 import com.eignex.klause.solver.objective.LinearObjective
-import com.eignex.klause.util.toDouble
 import com.eignex.koblas.DenseVector
 import com.eignex.koblas.Vector
-import com.eignex.koblas.scale
+import com.eignex.koblas.koblas
+import com.eignex.util.numbers.toDouble
 
 /**
  * Linear bandit's view of a [CompiledDecisionSpace]: projects a [Sample] into a dense
@@ -207,9 +207,9 @@ class LinearFeatureProjection(override val space: CompiledDecisionSpace) : Featu
         for (interaction in layout.interactions) {
             foldInteraction(interaction, weights, context, boolWeights, intCoefficients, realCoefficients)
         }
-        DenseVector.wrap(boolWeights).scale(sign)
-        DenseVector.wrap(intCoefficients).scale(sign)
-        DenseVector.wrap(realCoefficients).scale(sign)
+        koblas.scale(DenseVector.wrap(boolWeights), sign)
+        koblas.scale(DenseVector.wrap(intCoefficients), sign)
+        koblas.scale(DenseVector.wrap(realCoefficients), sign)
         return integerObjective(space.coordinates.problem, boolWeights, intCoefficients, realCoefficients)
     }
 

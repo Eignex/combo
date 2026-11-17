@@ -1,9 +1,9 @@
 package com.eignex.combo.shared
 
-import com.eignex.klause.arithmetic.real.exactRealValue
-import com.eignex.klause.formats.json.ExactRealJson
+import com.eignex.klause.arithmetic.json.ExactRealJson
 import com.eignex.klause.propagation.Assumptions
 import com.eignex.klause.solver.Sample
+import com.eignex.klause.solver.exactRealValue
 import kotlin.random.Random
 
 /** Why a bounded witness request stopped; a short batch alone never establishes infeasibility. */

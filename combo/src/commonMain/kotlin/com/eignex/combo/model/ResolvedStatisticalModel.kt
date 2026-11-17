@@ -1,16 +1,16 @@
 package com.eignex.combo.model
 
 import com.eignex.klause.model.*
-import com.eignex.klause.simplex.exact.BigFraction
-import com.eignex.klause.util.BIG_ONE
-import com.eignex.klause.util.BIG_ZERO
-import com.eignex.klause.util.BigInt
-import com.eignex.klause.util.bigIntOf
-import com.eignex.klause.util.negate
-import com.eignex.klause.util.plus
-import com.eignex.klause.util.signum
-import com.eignex.klause.util.times
 import com.eignex.skema.SchemaDef
+import com.eignex.util.numbers.BIG_ONE
+import com.eignex.util.numbers.BIG_ZERO
+import com.eignex.util.numbers.BigFraction
+import com.eignex.util.numbers.BigInt
+import com.eignex.util.numbers.bigIntOf
+import com.eignex.util.numbers.negate
+import com.eignex.util.numbers.plus
+import com.eignex.util.numbers.signum
+import com.eignex.util.numbers.times
 import kotlinx.serialization.json.*
 
 /** Native Klause model with one frozen set of statistical input values. */

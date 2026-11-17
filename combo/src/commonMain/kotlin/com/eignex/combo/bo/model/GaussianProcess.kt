@@ -106,11 +106,12 @@ internal class GaussianProcessModel private constructor(
         validate(features)
         val covariance = cross(features)
         val means = DoubleArray(features.rows)
-        koblas.gemv(1.0, covariance, alpha, 0, 1, 0.0, means, 0, 1, transpose = true)
+        koblas.gemv(1.0, covariance, DenseVector.wrap(alpha), 0.0, DenseVector.wrap(means), transpose = true)
         for (i in means.indices) means[i] += parameters.mean
         val solved = factor.solveLower(covariance)
         val variances = DoubleArray(features.rows) { column ->
-            val square = koblas.dot(solved.values, column * size, solved.values, column * size, size)
+            val values = solved.columnView(column)
+            val square = koblas.dot(values, values)
             maxOf(0.0, parameters.signalVariance - square)
         }
         return PredictiveMoments(DenseVector.of(means), DenseVector.of(variances))
@@ -122,7 +123,7 @@ internal class GaussianProcessModel private constructor(
         validate(features)
         val cross = cross(features)
         val means = DoubleArray(features.rows)
-        koblas.gemv(1.0, cross, alpha, 0, 1, 0.0, means, 0, 1, transpose = true)
+        koblas.gemv(1.0, cross, DenseVector.wrap(alpha), 0.0, DenseVector.wrap(means), transpose = true)
         for (i in means.indices) means[i] += parameters.mean
         val solved = factor.solveLower(cross)
         val result = covariance(features, features, config.kernel, parameters)
@@ -192,7 +193,7 @@ internal class GaussianProcessModel private constructor(
                 val (sampling, _) = stabilized(joint.covariance, config, parameters.signalVariance)
                 val normals = DoubleArray(missing.size) { generator.nextNormal() }
                 val deviations = DoubleArray(missing.size)
-                koblas.gemv(1.0, sampling.lowerFactor(), normals, 0, 1, 0.0, deviations, 0, 1)
+                koblas.gemv(1.0, sampling.lowerFactor(), DenseVector.wrap(normals), 0.0, DenseVector.wrap(deviations))
                 val values = DoubleArray(missing.size) { joint.means[it] + deviations[it] }
                 missing.forEachIndexed { index, key -> cache[key] = values[index] }
                 conditioned = conditioned.condition(
@@ -335,7 +336,7 @@ internal class GaussianProcessModel private constructor(
             }
             val centered = DoubleArray(data.responses.size) { data.responses[it] - fittedParameters.mean }
             val alpha = factor.solve(centered)
-            val quadratic = koblas.dot(centered, 0, alpha, 0, alpha.size)
+            val quadratic = koblas.dot(DenseVector.wrap(centered, size = alpha.size), DenseVector.wrap(alpha))
             val likelihood = if (alpha.isEmpty()) {
                 0.0
             } else {

@@ -1,44 +1,43 @@
 package com.eignex.server
 
-import com.eignex.combo.model.ModelObjective
-import com.eignex.combo.decisions.conditionedProblem
-import com.eignex.combo.decisions.pinFloats
-import com.eignex.combo.model.LinearLearning
 import com.eignex.combo.bandit.glm.LinearTrialOptimizer
-import com.eignex.combo.bo.TrialOptimizer
-import com.eignex.combo.shared.LinearFeatureProjection
-
 import com.eignex.combo.bo.BayesianOptimizer
 import com.eignex.combo.bo.ForestSurrogate
 import com.eignex.combo.bo.LocalAndRandomSearch
 import com.eignex.combo.bo.OutcomeSpec
 import com.eignex.combo.bo.SearchTransform
 import com.eignex.combo.bo.Trial
+import com.eignex.combo.bo.TrialOptimizer
 import com.eignex.combo.bo.TrialStatus
 import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.CompiledDecisionSpace
-import com.eignex.combo.decisions.compileSpace
 import com.eignex.combo.decisions.DecisionCoordinates
+import com.eignex.combo.decisions.compileSpace
+import com.eignex.combo.decisions.conditionedProblem
 import com.eignex.combo.decisions.minimizeNative
+import com.eignex.combo.decisions.pinFloats
 import com.eignex.combo.decisions.solveNative
-import com.eignex.klause.ir.Problem
-import com.eignex.klause.solver.objective.LinearObjective
-import com.eignex.klause.solver.result.QuadraticOptimizationResult
-import com.eignex.combo.shared.NoFeasibleSampleException
+import com.eignex.combo.model.LinearLearning
+import com.eignex.combo.model.ModelObjective
 import com.eignex.combo.shared.HybridDescentSession
+import com.eignex.combo.shared.LinearFeatureProjection
+import com.eignex.combo.shared.NoFeasibleSampleException
 import com.eignex.klause.backtrack.BacktrackParams
 import com.eignex.klause.backtrack.BacktrackSolver
 import com.eignex.klause.compile.compile
+import com.eignex.klause.ir.Problem
 import com.eignex.klause.localsearch.LocalSearchParams
-import com.eignex.klause.propagation.bake
-import com.eignex.klause.solver.SolveResult
-import com.eignex.klause.solver.result.MinimizeResult
 import com.eignex.klause.model.*
+import com.eignex.klause.propagation.bake
 import com.eignex.klause.schema.*
+import com.eignex.klause.solver.SolveResult
+import com.eignex.klause.solver.objective.LinearObjective
+import com.eignex.klause.solver.result.MinimizeResult
+import com.eignex.klause.solver.result.QuadraticOptimizationResult
+import com.eignex.klause.util.ExecutionControl
 import com.eignex.kumulant.core.SeriesStat
-import kotlinx.serialization.json.*
-import com.eignex.klause.util.Cancellation
 import io.ktor.http.HttpStatusCode
+import kotlinx.serialization.json.*
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -171,7 +170,7 @@ internal class OptimizerResource private constructor(
         rewards: SeriesStat<*>? = null, learning: LinearLearning? = null,
     ) : this(CompiledDecisionSpace.fromProblem(problem), emptyMap(), seed, maximize, rewards, learning)
     private var activeControl: OperationControl? = null
-    private val cancellation = Cancellation { activeControl?.cancellation?.invoke() ?: false }
+    private val cancellation = ExecutionControl { activeControl?.cancellation?.invoke() ?: false }
     private val search = HybridDescentSession.klause(
         space,
         localSearch = LocalSearchParams(maxFlips = 2000, cancellation = cancellation),

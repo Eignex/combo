@@ -1,9 +1,10 @@
 package com.eignex.combo.bandit.dt
 
-import com.eignex.klause.util.toDouble
+import com.eignex.koblas.DenseVector
 import com.eignex.koblas.Vector
 import com.eignex.kumulant.stat.regression.tree.SerializableSplit
 import com.eignex.kumulant.stat.regression.tree.ThresholdSplit
+import com.eignex.util.numbers.toDouble
 import com.eignex.kumulant.stat.regression.tree.Split as VectorSplit
 
 /**
@@ -55,15 +56,10 @@ class TreeVectorLayout(candidates: List<Split>) {
     /** Empty candidate pools use one inert coordinate to satisfy regression arity. */
     val featureSize: Int get() = columns.size.coerceAtLeast(1)
 
-    /** Read-only view; numeric values retain their declared units without quantization. */
-    fun encode(row: TreeRow): Vector = object : Vector {
-        override val size: Int get() = featureSize
-        override fun get(i: Int): Double {
-            if (i !in 0 until size) throw IndexOutOfBoundsException("feature index $i outside 0 until $size")
-            return if (columns.isEmpty()) 0.0 else columns[i](row)
-        }
-        override fun toDoubleArray(): DoubleArray = DoubleArray(size, ::get)
-    }
+    /** Owned numeric features; mutations never change the source row. */
+    fun encode(row: TreeRow): Vector = DenseVector.wrap(
+        DoubleArray(featureSize) { i -> if (columns.isEmpty()) 0.0 else columns[i](row) },
+    )
 
     internal fun matches(candidates: List<Split>): Boolean =
         candidates.map { it.expr } == splits.map { predicate(it).expr }
