@@ -1,6 +1,6 @@
 package com.eignex.server
 
-import com.eignex.klause.util.Cancellation
+import com.eignex.klause.util.ExecutionControl
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.currentCoroutineContext
@@ -16,7 +16,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
 internal class OperationControl(private val job: Job) {
-    val cancellation = Cancellation { !job.isActive }
+    val cancellation = ExecutionControl { !job.isActive }
     fun checkpoint() = job.ensureActive()
 }
 

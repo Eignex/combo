@@ -1,15 +1,15 @@
 package com.eignex.server
 
-import com.eignex.combo.model.StatisticResource
-import com.eignex.combo.model.ModelDefinition
-import com.eignex.combo.model.ModelQuery
-import com.eignex.combo.model.ModelObservation
-import com.eignex.combo.model.ModelObjective
-import com.eignex.combo.model.ModelStatistics
-import com.eignex.combo.model.StatisticalObservation
-import com.eignex.combo.model.InsufficientStatisticalEvidence
-import com.eignex.klause.model.VarSpec
 import com.eignex.combo.decisions.DecisionCoordinates
+import com.eignex.combo.model.InsufficientStatisticalEvidence
+import com.eignex.combo.model.ModelDefinition
+import com.eignex.combo.model.ModelObjective
+import com.eignex.combo.model.ModelObservation
+import com.eignex.combo.model.ModelQuery
+import com.eignex.combo.model.ModelStatistics
+import com.eignex.combo.model.StatisticResource
+import com.eignex.combo.model.StatisticalObservation
+import com.eignex.klause.model.VarSpec
 import io.ktor.http.HttpStatusCode
 import kotlinx.serialization.json.*
 

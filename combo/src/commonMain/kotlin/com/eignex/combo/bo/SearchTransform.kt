@@ -7,13 +7,13 @@ import com.eignex.combo.decisions.FeatureEncoder
 import com.eignex.combo.shared.SolverCoordinateLayout
 import com.eignex.combo.shared.WitnessValidator
 import com.eignex.combo.util.checkedInt
-import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
-import com.eignex.klause.util.bigIntOf
-import com.eignex.klause.util.minus
-import com.eignex.klause.util.toDouble
 import com.eignex.koblas.DenseVector
 import com.eignex.koblas.Vector
+import com.eignex.util.numbers.BigFraction
+import com.eignex.util.numbers.bigIntOf
+import com.eignex.util.numbers.minus
+import com.eignex.util.numbers.toDouble
 import kotlin.math.roundToLong
 
 /**

@@ -12,7 +12,6 @@ import com.eignex.klause.backtrack.BacktrackSolver
 import com.eignex.klause.propagation.bake
 import com.eignex.klause.schema.and
 import com.eignex.klause.schema.not
-import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
 import com.eignex.koblas.DenseVector
 import com.eignex.koblas.Vector
@@ -20,6 +19,7 @@ import com.eignex.kumulant.schema.ops.maeLoss
 import com.eignex.kumulant.schema.ops.mseLoss
 import com.eignex.kumulant.schema.runtime.materialize
 import com.eignex.kumulant.stat.summary.SumStat
+import com.eignex.util.numbers.BigFraction
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

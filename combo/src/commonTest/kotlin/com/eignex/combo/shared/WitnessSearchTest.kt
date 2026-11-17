@@ -4,10 +4,10 @@ import com.eignex.combo.decisions.DecisionSpace
 import com.eignex.klause.propagation.Assumptions
 import com.eignex.klause.schema.eq
 import com.eignex.klause.schema.plus
-import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
 import com.eignex.klause.solver.result.SampleResult
 import com.eignex.klause.solver.result.TerminationReason
+import com.eignex.util.numbers.BigFraction
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals

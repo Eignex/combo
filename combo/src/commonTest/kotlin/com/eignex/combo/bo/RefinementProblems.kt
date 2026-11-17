@@ -7,8 +7,8 @@ import com.eignex.combo.shared.WitnessBatch
 import com.eignex.combo.shared.WitnessSearch
 import com.eignex.combo.shared.WitnessTermination
 import com.eignex.combo.shared.assignmentKey
-import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
+import com.eignex.util.numbers.BigFraction
 import kotlin.math.floor
 import kotlin.math.sin
 

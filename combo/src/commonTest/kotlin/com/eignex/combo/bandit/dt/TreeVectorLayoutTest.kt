@@ -54,6 +54,20 @@ class TreeVectorLayoutTest {
     }
 
     @Test
+    fun `feature vectors support mutation without changing the source row`() {
+        val model = Model()
+        val space = model.compileSpace()
+        val row = TreeFeatureProjection(space).encode(BanditSample(sample(space)))
+        val layout = TreeVectorLayout(listOf(IntThresholdSplit(model.count, 3)))
+        val features = layout.encode(row)
+
+        features[0] = 9.0
+
+        assertEquals(9.0, features[0])
+        assertEquals(3.0, layout.encode(row)[0])
+    }
+
+    @Test
     fun `empty predicate pools retain a valid constant vector`() {
         val space = Model().compileSpace()
         val sample = BanditSample(sample(space))

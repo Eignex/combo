@@ -1,7 +1,7 @@
 package com.eignex.combo.shared
 
-import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
+import com.eignex.util.numbers.BigFraction
 
 /** Preserve affine equalities while proposing between witnesses with identical discrete coordinates. */
 internal fun interpolateWitness(left: Sample, right: Sample, fraction: Double): Sample? {

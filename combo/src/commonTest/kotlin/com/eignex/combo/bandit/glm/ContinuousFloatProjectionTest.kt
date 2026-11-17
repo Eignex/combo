@@ -7,10 +7,10 @@ import com.eignex.combo.decisions.DecisionSpaceDef
 import com.eignex.combo.decisions.SubSpace
 import com.eignex.combo.shared.LinearFeatureProjection
 import com.eignex.klause.schema.le
-import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
 import com.eignex.koblas.DenseVector
 import com.eignex.skema.SchemaJson
+import com.eignex.util.numbers.BigFraction
 import kotlinx.serialization.encodeToString
 import kotlin.math.abs
 import kotlin.test.Test

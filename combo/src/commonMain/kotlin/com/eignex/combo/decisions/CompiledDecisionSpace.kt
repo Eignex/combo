@@ -2,17 +2,17 @@ package com.eignex.combo.decisions
 
 import com.eignex.combo.util.checkedInt
 import com.eignex.klause.arithmetic.real.compareExactly
-import com.eignex.klause.arithmetic.real.exactRealValue
 import com.eignex.klause.compile.CompiledSchema
 import com.eignex.klause.model.BoolExpr
 import com.eignex.klause.propagation.Assumptions
 import com.eignex.klause.schema.BoolHandle
 import com.eignex.klause.schema.IntHandle
 import com.eignex.klause.schema.NominalHandle
-import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
-import com.eignex.klause.util.bigIntOf
-import com.eignex.klause.util.compareTo
+import com.eignex.klause.solver.exactRealValue
+import com.eignex.util.numbers.BigFraction
+import com.eignex.util.numbers.bigIntOf
+import com.eignex.util.numbers.compareTo
 
 /**
  * Structural snapshot of a compiled [DecisionSpace]: a klause [CompiledSchema] paired

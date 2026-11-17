@@ -6,14 +6,14 @@ import com.eignex.combo.decisions.BanditSample
 import com.eignex.combo.decisions.CompiledDecisionSpace
 import com.eignex.combo.decisions.DecisionSpace
 import com.eignex.combo.decisions.context
-import com.eignex.klause.formats.json.ExactRealJson
+import com.eignex.klause.arithmetic.json.ExactRealJson
 import com.eignex.klause.formats.json.ProblemJson
 import com.eignex.klause.ir.SourceRealId
 import com.eignex.klause.propagation.Assumptions
 import com.eignex.klause.schema.eq
 import com.eignex.klause.schema.plus
-import com.eignex.klause.simplex.exact.BigFraction
 import com.eignex.klause.solver.Sample
+import com.eignex.util.numbers.BigFraction
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals

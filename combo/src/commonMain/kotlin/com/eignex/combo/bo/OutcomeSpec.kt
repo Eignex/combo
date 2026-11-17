@@ -3,8 +3,7 @@ package com.eignex.combo.bo
 import com.eignex.koblas.DenseMatrix
 import com.eignex.koblas.DenseVector
 import com.eignex.koblas.Vector
-import com.eignex.koblas.axpy
-import com.eignex.koblas.scale
+import com.eignex.koblas.koblas
 import com.eignex.kumulant.stat.summary.VarianceStat
 import kotlin.math.exp
 import kotlin.math.expm1
@@ -60,8 +59,8 @@ internal class ResponseTransform(val center: Double, val scale: Double, val loga
     }
 
     private fun decode(values: Vector): Vector = DenseVector.of(values.toDoubleArray()).also {
-        it.scale(scale)
-        if (center != 0.0) it.axpy(center, DenseVector.of(DoubleArray(it.size) { 1.0 }))
+        koblas.scale(it, scale)
+        if (center != 0.0) koblas.axpy(center, DenseVector.of(DoubleArray(it.size) { 1.0 }), it)
     }
 
     fun model(fitted: FittedSurrogate): FittedSurrogate {
@@ -69,7 +68,7 @@ internal class ResponseTransform(val center: Double, val scale: Double, val loga
             val prediction = fitted.predict(features)
             return PredictiveMoments(
                 decode(prediction.means),
-                DenseVector.of(prediction.variances.toDoubleArray()).also { it.scale(scale * scale) },
+                DenseVector.of(prediction.variances.toDoubleArray()).also { koblas.scale(it, scale * scale) },
             )
         }
         fun jointMoments(features: DenseMatrix): JointPredictiveMoments? {
@@ -79,7 +78,7 @@ internal class ResponseTransform(val center: Double, val scale: Double, val loga
                 joint.covariance.cols,
                 joint.covariance.values.copyOf(),
             )
-            DenseVector.wrap(covariance.values).scale(scale * scale)
+            koblas.scale(DenseVector.wrap(covariance.values), scale * scale)
             return JointPredictiveMoments(decode(joint.means), covariance)
         }
         fun gaussianJointPosterior(baseline: DenseMatrix): JointPosterior? {
@@ -90,7 +89,7 @@ internal class ResponseTransform(val center: Double, val scale: Double, val loga
                     moments.covariance.rows,
                     moments.covariance.cols,
                     moments.covariance.values.copyOf(),
-                ).also { DenseVector.wrap(it.values).scale(scale * scale) },
+                ).also { koblas.scale(DenseVector.wrap(it.values), scale * scale) },
             )
             return object : JointPosteriorNumerics {
                 override val baseline = decoded(posterior.baseline)
@@ -105,7 +104,7 @@ internal class ResponseTransform(val center: Double, val scale: Double, val loga
                             result.crossCovariance.rows,
                             result.crossCovariance.cols,
                             result.crossCovariance.values.copyOf(),
-                        ).also { DenseVector.wrap(it.values).scale(scale * scale) },
+                        ).also { koblas.scale(DenseVector.wrap(it.values), scale * scale) },
                     )
                 }
             }

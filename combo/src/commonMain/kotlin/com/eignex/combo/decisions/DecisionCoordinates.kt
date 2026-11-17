@@ -9,7 +9,7 @@ import com.eignex.klause.schema.IntHandle
 import com.eignex.klause.schema.NominalHandle
 import com.eignex.klause.solver.Sample
 import com.eignex.klause.solver.objective.LinearObjective
-import com.eignex.klause.util.toLongExact
+import com.eignex.util.numbers.toLongExact
 
 /** Optional schema names over unchanged native problem columns; contains no variable or factor definitions. */
 class DecisionCoordinates private constructor(

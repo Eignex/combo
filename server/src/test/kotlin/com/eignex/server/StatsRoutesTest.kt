@@ -1,6 +1,9 @@
 package com.eignex.server
 
+import com.eignex.kumulant.schema.spec.Covariance
+import com.eignex.kumulant.schema.spec.StatSpec
 import com.eignex.kumulant.stat.decay.EwmaMeanStat
+import com.eignex.skema.SchemaJson
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.post
@@ -16,6 +19,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class StatsRoutesTest {
+    private val covarianceSpec = SchemaJson.encodeToString(StatSpec.serializer(), Covariance)
+
     @Test
     fun `native named expression bindings update an ewma`() = testApplication {
         application { resourceApi() }
@@ -83,7 +88,7 @@ class StatsRoutesTest {
         application { resourceApi() }
         val cases = listOf(
             """{"asDiscrete":{"inner":{"sum":{}}}}""" to """{"value":3}""",
-            """{"covariance":{}}""" to """{"x":2,"y":3}""",
+            covarianceSpec to """{"x":2,"y":3}""",
             """{"vectorize":{"dimensions":2,"template":{"sum":{}}}}""" to """{"x":[2,3]}""",
             """{"bayesianRegression":{"featureSize":2}}""" to """{"x":[1,0],"y":3}""",
         )
@@ -176,7 +181,7 @@ class StatsRoutesTest {
         application { resourceApi() }
         val stat = client.stat("""
             {"tracked":{"inner":{"multiArmed":{"nbrArms":2,"policy":{"epsilonGreedy":{"epsilon":0.0}}}},
-            "chooseTemplate":{"count":{}},"updateArmRewardTemplate":{"covariance":{}}}}
+            "chooseTemplate":{"count":{}},"updateArmRewardTemplate":$covarianceSpec}}
         """.trimIndent())
         val choice = client.send("/v1/models/${stat.id}/propose", "{}")
         val arm = choice.arm()
@@ -201,7 +206,7 @@ class StatsRoutesTest {
               "chooseTemplate":{"bayesianRegression":{"featureSize":2}},
               "updateJointTemplate":{"bayesianRegression":{"featureSize":3}},
               "updateMarginalTemplate":{"bayesianRegression":{"featureSize":2}},
-              "updateArmRewardTemplate":{"covariance":{}}
+              "updateArmRewardTemplate":$covarianceSpec
             }}
         """.trimIndent())
         val choice = client.send("/v1/models/${stat.id}/propose", """{"x":[1,0]}""")
@@ -222,7 +227,7 @@ class StatsRoutesTest {
         val specs = listOf(
             "{}", "[]", """{"ewma":{"alpha":-0.1}}""", """{"ewma":{"alpha":0.1,"typo":1}}""",
             """{"transform":{"expr":{"add":[{"input":"x"},1,2]},"inner":{"sum":{}}}}""",
-            """{"group":{"stats":{"bad":{"covariance":{}}}}}""",
+            """{"group":{"stats":{"bad":$covarianceSpec}}}""",
             """{"regressionContextual":{"nbrArms":2,"regression":{"bayesianRegression":{"featureSize":1}},"posterior":{"pointPosterior":{}}}}""",
         )
         for (spec in specs) {

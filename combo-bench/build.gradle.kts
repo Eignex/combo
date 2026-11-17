@@ -29,7 +29,7 @@ kotlin { jvmToolchain(25) }
 
 dependencies {
     implementation(project(":combo"))
-    implementation("com.eignex:lab-bench:${providers.gradleProperty("labBenchVersion").getOrElse("0.1.0")}")
+    implementation("com.eignex:lab-bench:${providers.gradleProperty("labBenchVersion").getOrElse("0.1.1")}")
     testImplementation(kotlin("test-junit5"))
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.14.0")
 }

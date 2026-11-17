@@ -5,7 +5,7 @@ import com.eignex.klause.solver.objective.LinearObjective
 import com.eignex.koblas.DenseVector
 import com.eignex.koblas.asum
 import com.eignex.koblas.dot
-import com.eignex.koblas.scale
+import com.eignex.koblas.koblas
 import com.eignex.koblas.sum
 import kotlin.math.abs
 import kotlin.math.roundToLong
@@ -45,7 +45,7 @@ internal fun integerObjective(
     }
     val normalized = DenseVector.of(boolWeights)
     if ((1.0 / largest).isFinite()) {
-        normalized.scale(1.0 / largest)
+        koblas.scale(normalized, 1.0 / largest)
     } else {
         for (i in boolWeights.indices) normalized[i] = boolWeights[i] / largest
     }

@@ -4,10 +4,10 @@ import com.eignex.combo.shared.Learner
 import com.eignex.klause.arithmetic.polynomial.AlgebraicReal
 import com.eignex.klause.arithmetic.real.ExactRealValue
 import com.eignex.klause.arithmetic.real.toExactRealValue
-import com.eignex.klause.simplex.exact.BigFraction
-import com.eignex.klause.util.BigInt
-import com.eignex.klause.util.fitsLong
-import com.eignex.klause.util.toLongExact
+import com.eignex.util.numbers.BigFraction
+import com.eignex.util.numbers.BigInt
+import com.eignex.util.numbers.fitsLong
+import com.eignex.util.numbers.toLongExact
 
 /**
  * Bag of contextual values supplied to a [com.eignex.combo.shared.Learner] at each `choose`/`update`

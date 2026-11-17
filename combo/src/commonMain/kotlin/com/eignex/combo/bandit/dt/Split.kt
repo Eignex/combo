@@ -26,8 +26,8 @@ import com.eignex.klause.schema.FloatHandle
 import com.eignex.klause.schema.IntHandle
 import com.eignex.klause.schema.NominalHandle
 import com.eignex.klause.schema.le
-import com.eignex.klause.util.bigIntOf
-import com.eignex.klause.util.compareTo
+import com.eignex.util.numbers.bigIntOf
+import com.eignex.util.numbers.compareTo
 import com.eignex.kumulant.stat.regression.tree.Split as RowSplit
 
 /** Resolve predicates already represented by a Boolean coordinate in Klause. */

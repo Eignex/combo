@@ -10,6 +10,8 @@ import com.eignex.klause.schema.*
 import com.eignex.klause.solver.SolveResult
 import com.eignex.kumulant.schema.BandResult
 import com.eignex.kumulant.schema.ops.band
+import com.eignex.kumulant.schema.spec.Covariance
+import com.eignex.kumulant.schema.spec.StatSpec
 import com.eignex.kumulant.schema.spec.Variance
 import com.eignex.skema.SchemaJson
 import kotlinx.serialization.encodeToString
@@ -157,7 +159,7 @@ class StatisticalLoweringTest {
         val definition = SchemaJson.decodeFromString<ModelDefinition>(
             """
             {"space":{"constraints":{"ordered":{"lt":[{"ref":"left"},{"ref":"right"}]}}},
-             "statistics":{"joint":{"covariance":{}}},
+             "statistics":{"joint":${SchemaJson.encodeToString(StatSpec.serializer(), Covariance)}},
              "inputs":{
                "left":{"statistic":"joint","value":"meanX"},
                "right":{"statistic":"joint","value":"meanY"}}}

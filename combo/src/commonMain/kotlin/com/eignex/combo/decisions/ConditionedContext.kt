@@ -10,9 +10,9 @@ import com.eignex.klause.ir.SourceRealId
 import com.eignex.klause.ir.Term
 import com.eignex.klause.model.FloatSpec
 import com.eignex.klause.schema.FloatHandle
-import com.eignex.klause.simplex.exact.BigFraction
-import com.eignex.klause.util.BIG_ONE
-import com.eignex.klause.util.fitsLong
+import com.eignex.util.numbers.BIG_ONE
+import com.eignex.util.numbers.BigFraction
+import com.eignex.util.numbers.fitsLong
 import kotlin.math.roundToLong
 
 /** A row-only rewrite keeps every coordinate; drop the temporary problem's frame before original decoding. */
@@ -56,7 +56,7 @@ fun CompiledDecisionSpace.conditionedProblem(context: Context): Problem {
         pinned
     } else {
         pinned.withFactors(
-            pinned.factors + rows,
+            pinned.factors.toList() + rows,
             pinned.impliedFactorMask?.copyOf(pinned.factors.size + rows.size),
         )
     }
@@ -97,7 +97,7 @@ fun DecisionCoordinates.pinFloats(values: Map<FloatHandle, Double>): Problem {
         problem
     } else {
         problem.withFactors(
-            problem.factors + rows,
+            problem.factors.toList() + rows,
             problem.impliedFactorMask?.copyOf(problem.factors.size + rows.size),
         )
     }

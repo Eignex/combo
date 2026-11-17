@@ -5,12 +5,12 @@ import com.eignex.klause.schema.BoolHandle
 import com.eignex.klause.schema.FloatHandle
 import com.eignex.klause.schema.IntHandle
 import com.eignex.klause.schema.NominalHandle
-import com.eignex.klause.util.bigIntOf
-import com.eignex.klause.util.div
-import com.eignex.klause.util.minus
-import com.eignex.klause.util.plus
-import com.eignex.klause.util.times
-import com.eignex.klause.util.toLongExact
+import com.eignex.util.numbers.bigIntOf
+import com.eignex.util.numbers.div
+import com.eignex.util.numbers.minus
+import com.eignex.util.numbers.plus
+import com.eignex.util.numbers.times
+import com.eignex.util.numbers.toLongExact
 
 /**
  * Default candidate-[Split] generator for a [DecisionTreeBandit] over [space]. Emits:

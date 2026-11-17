@@ -1,20 +1,20 @@
 package com.eignex.server
 
+import com.eignex.combo.decisions.CompiledDecisionSpace
+import com.eignex.combo.decisions.DecisionCoordinates
+import com.eignex.combo.decisions.minimizeNative
 import com.eignex.combo.decisions.pinFloats
+import com.eignex.combo.decisions.solveNative
 import com.eignex.klause.backtrack.BacktrackParams
 import com.eignex.klause.backtrack.BacktrackSolver
-import com.eignex.combo.decisions.DecisionCoordinates
-import com.eignex.combo.decisions.CompiledDecisionSpace
-import com.eignex.combo.decisions.minimizeNative
-import com.eignex.combo.decisions.solveNative
-import com.eignex.klause.solver.objective.LinearObjective
-import com.eignex.klause.solver.result.QuadraticOptimizationResult
-import com.eignex.klause.util.fitsLong
 import com.eignex.klause.model.FloatSpec
 import com.eignex.klause.model.SchemaEntry
 import com.eignex.klause.propagation.bake
 import com.eignex.klause.schema.FloatHandle
 import com.eignex.klause.solver.SolveResult
+import com.eignex.klause.solver.objective.LinearObjective
+import com.eignex.klause.solver.result.QuadraticOptimizationResult
+import com.eignex.util.numbers.fitsLong
 import kotlinx.serialization.json.*
 
 /** A row-only conditioning keeps all coordinate ids and exact values, but changes the solver's frame. */

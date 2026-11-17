@@ -2244,7 +2244,7 @@ final class com.eignex.combo.decisions/ContextBuilder { // com.eignex.combo.deci
     final fun set(com.eignex.klause.ir/SourceIntId, kotlin/Long) // com.eignex.combo.decisions/ContextBuilder.set|set(com.eignex.klause.ir.SourceIntId;kotlin.Long){}[0]
     final fun set(com.eignex.klause.ir/SourceRealId, com.eignex.klause.arithmetic.polynomial/AlgebraicReal) // com.eignex.combo.decisions/ContextBuilder.set|set(com.eignex.klause.ir.SourceRealId;com.eignex.klause.arithmetic.polynomial.AlgebraicReal){}[0]
     final fun set(com.eignex.klause.ir/SourceRealId, com.eignex.klause.arithmetic.real/ExactRealValue) // com.eignex.combo.decisions/ContextBuilder.set|set(com.eignex.klause.ir.SourceRealId;com.eignex.klause.arithmetic.real.ExactRealValue){}[0]
-    final fun set(com.eignex.klause.ir/SourceRealId, com.eignex.klause.simplex.exact/BigFraction) // com.eignex.combo.decisions/ContextBuilder.set|set(com.eignex.klause.ir.SourceRealId;com.eignex.klause.simplex.exact.BigFraction){}[0]
+    final fun set(com.eignex.klause.ir/SourceRealId, com.eignex.util.numbers/BigFraction) // com.eignex.combo.decisions/ContextBuilder.set|set(com.eignex.klause.ir.SourceRealId;com.eignex.util.numbers.BigFraction){}[0]
     final fun set(com.eignex.klause.ir/SourceRealId, kotlin/Double) // com.eignex.combo.decisions/ContextBuilder.set|set(com.eignex.klause.ir.SourceRealId;kotlin.Double){}[0]
 }
 
