@@ -26,7 +26,7 @@ tasks.withType<Test>().configureEach {
     jvmArgs("--enable-native-access=ALL-UNNAMED", "--add-modules=jdk.incubator.vector")
 }
 
-val klausePin = "0.0.1-20261117.001655-1350"
+val klausePin = "0.0.1-20261117.010728-1351"
 val kumulantPin = "0.3.4-20261116.231003-146"
 val koblasPin = "0.1.1-20261116.224320-351"
 val skemaPin = "0.4.1-20261116.152019-3"
@@ -89,10 +89,10 @@ dependencies {
         for ((library, platforms) in mapOf(
             "klause" to mapOf(
                 "" to klausePin,
-                "jvm" to "0.0.1-20261117.001655-1345",
-                "linuxx64" to "0.0.1-20261117.001655-1343",
-                "linuxarm64" to "0.0.1-20261117.001655-1",
-                "macosarm64" to "0.0.1-20261117.001655-1",
+                "jvm" to "0.0.1-20261117.010728-1346",
+                "linuxx64" to "0.0.1-20261117.010728-1344",
+                "linuxarm64" to "0.0.1-20261117.010728-2",
+                "macosarm64" to "0.0.1-20261117.010728-2",
             ),
             "kumulant" to mapOf(
                 "" to kumulantPin,
