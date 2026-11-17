@@ -26,6 +26,13 @@ tasks.withType<Test>().configureEach {
     jvmArgs("--enable-native-access=ALL-UNNAMED", "--add-modules=jdk.incubator.vector")
 }
 
+val klausePin = "0.0.1-20261117.001655-1350"
+val kumulantPin = "0.3.4-20261116.231003-146"
+val koblasPin = "0.1.1-20261116.224320-351"
+val skemaPin = "0.4.1-20261116.152019-3"
+val utilPin = "0.0.1-ci.43969094073.1-20261116.222329-1"
+val kpermutePin = "1.3.1-20261116.152032-8"
+
 // Match Klause's default test targets; releases include both ARM64 compute hosts.
 val fullTargets = providers.gradleProperty("targets.full").isPresent
 
@@ -48,21 +55,23 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            api("com.eignex:klause:0.0.1-20261105.183337-1210") {
-                version { strictly("0.0.1-20261105.183337-1210") }
+            api("com.eignex:klause:$klausePin") {
+                version { strictly(klausePin) }
                 exclude(group = "com.eignex", module = "kumulant")
                 exclude(group = "com.eignex", module = "koblas")
                 exclude(group = "com.eignex", module = "skema")
             }
-            api("com.eignex:kumulant:0.3.4-20261105.142345-130") {
-                version { strictly("0.3.4-20261105.142345-130") }
+            api("com.eignex:kumulant:$kumulantPin") {
+                version { strictly(kumulantPin) }
                 exclude(group = "com.eignex", module = "koblas")
                 exclude(group = "com.eignex", module = "skema")
             }
-            api("com.eignex:koblas:0.1.1-20261105.140327-312") {
-                version { strictly("0.1.1-20261105.140327-312") }
+            api("com.eignex:koblas:$koblasPin") {
+                version { strictly(koblasPin) }
             }
-            api("com.eignex:skema:0.4.0")
+            api("com.eignex:skema:$skemaPin") {
+                version { strictly(skemaPin) }
+            }
             compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-core:1.12.0")
             api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
         }
@@ -79,24 +88,51 @@ dependencies {
     constraints {
         for ((library, platforms) in mapOf(
             "klause" to mapOf(
-                "jvm" to "0.0.1-20261105.183337-1202",
-                "linuxx64" to "0.0.1-20261105.183337-1201",
+                "" to klausePin,
+                "jvm" to "0.0.1-20261117.001655-1345",
+                "linuxx64" to "0.0.1-20261117.001655-1343",
+                "linuxarm64" to "0.0.1-20261117.001655-1",
+                "macosarm64" to "0.0.1-20261117.001655-1",
             ),
             "kumulant" to mapOf(
-                "jvm" to "0.3.4-20261105.142345-130",
-                "linuxx64" to "0.3.4-20261105.142345-130",
-                "linuxarm64" to "0.3.4-20261105.142345-130",
-                "macosarm64" to "0.3.4-20261105.142345-129",
+                "" to kumulantPin,
+                "jvm" to kumulantPin,
+                "linuxx64" to kumulantPin,
+                "linuxarm64" to kumulantPin,
+                "macosarm64" to "0.3.4-20261116.231003-145",
             ),
             "koblas" to mapOf(
-                "jvm" to "0.1.1-20261105.140327-315",
-                "linuxx64" to "0.1.1-20261105.140327-310",
-                "linuxarm64" to "0.1.1-20261105.140327-312",
-                "macosarm64" to "0.1.1-20261105.140327-334",
+                "" to koblasPin,
+                "jvm" to "0.1.1-20261116.224320-354",
+                "linuxx64" to "0.1.1-20261116.224320-349",
+                "linuxarm64" to koblasPin,
+                "macosarm64" to "0.1.1-20261116.224320-373",
+            ),
+            "skema" to mapOf(
+                "" to skemaPin,
+                "jvm" to skemaPin,
+                "linuxx64" to skemaPin,
+                "linuxarm64" to skemaPin,
+                "macosarm64" to skemaPin,
+            ),
+            "util" to mapOf(
+                "" to utilPin,
+                "jvm" to utilPin,
+                "linuxx64" to utilPin,
+                "linuxarm64" to utilPin,
+                "macosarm64" to utilPin,
+            ),
+            "kpermute" to mapOf(
+                "" to kpermutePin,
+                "jvm" to kpermutePin,
+                "linuxx64" to kpermutePin,
+                "linuxarm64" to kpermutePin,
+                "macosarm64" to kpermutePin,
             ),
         )) {
             for ((platform, pinned) in platforms) {
-                add("commonMainApi", "com.eignex:$library-$platform:$pinned") {
+                val module = if (platform.isEmpty()) library else "$library-$platform"
+                add("commonMainApi", "com.eignex:$module:$pinned") {
                     version { strictly(pinned) }
                 }
             }
